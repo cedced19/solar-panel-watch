@@ -14,7 +14,7 @@ function req(cb) {
   });
 }
 
-
-req(function (err, result) {
+export default req;
+/*req(function (err, result) {
   console.log(result)
-})
+})*/
