@@ -1,0 +1,28 @@
+{
+  "name": "solar-panel-watch",
+  "version": "1.0.0",
+  "description": "Watch over electricity consumption from my house.",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cedced19/solar-panel-watch.git"
+  },
+  "keywords": [
+    "solar",
+    "panel",
+    "electricity"
+  ],
+  "author": "Cédric JUNG <cedced19@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cedced19/solar-panel-watch/issues"
+  },
+  "homepage": "https://github.com/cedced19/solar-panel-watch#readme",
+  "type": "module",
+  "dependencies": {
+    "then-request": "^6.0.2"
+  }
+}
