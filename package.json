@@ -4,7 +4,7 @@
   "description": "Watch over electricity consumption from my house.",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node main.js"
   },
   "repository": {
     "type": "git",
@@ -21,14 +21,12 @@
     "url": "https://github.com/cedced19/solar-panel-watch/issues"
   },
   "homepage": "https://github.com/cedced19/solar-panel-watch#readme",
-  "type": "module",
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.28.0",
     "ejs": "^3.1.8",
     "express": "^4.18.1",
+    "metrics-influxdb": "^1.0.3",
     "shellies": "^1.7.0",
     "then-request": "^6.0.2"
-  },
-  "scripts": {
-    "start": "node main.js"
   }
 }

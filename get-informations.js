@@ -1,11 +1,6 @@
-import { readFile } from 'fs/promises';
-const config = JSON.parse(
-  await readFile(
-    new URL('./config.json', import.meta.url)
-  )
-);
+const config = require('./config.json');
 
-import request from 'then-request';
+const request = require('then-request');
 
 function req(cb) {
   request('GET', 'http://' + config.ip_adress + '/status').done(function (res) {
@@ -14,7 +9,7 @@ function req(cb) {
   });
 }
 
-export default req;
+module.exports = req;
 /*req(function (err, result) {
   console.log(result)
 })*/

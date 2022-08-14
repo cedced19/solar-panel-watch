@@ -1,9 +1,9 @@
 
 
-import express from 'express';
+const express = require('express');
 const app = express();
 const port = 8889
-import getInformations from './get-informations.js'
+const getInformations = require('./get-informations.js')
 
 app.set('view engine', 'ejs');
 app.use('/assets/', express.static('assets'));
@@ -49,7 +49,6 @@ app.use(function (err, req, res, next) {
         error: {}
     });
 });
-
 
 app.listen(port, () => {
   console.log(`Solar panel watch launched on port ${port}`)
