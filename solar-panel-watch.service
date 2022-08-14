@@ -1,0 +1,14 @@
+Description=Solar Panel Watch
+After=syslog.target network.target
+
+[Service]
+ExecStart=/home/cjung/.nvm/versions/node/v12.18.3/bin/node /repos/solar-panel-watch/main.js
+Restart=always
+RestartSec=10                    
+StandardOutput=syslog            
+StandardError=syslog                
+SyslogIdentifier=solar-panel-watch
+Environment=NODE_ENV=production PORT=8889
+
+[Install]
+WantedBy=multi-user.target
