@@ -6,22 +6,76 @@
   <link rel="stylesheet" href="/assets/styles.css">
   <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
   <title>Solar Panel Watch</title>
+  <% if(!error){ %>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 10px;
+    }
+    .column {
+      float: left;
+      width: 50%;
+      padding: 0 10px;
+      margin-bottom: 15px;
+    }
+    .row {margin: 0 -5px;}
+    .row:after {
+      content: "";
+      display: table;
+      clear: both;
+    }
+    @media screen and (max-width: 600px) {
+      .column {
+        width: 100%;
+        display: block;
+        margin-bottom: 20px;
+      }
+    }
+    .card {
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+      padding: 16px;
+      text-align: center;
+      background-color: #f1f1f1;
+    }
+  </style>
+  <% } %>
 </head>
 <body>
   <h2>Solar Panel Watch</h2>
   <% if(error){ %>
     <p><%= __('Error first page')%></p>
   <% } else{ %>
-  <ul>
-    <li><%= __('House consumption')%>: <span id="house-consumption"><%= Math.ceil(power1*100)/100 %></span> W</li>
-    <li><%= __('Solar Panel Production')%>: <span id="solar-panel-production"><%= Math.ceil(power2*100)/100 %></span> W</li> 
-    <li><%= __('Total Power')%>: <span id="total-production"><%= Math.ceil((power1 + power2)*100)/100 %></span> W</li>
-  </ul>
+  <div class="row">
+    <div class="column">
+      <div class="card" id="house-consumption-card" style="background-color:<% if(power1<0){ %>#badc58<% } else{ %>#fab1a0<% } %>;">
+        <h3><span id="house-consumption"><%= Math.ceil(power1*100)/100 %></span> W</h3>
+        <p><%= __('House consumption')%></p>
+      </div>
+    </div>
+  
+    <div class="column">
+      <div class="card">
+        <h3><span id="solar-panel-production"><%= Math.ceil(power2*100)/100 %></span> W</h3>
+        <p><%= __('Solar Panel Production')%></p>
+      </div>
+    </div>
+    
+    <div class="column">
+      <div class="card">
+        <h3><span id="total-production"><%= Math.ceil((power1 + power2)*100)/100 %></span> W</h3>
+        <p><%= __('Total Power')%></p>
+      </div>
+    </div>
+  </div>
   <% } %>
   <% if(!error){ %>
   <script>
     
     const houseConsumptionEl = document.getElementById('house-consumption');
+    const houseConsumptionCard = document.getElementById('house-consumption-card');
     const solarPanelProductionEl = document.getElementById('solar-panel-production');
     const totalPowerEl = document.getElementById('total-production');
 
@@ -38,10 +92,23 @@
         houseConsumptionEl.textContent = Math.ceil(data.power1*100)/100;
         solarPanelProductionEl.textContent = Math.ceil(data.power2*100)/100;
         totalPowerEl.textContent = Math.ceil((data.power1 + data.power2)*100)/100;
+        if (data.power1 < 0) {
+            houseConsumptionCard.style.background = "#badc58";
+        } else {
+            houseConsumptionCard.style.background = "#fab1a0";
+        }
+          
       });
     }
-    setInterval(update_labels, 10000);
-
+    let interval = setInterval(update_labels, 10000);
+    document.addEventListener('visibilitychange', function() {
+        if(document.hidden) {
+          clearInterval(interval);
+        } else {
+          update_labels();
+          interval = setInterval(update_labels, 10000);
+        }
+    });
     
   </script>
   <% } %>
