@@ -1,4 +1,6 @@
 {
-    "Power 1": "House consumption on the network",
-    "Power 2": "Solar Panel Production"
+    "House consumption": "House consumption on the network",
+    "Solar Panel Production": "Solar Panel Production",
+    "Total Power": "Total power",
+    "Error first page": "An error occured during the loading of the page."
 }

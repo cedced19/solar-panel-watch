@@ -2,15 +2,48 @@
 <html>
 <head>
   <meta charset="utf-8"/>
+  <meta name=viewport content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="/assets/styles.css">
   <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
   <title>Solar Panel Watch</title>
 </head>
 <body>
   <h2>Solar Panel Watch</h2>
+  <% if(error){ %>
+    <p><%= __('Error first page')%></p>
+  <% } else{ %>
   <ul>
-    <li><%= __('Power 1')%>: <%= power1 %> W</li>
-    <li><%= __('Power 2')%>: <%= power2 %> W</li> 
+    <li><%= __('House consumption')%>: <span id="house-consumption"><%= Math.ceil(power1*100)/100 %></span> W</li>
+    <li><%= __('Solar Panel Production')%>: <span id="solar-panel-production"><%= Math.ceil(power2*100)/100 %></span> W</li> 
+    <li><%= __('Total Power')%>: <span id="total-production"><%= Math.ceil((power1 + power2)*100)/100 %></span> W</li>
   </ul>
+  <% } %>
+  <% if(!error){ %>
+  <script>
+    
+    const houseConsumptionEl = document.getElementById('house-consumption');
+    const solarPanelProductionEl = document.getElementById('solar-panel-production');
+    const totalPowerEl = document.getElementById('total-production');
+
+    function request_data(cb) {
+      let url = '/api/data';
+      fetch(url)
+      .then(function(res) { return res.json() })
+      .then(function(out) { cb(null, out) })
+      .catch(function(err) { console.error(err); cb(err)});
+    }
+
+    function update_labels() {
+      request_data(function(err, data) {
+        houseConsumptionEl.textContent = Math.ceil(data.power1*100)/100;
+        solarPanelProductionEl.textContent = Math.ceil(data.power2*100)/100;
+        totalPowerEl.textContent = Math.ceil((data.power1 + data.power2)*100)/100;
+      });
+    }
+    setInterval(update_labels, 10000);
+
+    
+  </script>
+  <% } %>
 </body>
 </html>

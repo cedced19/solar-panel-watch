@@ -33,8 +33,19 @@ app.use('/assets/', express.static('assets'));
 
 app.get('/', function(req, res) {
     getInformations(function (err, data) {
-        if (err) return next(err);
+        if (err) return res.render('index', {error: true});
         res.render('index', {
+            error: false,
+            power1: data.emeters[0].power,
+            power2: data.emeters[1].power
+        });
+    });
+});
+
+app.get('/api/data', function(req, res) {
+    getInformations(function (err, data) {
+        if (err) return next(err);
+        res.json({
             power1: data.emeters[0].power,
             power2: data.emeters[1].power
         });
