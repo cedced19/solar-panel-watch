@@ -1,6 +1,7 @@
 # solar-panel-watch
 Watch over electricity consumption from my house.
 
+![Demo](demo.png)
 
 ## TODO 
 
