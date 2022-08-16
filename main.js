@@ -6,13 +6,16 @@ const path = require('path');
 const logger = require('morgan');
 const compress = require('compression');
 const minifyTemplate = require('express-beautify').minify;
+const config = require('./config.json');
+const getInformations = require('./get-informations.js');
+const daemonInflux = require('./daemon-influx.js');
 
+
+// Express App
 const app = express();
 
-var port = require('env-port')('8889');
+const port = require('env-port')('8889');
 app.set('port', port);
-
-const getInformations = require('./get-informations.js')
 
 const i18n = require('./i18n');
 
@@ -88,3 +91,8 @@ app.use(function (err, req, res, next) {
 app.listen(port, () => {
     console.log(require('server-welcome')(port, 'Solar panel watch'));
 });
+
+// Write data
+setInterval(function () {
+    daemonInflux(app.get('env') === 'development')
+},config.influx_update_delay)

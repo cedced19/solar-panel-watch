@@ -3,5 +3,6 @@
     "influx_tocken": "WB0HLKZwDBK_fBRF2kdXVrRtdwMJ-CxQy2BM2LxDRUqacZI9fxzFDH2VHXi61xc9Q0F6CNhJnYPs2v4w1BXzPQ==",
     "influx_org": "cjung",
     "influx_bucket": "solar-panel",
-    "influx_default_tag": "home1"
+    "influx_default_tag": "home1",
+    "influx_update_delay": 30000
 }
