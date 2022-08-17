@@ -48,7 +48,8 @@ app.get('/', function(req, res) {
 
 app.get('/graph/:period', function(req, res) {
     res.render('graph', {
-        period: req.params.period
+        period: req.params.period,
+        timezone: config.timezone
     });
 });
 

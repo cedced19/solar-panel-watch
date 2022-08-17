@@ -73,19 +73,26 @@
                 };
                 return Plotly.newPlot('graphs-container', [firstTrace, secondTrace], layout);
             }
+            const unpackData = (arr, key) => {
+                return arr.map(obj => obj[key])
+            }
+            function convertTZ(date, tzString) {
+                return new Date((typeof date === "string" ? new Date(date) : date).toLocaleString("en-US", {timeZone: tzString}));   
+            }
+            const applyTZ = (arr) => {
+                return arr.map(obj => convertTZ(obj, "<%= timezone %>"));
+            }
 
             const fetchData = () =>{
                 firstTrace = fetch('/api/data/power/power1/<%= period%>')
                 .then(response => response.json())
                 .then(data => {
-                    const unpackData = (arr, key) => {
-                    return arr.map(obj => obj[key])
-                    }
+                    
                     const traceData = {
                     type: 'scatter',
                     mode: 'lines',
                     name: '<%= __("House consumption")%>',
-                    x: unpackData(data, '_time'),
+                    x: applyTZ(unpackData(data, '_time')),
                     y: unpackData(data, '_value'),
                     line: {color: '#c0392b'}
                     }   
@@ -97,14 +104,11 @@
                 secondTrace = fetch('/api/data/power/power2/<%= period%>')
                 .then(response => response.json())
                 .then(data => {
-                    const unpackData = (arr, key) => {
-                    return arr.map(obj => obj[key])
-                    }
                     const traceData = {
                     type: 'scatter',
                     mode: 'lines',
                     name: '<%= __("Solar panel production")%>',
-                    x: unpackData(data, '_time'),
+                    x: applyTZ(unpackData(data, '_time')),
                     y: unpackData(data, '_value'),
                     line: {color: '#2ecc71'}
                     } 
