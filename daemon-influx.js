@@ -1,4 +1,4 @@
-const {InfluxDB} = require('@influxdata/influxdb-client');
+const {InfluxDB, Point} = require('@influxdata/influxdb-client');
 const getInformations = require('./get-informations.js');
 const config = require('./config.json');
 
@@ -8,8 +8,6 @@ const bucket = config.influx_bucket;
 const defaultTag = config.influx_default_tag;
 
 const client = new InfluxDB({url: 'http://localhost:8086', token: token});
-
-const {Point} = require('@influxdata/influxdb-client');
 
 function write(debug) {
     const writeApi = client.getWriteApi(org, bucket);

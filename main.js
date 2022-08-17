@@ -6,6 +6,7 @@ const path = require('path');
 const logger = require('morgan');
 const compress = require('compression');
 const minifyTemplate = require('express-beautify').minify;
+const {InfluxDB} = require('@influxdata/influxdb-client');
 const config = require('./config.json');
 const getInformations = require('./get-informations.js');
 const daemonInflux = require('./daemon-influx.js');
@@ -45,6 +46,12 @@ app.get('/', function(req, res) {
     });
 });
 
+app.get('/graph/:period', function(req, res) {
+    res.render('graph', {
+        period: req.params.period
+    });
+});
+
 app.get('/api/data', function(req, res) {
     getInformations(function (err, data) {
         if (err) return next(err);
@@ -53,6 +60,36 @@ app.get('/api/data', function(req, res) {
             power2: data.emeters[1].power
         });
     });
+});
+
+const token = config.influx_tocken;
+const org = config.influx_org;
+const bucket = config.influx_bucket;
+const defaultTag = config.influx_default_tag;
+const client = new InfluxDB({url: 'http://localhost:8086', token: token});
+const queryApi = client.getQueryApi(org);
+app.get('/api/data/power/:tag/:period', (req, res) => {
+    let csv = []
+    const query = 
+    `from(bucket: "${bucket}")
+    |> range(start: -${req.params.period})
+    |> filter(fn: (r) => r["_measurement"] == "power")
+    |> filter(fn: (r) => r["_field"] == "${req.params.tag}")
+    |> yield(name: "mean")`
+
+    queryApi.queryRows(query, {
+        next(row, tableMeta) {
+          o = tableMeta.toObject(row);
+          csv.push(o);
+        },
+        error(error) {
+          console.error(error);
+          res.end();
+        },
+        complete() {
+          res.json(csv);
+        },
+      });
 });
 
 app.use(function (req, res, next) {
@@ -87,6 +124,7 @@ app.use(function (err, req, res, next) {
         error: {}
     });
 });
+
 
 app.listen(port, () => {
     console.log(require('server-welcome')(port, 'Solar panel watch'));

@@ -4,5 +4,5 @@
     "influx_org": "cjung",
     "influx_bucket": "solar-panel",
     "influx_default_tag": "home1",
-    "influx_update_delay": 30000
+    "influx_update_delay": 15000
 }
