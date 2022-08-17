@@ -6,8 +6,9 @@ const token = config.influx_tocken;
 const org = config.influx_org;
 const bucket = config.influx_bucket;
 const defaultTag = config.influx_default_tag;
+const url = config.influx_url;
 
-const client = new InfluxDB({url: 'http://localhost:8086', token: token});
+const client = new InfluxDB({url: url, token: token});
 
 function write(debug) {
     const writeApi = client.getWriteApi(org, bucket);
