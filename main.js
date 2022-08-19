@@ -46,9 +46,17 @@ app.get('/', function(req, res) {
     });
 });
 
-app.get('/graph/:period', function(req, res) {
-    res.render('graph', {
+app.get('/graph/power/:period', function(req, res) {
+    res.render('graph-power', {
         period: req.params.period,
+        timezone: config.timezone
+    });
+});
+
+app.get('/graph/power/:period/group-by/:group/', function(req, res) {
+    res.render('graph-power-group', {
+        period: req.params.period,
+        group: req.params.group,
         timezone: config.timezone
     });
 });
@@ -78,6 +86,30 @@ app.get('/api/data/power/:tag/:period', (req, res) => {
     |> filter(fn: (r) => r["_measurement"] == "power")
     |> filter(fn: (r) => r["_field"] == "${req.params.tag}")
     |> yield(name: "mean")`
+
+    queryApi.queryRows(query, {
+        next(row, tableMeta) {
+          o = tableMeta.toObject(row);
+          csv.push(o);
+        },
+        error(error) {
+          console.error(error);
+          res.end();
+        },
+        complete() {
+          res.json(csv);
+        },
+      });
+});
+
+app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
+    let csv = []
+    const query = 
+    `from(bucket: "${bucket}")
+    |> range(start: -${req.params.period})
+    |> filter(fn: (r) => r["_measurement"] == "power")
+    |> filter(fn: (r) => r["_field"] == "${req.params.tag}")
+    |> aggregateWindow(fn: mean, every: ${req.params.group}, createEmpty: false)`
 
     queryApi.queryRows(query, {
         next(row, tableMeta) {
