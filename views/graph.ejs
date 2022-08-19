@@ -67,14 +67,14 @@
             let firstTrace;
             let secondTrace;
             
-            const plotly = (firstTrace, secondTrace) =>{
+            const plotly = (firstTrace, secondTrace, thirdTrace) =>{
                 const layout = {
                 title: '<%= __("Power over time")%>',
-                width: window.innerWidth*0.9,
+                width: window.innerWidth,
                 height: window.innerHeight*0.8,
                 autoscale: true
                 };
-                return Plotly.newPlot('graphs-container', [firstTrace, secondTrace], layout);
+                return Plotly.newPlot('graphs-container', [firstTrace, secondTrace, thirdTrace], layout);
             }
             const unpackData = (arr, key) => {
                 return arr.map(obj => obj[key])
@@ -125,7 +125,16 @@
             [firstTrace, secondTrace] = fetchData()
             
             Promise.all([firstTrace, secondTrace]).then((values) => {
-                plotly(values[0], values[1])
+                const sum_values = {
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: '<%= __("Total Power")%>',
+                    x: values[0].x,
+                    y: values[0].y.map(function (num, idx) { return num +values[1].y[idx]; }),
+                    line: {color: '#2980b9'}
+                }
+                console.log(values[1], sum_values)
+                plotly(values[0], values[1], sum_values);
             });   
         }
         window.addEventListener('load', loadData);
