@@ -7,10 +7,13 @@ const logger = require('morgan');
 const compress = require('compression');
 const minifyTemplate = require('express-beautify').minify;
 const {InfluxDB} = require('@influxdata/influxdb-client');
+const JSONStore = require('json-store-list');
+const db_energy = JSONStore('./energy-query-save.json');
 const config = require('./config.json');
 const getInformations = require('./get-informations.js');
 const daemonInflux = require('./daemon-influx.js');
 const compute_energy = require('./compute-energy.js');
+
 
 // Express App
 const app = express();
@@ -56,6 +59,12 @@ app.get('/graph/power/:period', function(req, res) {
 app.get('/energy/:period', function(req, res) {
     res.render('energy', {
         period: req.params.period,
+        timezone: config.timezone
+    });
+});
+
+app.get('/energy-hist/', function(req, res) {
+    res.render('energy-request-hist', {
         timezone: config.timezone
     });
 });
@@ -137,7 +146,11 @@ app.get('/api/data/energy/:period', (req, res, next) => {
     const promises = [requestDataForEnergy(req.params.period, 'power1'), requestDataForEnergy(req.params.period, 'power2')];
     Promise.all(promises).then(function (data) {
         try {
-            res.json(compute_energy(data[0],data[1]));
+            let energy_data = compute_energy(data[0],data[1]);
+            res.json(energy_data);
+            db_energy.post({date: new Date(), period: req.params.period, result: energy_data}, function (error) {
+                if (error) return console.error(error)
+            });
         } catch (error) {
             error.status = 500;
             res.status(500);
@@ -148,6 +161,10 @@ app.get('/api/data/energy/:period', (req, res, next) => {
         res.status(500);
         next(error);
     });
+});
+
+app.get('/api/data/energy-request-hist/', (req, res) => {
+    res.json(db_energy.getAll())
 });
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
