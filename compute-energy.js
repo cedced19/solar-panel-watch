@@ -78,6 +78,9 @@ function buildHouseData(network_data, solar_panel_data) {
     return res;
 }
 
+function prettyNumber(num) {
+    return Math.floor(num*1000)/1000
+}
 
 function compute_energy(network_data, solar_panel_data) {
     const house_data = buildHouseData(network_data, solar_panel_data);
@@ -100,7 +103,14 @@ function compute_energy(network_data, solar_panel_data) {
             let [sumConsumption, sumIntroducted] = getNetworkStats(startDate,endDate,network_data);
             let sumSolarPanel = getSimpleStats(startDate,endDate,solar_panel_data);
             let sumHouseData = getSimpleStats(startDate,endDate,house_data);
-            sumList.push({start_date: startDateReal, end_date: endDateReal, consumption_on_network: sumConsumption/(60*60*1000), introduced_on_network: sumIntroducted/(60*60*1000), solar_panel: sumSolarPanel/(60*60*1000), house_consumption: sumHouseData/(60*60*1000)})
+            sumList.push({
+                start_date: startDateReal, 
+                end_date: endDateReal, 
+                consumption_on_network: prettyNumber(sumConsumption/(60*60*1000)), 
+                introduced_on_network: prettyNumber(sumIntroducted/(60*60*1000)), 
+                solar_panel: prettyNumber(sumSolarPanel/(60*60*1000)), 
+                house_consumption: prettyNumber(sumHouseData/(60*60*1000))
+            })
         }
     });
     return sumList;

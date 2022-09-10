@@ -7,5 +7,12 @@
 	"Graph": "Graphique",
 	"Raw data 1d": "Données brutes journée",
 	"Mean data 1w": "Données moyennées semaine",
-	"Mean data 1d": "Données moyennées journée"
+	"Mean data 1d": "Données moyennées journée",
+	"Energy": "Energie",
+	"Date Begin": "Début",
+	"Date End": "Fin",
+	"House consumption energy": "Consommation de la maison sur le réseau",
+	"Solar panel production energy": "Production des panneaux solaires",
+	"Total Power energy": "Energie totale consommée",
+	"Energy Introduced": "Energie totale introduite"
 }

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name=viewport content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="/assets/styles.css">
+    <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            background: #f8f8f8;
+            font-family: sans-serif;
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 10vh;
+        }
+
+        .title {
+            font-size: 60px;
+        }
+
+        main {
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 100%;
+        }
+        .loader {
+            border: 16px solid #f3f3f3; 
+            border-top: 16px solid #3498db; 
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <title>Solar panel watch | <%= __('Energy')%></title>
+  </head>
+  <body>
+    <header>
+      <h2 class="title">Solar panel watch</h2>
+    </header>
+    <main>
+        <div id="loader" class="loader"></div>
+        <div id="table"></div>
+    </main>
+    <script>
+        const prettyDate = (date) => {
+            date = new Date(date);
+            if (date.getUTCHours() == 0 || date.getUTCHours() == 23 && date.getMinutes() > 0) {
+                return ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth() < 10) ? '0': '') + date.getMonth() + '/' + date.getFullYear();
+            } else {
+                return ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth() < 10) ? '0': '') +  date.getMonth() + '/' + date.getFullYear() +  ' ' + date.getHours() + ':' + date.getMinutes();
+            }
+        }
+        const loadData = () => {
+
+            const fetchData = fetch('/api/data/energy/<%= period%>')
+                .then(response => response.json())
+                .then(data => {
+                    return data
+                }).catch((error) => {
+                    console.error('Error:', error);
+                });
+            
+            fetchData.then((value) => {
+                console.log(value)
+                
+                var table = document.createElement('table');
+                var thead = document.createElement('thead');
+                var tr = document.createElement('tr');
+                var td1 = document.createElement('th');
+                var td2 = document.createElement('th');
+                var td3 = document.createElement('th');
+                var td4 = document.createElement('th');
+                var td5 = document.createElement('th');
+                var td6 = document.createElement('th');
+                var text1 = document.createTextNode('<%= __("Date Begin")%>');
+                var text2 = document.createTextNode('<%= __("Date End")%>');
+                var text3 = document.createTextNode('<%= __("House consumption energy")%> (kWh)');
+                var text4 = document.createTextNode('<%= __("Solar panel production energy")%> (kWh)');
+                var text5 = document.createTextNode('<%= __("Total Power energy")%> (kWh)');
+                var text6 = document.createTextNode('<%= __("Energy Introduced")%> (kWh)');
+                td1.appendChild(text1);
+                td2.appendChild(text2);
+                td3.appendChild(text3);
+                td4.appendChild(text4);
+                td5.appendChild(text5);
+                td6.appendChild(text6);
+                tr.appendChild(td1);
+                tr.appendChild(td2);
+                tr.appendChild(td3);
+                tr.appendChild(td4);
+                tr.appendChild(td5);
+                tr.appendChild(td6);
+                thead.appendChild(tr);
+                table.appendChild(thead);
+
+                var tbody = document.createElement('tbody');
+                for (k in value){
+                    var tr = document.createElement('tr');
+                    var td1 = document.createElement('td');
+                    var td2 = document.createElement('td');
+                    var td3 = document.createElement('td');
+                    var td4 = document.createElement('td');
+                    var td5 = document.createElement('td');
+                    var td6 = document.createElement('td');
+                    var text1 = document.createTextNode(prettyDate(value[k].start_date));
+                    var text2 = document.createTextNode(prettyDate(value[k].end_date));
+                    var text3 = document.createTextNode(value[k].consumption_on_network);
+                    var text4 = document.createTextNode(value[k].solar_panel);
+                    var text5 = document.createTextNode(value[k].house_consumption);
+                    var text6 = document.createTextNode(value[k].introduced_on_network);
+                    td1.appendChild(text1);
+                    td2.appendChild(text2);
+                    td3.appendChild(text3);
+                    td4.appendChild(text4);
+                    td5.appendChild(text5);
+                    td6.appendChild(text6);
+                    tr.appendChild(td1);
+                    tr.appendChild(td2);
+                    tr.appendChild(td3);
+                    tr.appendChild(td4);
+                    tr.appendChild(td5);
+                    tr.appendChild(td6);
+                    tbody.appendChild(tr);
+                }
+                table.appendChild(tbody);
+                document.getElementById('table').appendChild(table);
+
+                document.getElementById('loader').style.display = 'none';
+            });   
+        }
+        window.addEventListener('load', loadData);
+    </script>
+  </body>
+</html>

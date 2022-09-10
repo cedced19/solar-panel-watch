@@ -53,6 +53,13 @@ app.get('/graph/power/:period', function(req, res) {
     });
 });
 
+app.get('/energy/:period', function(req, res) {
+    res.render('energy', {
+        period: req.params.period,
+        timezone: config.timezone
+    });
+});
+
 app.get('/graph/power/:period/group-by/:group/', function(req, res) {
     res.render('graph-power-group', {
         period: req.params.period,
@@ -207,5 +214,5 @@ app.listen(port, () => {
 
 // Write data
 setInterval(function () {
-    //daemonInflux(app.get('env') === 'development')
+    daemonInflux(app.get('env') === 'development')
 },config.influx_update_delay)
