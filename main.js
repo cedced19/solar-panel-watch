@@ -99,7 +99,7 @@ app.get('/api/data/power/:tag/:period', (req, res) => {
         complete() {
           res.json(csv);
         },
-      });
+    });
 });
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
