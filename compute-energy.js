@@ -46,9 +46,9 @@ function getNetworkStats(startDate,endDate,network_data) {
 
     dataFiltred.forEach(function(el) {
         if (el._value > 0) {  
-            sumConsumption += el._value*(15)/(60*60*1000)
+            sumConsumption += el._value*(15)
         } else {
-            sumIntroducted += el._value*(15)/(60*60*1000)
+            sumIntroducted += el._value*(15)
         }
     });
 
@@ -64,7 +64,7 @@ function getSimpleStats(startDate,endDate,data) {
     });
 
     dataFiltred.forEach(function(el) { 
-        sum += el._value*(15)/(60*60*1000)
+        sum += el._value*(15)
     });
 
     return sum
@@ -93,13 +93,15 @@ function compute_energy(network_data, solar_panel_data) {
             let date = new Date(el._time);
             return (date >= startDate && date <= endDate);
         });
-        const startDateReal = new Date(data_filtred[0]._time);
-        const endDateReal = new Date(data_filtred[data_filtred.length-1]._time);
+        if (data_filtred.length > 0) {
+            const startDateReal = new Date(data_filtred[0]._time);
+            const endDateReal = new Date(data_filtred[data_filtred.length-1]._time);
 
-        let [sumConsumption, sumIntroducted] = getNetworkStats(startDate,endDate,network_data);
-        let sumSolarPanel = getSimpleStats(startDate,endDate,solar_panel_data);
-        let sumHouseData = getSimpleStats(startDate,endDate,house_data);
-        sumList.push({start_date: startDateReal, end_date: endDateReal, consumption_on_network: sumConsumption, introduced_on_network: sumIntroducted, solar_panel: sumSolarPanel, house_consumption: sumHouseData})
+            let [sumConsumption, sumIntroducted] = getNetworkStats(startDate,endDate,network_data);
+            let sumSolarPanel = getSimpleStats(startDate,endDate,solar_panel_data);
+            let sumHouseData = getSimpleStats(startDate,endDate,house_data);
+            sumList.push({start_date: startDateReal, end_date: endDateReal, consumption_on_network: sumConsumption/(60*60*1000), introduced_on_network: sumIntroducted/(60*60*1000), solar_panel: sumSolarPanel/(60*60*1000), house_consumption: sumHouseData/(60*60*1000)})
+        }
     });
     return sumList;
 }

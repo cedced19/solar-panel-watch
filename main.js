@@ -10,7 +10,7 @@ const {InfluxDB} = require('@influxdata/influxdb-client');
 const config = require('./config.json');
 const getInformations = require('./get-informations.js');
 const daemonInflux = require('./daemon-influx.js');
-
+const compute_energy = require('./compute-energy.js');
 
 // Express App
 const app = express();
@@ -78,7 +78,7 @@ const defaultTag = config.influx_default_tag;
 const url = config.influx_url;
 const client = new InfluxDB({url: url, token: token});
 const queryApi = client.getQueryApi(org);
-app.get('/api/data/power/:tag/:period', (req, res) => {
+app.get('/api/data/power/:tag/:period', (req, res, next) => {
     let csv = []
     const query = 
     `from(bucket: "${bucket}")
@@ -93,12 +93,53 @@ app.get('/api/data/power/:tag/:period', (req, res) => {
           csv.push(o);
         },
         error(error) {
-          console.error(error);
-          res.end();
+            error.status = 500;
+            res.status(500);
+            next(error);
         },
         complete() {
           res.json(csv);
         },
+    });
+});
+
+function requestDataForEnergy(period, tag) {
+    return new Promise(function(resolve, reject) {
+        let csv = []
+            const query = 
+            `from(bucket: "${bucket}")
+            |> range(start: -${period})
+            |> filter(fn: (r) => r["_measurement"] == "power")
+            |> filter(fn: (r) => r["_field"] == "${tag}")
+            |> yield(name: "mean")`
+
+            queryApi.queryRows(query, {
+                next(row, tableMeta) {
+                    o = tableMeta.toObject(row);
+                    csv.push(o);
+                },
+                reject,
+                complete() {
+                    resolve(csv);
+                }
+            });
+    });
+}
+
+app.get('/api/data/energy/:period', (req, res, next) => {
+    const promises = [requestDataForEnergy(req.params.period, 'power1'), requestDataForEnergy(req.params.period, 'power2')];
+    Promise.all(promises).then(function (data) {
+        try {
+            res.json(compute_energy(data[0],data[1]));
+        } catch (error) {
+            error.status = 500;
+            res.status(500);
+            next(error);
+        }
+    }, function (error) {
+        error.status = 500;
+        res.status(500);
+        next(error);
     });
 });
 
@@ -166,5 +207,5 @@ app.listen(port, () => {
 
 // Write data
 setInterval(function () {
-    daemonInflux(app.get('env') === 'development')
+    //daemonInflux(app.get('env') === 'development')
 },config.influx_update_delay)
