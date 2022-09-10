@@ -1,5 +1,3 @@
-const data = require('./data-5d.json');
-
 function buildDateFromTuple(tuple) {
     const d = new Date();
     d.setUTCHours(0);
@@ -80,27 +78,37 @@ function buildHouseData(network_data, solar_panel_data) {
     return res;
 }
 
-const network_data = data[0];
-const solar_panel_data = data[1];
-const house_data = buildHouseData(network_data, solar_panel_data);
 
-let dates = getDaysInPeriod(data[0], '_time');
-let sumList = [];
+function compute_energy(network_data, solar_panel_data) {
+    const house_data = buildHouseData(network_data, solar_panel_data);
 
-dates.forEach(function(days) {
-    const startDate = days[0];
-    const endDate = days[1];
-    
-    const data_filtred = network_data.filter(function (el) {
-        let date = new Date(el._time);
-        return (date >= startDate && date <= endDate);
+    let dates = getDaysInPeriod(network_data, '_time');
+    let sumList = [];
+
+    dates.forEach(function(days) {
+        const startDate = days[0];
+        const endDate = days[1];
+        
+        const data_filtred = network_data.filter(function (el) {
+            let date = new Date(el._time);
+            return (date >= startDate && date <= endDate);
+        });
+        const startDateReal = new Date(data_filtred[0]._time);
+        const endDateReal = new Date(data_filtred[data_filtred.length-1]._time);
+
+        let [sumConsumption, sumIntroducted] = getNetworkStats(startDate,endDate,network_data);
+        let sumSolarPanel = getSimpleStats(startDate,endDate,solar_panel_data);
+        let sumHouseData = getSimpleStats(startDate,endDate,house_data);
+        sumList.push({start_date: startDateReal, end_date: endDateReal, consumption_on_network: sumConsumption, introduced_on_network: sumIntroducted, solar_panel: sumSolarPanel, house_consumption: sumHouseData})
     });
-    const startDateReal = new Date(data_filtred[0]._time);
-    const endDateReal = new Date(data_filtred[data_filtred.length-1]._time);
+    return sumList;
+}
 
-    let [sumConsumption, sumIntroducted] = getNetworkStats(startDate,endDate,network_data);
-    let sumSolarPanel = getSimpleStats(startDate,endDate,solar_panel_data);
-    let sumHouseData = getSimpleStats(startDate,endDate,house_data);
-    sumList.push([startDateReal, endDateReal, sumConsumption, sumIntroducted, sumSolarPanel, sumHouseData])
-});
-console.log(sumList);
+module.exports = compute_energy;
+
+if (typeof require !== 'undefined' && require.main === module) {
+    const data = require('./data-5d.json');
+    const network_data = data[0];
+    const solar_panel_data = data[1];
+    console.log(compute_energy(network_data, solar_panel_data));
+}
