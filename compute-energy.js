@@ -44,11 +44,18 @@ function getNetworkStats(startDate,endDate,network_data) {
         return (date >= startDate && date <= endDate);
     });
 
-    dataFiltred.forEach(function(el) {
-        if (el._value > 0) {  
-            sumConsumption += el._value*(15)
+    dataFiltred.forEach(function(el, k) {
+        if (k+1 == dataFiltred.length) {
+            delta = 15
         } else {
-            sumIntroducted += el._value*(15)
+            b = new Date(dataFiltred[k+1]._time)
+            a = new Date(el._time)
+            delta = (b-a)/1000
+        }
+        if (el._value > 0) {  
+            sumConsumption += el._value*delta
+        } else {
+            sumIntroducted += el._value*delta
         }
     });
 
@@ -63,8 +70,15 @@ function getSimpleStats(startDate,endDate,data) {
         return (date >= startDate && date <= endDate);
     });
 
-    dataFiltred.forEach(function(el) { 
-        sum += el._value*(15)
+    dataFiltred.forEach(function(el,k) { 
+        if (k+1 == dataFiltred.length) {
+            delta = 15
+        } else {
+            b = new Date(dataFiltred[k+1]._time)
+            a = new Date(el._time)
+            delta = (b-a)/1000
+        }
+        sum += el._value*delta
     });
 
     return sum

@@ -14,5 +14,6 @@
 	"House consumption energy": "Consommation de la maison sur le réseau",
 	"Solar panel production energy": "Production des panneaux solaires",
 	"Total Power energy": "Energie totale consommée",
-	"Energy Introduced": "Energie totale introduite"
+	"Energy Introduced": "Energie totale introduite",
+	"Energy Saved": "Energie économisée"
 }

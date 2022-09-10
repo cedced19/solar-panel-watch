@@ -214,5 +214,5 @@ app.listen(port, () => {
 
 // Write data
 setInterval(function () {
-    daemonInflux(app.get('env') === 'development')
+    //daemonInflux(app.get('env') === 'development')
 },config.influx_update_delay)
