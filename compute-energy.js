@@ -1,6 +1,6 @@
 function buildDateFromTuple(tuple) {
     const d = new Date();
-    d.setUTCHours(0);
+    d.setHours(0);
     d.setMinutes(0);
     d.setSeconds(0);
     d.setMilliseconds(0);
