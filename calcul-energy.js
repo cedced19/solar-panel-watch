@@ -37,11 +37,6 @@ function getDaysInPeriod(data, field) {
     return dates;
 }
 
-
-
-let dates = getDaysInPeriod(data[0], '_time');
-let sumList = [];
-
 function getNetworkStats(startDate,endDate,network_data) {
     let sumConsumption = 0;
     let sumIntroducted = 0;
@@ -62,10 +57,10 @@ function getNetworkStats(startDate,endDate,network_data) {
     return [sumConsumption, sumIntroducted]
 }
 
-function getSolarPanelStats(startDate,endDate,solar_panel_data) {
+function getSimpleStats(startDate,endDate,data) {
     let sum = 0;
 
-    const dataFiltred = solar_panel_data.filter(function (el) {
+    const dataFiltred = data.filter(function (el) {
         let date = new Date(el._time);
         return (date >= startDate && date <= endDate);
     });
@@ -77,8 +72,20 @@ function getSolarPanelStats(startDate,endDate,solar_panel_data) {
     return sum
 }
 
+function buildHouseData(network_data, solar_panel_data) {
+    const res = JSON.parse(JSON.stringify(network_data));; 
+    for (k in res) {
+        res[k]._value = network_data[k]._value + solar_panel_data[k]._value
+    }
+    return res;
+}
+
 const network_data = data[0];
 const solar_panel_data = data[1];
+const house_data = buildHouseData(network_data, solar_panel_data);
+
+let dates = getDaysInPeriod(data[0], '_time');
+let sumList = [];
 
 dates.forEach(function(days) {
     const startDate = days[0];
@@ -92,7 +99,8 @@ dates.forEach(function(days) {
     const endDateReal = new Date(data_filtred[data_filtred.length-1]._time);
 
     let [sumConsumption, sumIntroducted] = getNetworkStats(startDate,endDate,network_data);
-    let sumSolarPanel = getSolarPanelStats(startDate,endDate,solar_panel_data);
-    sumList.push([startDateReal, endDateReal, sumConsumption, sumIntroducted, sumSolarPanel])
+    let sumSolarPanel = getSimpleStats(startDate,endDate,solar_panel_data);
+    let sumHouseData = getSimpleStats(startDate,endDate,house_data);
+    sumList.push([startDateReal, endDateReal, sumConsumption, sumIntroducted, sumSolarPanel, sumHouseData])
 });
 console.log(sumList);
