@@ -3,6 +3,17 @@ Watch over electricity consumption from my house.
 
 ![Demo](demo.png)
 
-## TODO 
+## config.json
 
-* Add [Rickshaw](https://www.influxdata.com/blog/visualizing-your-time-series-data-from-influxdb-with-rickshaw/)
+```json
+{
+    "ip_adress_shelly": "192.168.0.91",
+    "influx_tocken": "tocken",
+    "influx_org": "cedced19@gmail.com",
+    "influx_bucket": "solar-panel",
+    "influx_default_tag": "home1",
+    "influx_update_delay": 15000,
+    "influx_url": "https://**********.influxdata.com",
+    "timezone": "Europe/Paris"
+}
+```

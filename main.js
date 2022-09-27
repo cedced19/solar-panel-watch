@@ -191,8 +191,31 @@ app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
       });
 });
 
+const devicesToActivate = require('./devices-to-activate.json');
+app.get('/api/device/:name/', (req, res, next) => {
+    let element = devicesToActivate.filter(value => {
+        return value.uri == req.params.name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        getInformations(function (err, data) {
+            if (err) return next(err);
+            if (-data.emeters[0].power > device.limit) {
+                res.json({toggle:true});
+            } else {
+                res.json({toggle:false});
+            }
+        });
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
 app.use(function (req, res, next) {
-    var err = new Error('Element cannot be find.');
+    var err = new Error('Element cannot be found.');
     err.status = 404;
     res.status(404);
     next(err);
