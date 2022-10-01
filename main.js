@@ -201,9 +201,9 @@ app.get('/api/device/:name/', (req, res, next) => {
         getInformations(function (err, data) {
             if (err) return next(err);
             if (-data.emeters[0].power > device.limit) {
-                res.json({toggle:true});
+                res.json({toggle:true, time_limit: device.time_limit});
             } else {
-                res.json({toggle:false});
+                res.json({toggle:false, time_limit: device.time_limit});
             }
         });
     } else {
