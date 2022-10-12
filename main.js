@@ -214,8 +214,8 @@ app.get('/api/device/:name/', (req, res, next) => {
         getInformations(function (err, data) {
             if (err) return next(err);
             toActivate = false;
-            if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 5000)) {
-                if (-data.emeters[0].power + device.limit*0.90 > device.limit) {
+            if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
+                if (-data.emeters[0].power > device.limit*0.10) {
                     toActivate = true;
                 } else {
                     toActivate = false;
@@ -233,6 +233,49 @@ app.get('/api/device/:name/', (req, res, next) => {
                 db_devices_activation.post({uri: device.uri, activated: toActivate, time: devicesToActivateState[device.uri].last_call}, function() {});
             }
             devicesToActivateState[device.uri].activated = toActivate; 
+        });
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
+app.get('/api/device/:name/debug/', (req, res, next) => {
+    let element = devicesToActivate.filter(value => {
+        return value.uri == req.params.name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        // make sure that device state exists
+        if (!devicesToActivateState.hasOwnProperty(device.uri)) {
+            devicesToActivateState[device.uri] = {activated: false, last_call: (new Date()).getTime()}
+        }
+        getInformations(function (err, data) {
+            if (err) return next(err);
+            toActivate = false;
+            if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
+                if (-data.emeters[0].power > device.limit*0.10) {
+                    toActivate = true;
+                } else {
+                    toActivate = false;
+                }
+            } else {
+                if (-data.emeters[0].power > device.limit) {
+                    toActivate = true;
+                } else {
+                    toActivate = false;
+                }
+            }
+            res.json({
+                activated: devicesToActivateState[device.uri].activated, 
+                toggle: toActivate, 
+                time_limit: device.time_limit, 
+                last_call: devicesToActivateState[device.uri].last_call, 
+                last_call_str: (new Date(devicesToActivateState[device.uri].last_call)).toGMTString(), 
+                info_type: 'debug'
+            });
         });
     } else {
         let err = new Error('Device cannot be found.');
