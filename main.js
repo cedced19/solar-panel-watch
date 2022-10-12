@@ -1,6 +1,7 @@
 
 
 const express = require('express');
+const fs = require('fs')
 const favicon = require('express-favicon');
 const path = require('path');
 const logger = require('morgan');
@@ -192,19 +193,40 @@ app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
 });
 
 const devicesToActivate = require('./devices-to-activate.json');
+const devicesToActivateState = {};
+const db_devices_activation = JSONStore('./devices-activation.json');
 app.get('/api/device/:name/', (req, res, next) => {
     let element = devicesToActivate.filter(value => {
         return value.uri == req.params.name;
     });
     if (element.length > 0) {
         let device = element[0];
+        // make sure that device state exists
+        if (!devicesToActivateState.hasOwnProperty(device.uri)) {
+            devicesToActivateState[device.uri] = {activated: false, last_call: (new Date()).getTime()}
+        }
         getInformations(function (err, data) {
             if (err) return next(err);
-            if (-data.emeters[0].power > device.limit) {
-                res.json({toggle:true, time_limit: device.time_limit});
+            toActivate = false;
+            if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 5000)) {
+                if (-data.emeters[0].power - device.limit > device.limit) {
+                    toActivate = true;
+                } else {
+                    toActivate = false;
+                }
             } else {
-                res.json({toggle:false, time_limit: device.time_limit});
+                if (-data.emeters[0].power > device.limit) {
+                    toActivate = true;
+                } else {
+                    toActivate = false;
+                }
             }
+            devicesToActivateState[device.uri].last_call = (new Date()).getTime();
+            res.json({toggle: toActivate, time_limit: device.time_limit});
+            if (toActivate != devicesToActivateState[device.uri].activated) {
+                db_devices_activation.post({uri: device.uri, activated: toActivate, time: devicesToActivateState[device.uri].last_call}, function() {});
+            }
+            devicesToActivateState[device.uri].activated = toActivate; 
         });
     } else {
         let err = new Error('Device cannot be found.');
