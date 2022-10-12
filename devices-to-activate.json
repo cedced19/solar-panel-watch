@@ -2,6 +2,6 @@
     {
         "uri": "chauffe-eau",
         "limit": 500,
-        "time_limit": 120000
+        "time_limit": 10000
     }
 ]
