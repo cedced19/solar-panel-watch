@@ -236,6 +236,10 @@ app.get('/api/device/:name/', (req, res, next) => {
     }
 });
 
+app.get('/api/data/activation-hist/', (req, res) => {
+    res.json(db_devices_activation.getAll())
+});
+
 app.use(function (req, res, next) {
     var err = new Error('Element cannot be found.');
     err.status = 404;
