@@ -70,6 +70,12 @@ app.get('/energy-hist/', function(req, res) {
     });
 });
 
+app.get('/activation-hist/', function(req, res) {
+    res.render('activation-hist', {
+        timezone: config.timezone
+    });
+});
+
 app.get('/graph/power/:period/group-by/:group/', function(req, res) {
     res.render('graph-power-group', {
         period: req.params.period,
@@ -209,7 +215,7 @@ app.get('/api/device/:name/', (req, res, next) => {
             if (err) return next(err);
             toActivate = false;
             if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 5000)) {
-                if (-data.emeters[0].power + device.limit > device.limit) {
+                if (-data.emeters[0].power + device.limit*0.90 > device.limit) {
                     toActivate = true;
                 } else {
                     toActivate = false;
@@ -221,7 +227,6 @@ app.get('/api/device/:name/', (req, res, next) => {
                     toActivate = false;
                 }
             }
-            console.log(-data.emeters[0].power, device.limit)
             devicesToActivateState[device.uri].last_call = (new Date()).getTime();
             res.json({toggle: toActivate, time_limit: device.time_limit});
             if (toActivate != devicesToActivateState[device.uri].activated) {

@@ -16,5 +16,11 @@
 	"Total Power energy": "Energie totale consommée",
 	"Energy Introduced": "Energie totale introduite",
 	"Energy Saved": "Energie économisée",
-	"Energy request history": "Historique des requêtes sur l'énergie"
+	"Energy request history": "Historique des requêtes sur l'énergie",
+	"Activation history": "Historique des activations",
+	"Date": "Date",
+	"Device": "Appareil",
+	"Status": "Status",
+	"Activated": "Activé",
+	"Disabled": "Désactivé"
 }

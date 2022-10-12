@@ -16,5 +16,11 @@
 	"Total Power energy": "Total Energy",
 	"Energy Introduced": "Energy Introduced",
 	"Energy Saved": "Energy saved",
-	"Energy request history": "Energy request history"
+	"Energy request history": "Energy request history",
+	"Activation history": "Activation history",
+	"Date": "Date",
+	"Device": "Device",
+	"Status": "Status",
+	"Activated": "Activated",
+	"Disabled": "Disabled"
 }

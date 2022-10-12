@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name=viewport content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="/assets/styles.css">
+    <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            background: #f8f8f8;
+            font-family: sans-serif;
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 10vh;
+        }
+
+        .title {
+            font-size: 60px;
+        }
+
+        main {
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 100%;
+        }
+        .loader {
+            border: 16px solid #f3f3f3; 
+            border-top: 16px solid #3498db; 
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <title>Solar panel watch | <%= __('Activation history')%></title>
+  </head>
+  <body>
+    <header>
+      <h2 class="title">Solar panel watch</h2>
+    </header>
+    <main>
+        <div id="loader" class="loader"></div>
+        <h3><%= __("Activation history")%></h3>
+        <div id="table"></div>
+    </main>
+    <script>
+        const prettyDate = (date, bold) => {
+            date = new Date(date);
+            return ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth() < 10) ? '0': '') +  date.getMonth() + '/' + date.getFullYear() +  ' ' + ((date.getHours() < 10) ? '0': '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0': '') + date.getMinutes();
+        }
+        const prettyName = (name) => {
+            name = name.replace('-', ' ');
+            let words = name.split(' ');
+            return words.map((word) => { 
+                return word[0].toUpperCase() + word.substring(1); 
+            }).join(' ');
+        }
+        const loadData = () => {
+
+            const fetchData = fetch('/api/data/activation-hist/')
+                .then(response => response.json())
+            
+            fetchData.then(data => {
+                    data = data.reverse();
+
+                    var table = document.createElement('table');
+                    var thead = document.createElement('thead');
+                    var tr = document.createElement('tr');
+                    var td1 = document.createElement('th');
+                    var td2 = document.createElement('th');
+                    var td3 = document.createElement('th');
+
+                    var text1 = document.createTextNode('<%= __("Date")%>');
+                    var text2 = document.createTextNode('<%= __("Device")%>');
+                    var text3 = document.createTextNode('<%= __("Status")%>');
+
+                    td1.appendChild(text1);
+                    td2.appendChild(text2);
+                    td3.appendChild(text3);
+
+                    tr.appendChild(td1);
+                    tr.appendChild(td2);
+                    tr.appendChild(td3);
+                    thead.appendChild(tr);
+                    table.appendChild(thead);
+
+                    var tbody = document.createElement('tbody');
+
+                    data.forEach(value => {
+                            var tr = document.createElement('tr');
+                            var td1 = document.createElement('td');
+                            var td2 = document.createElement('td');
+                            var td3 = document.createElement('td');
+                            td1.innerHTML = prettyDate(value.time);
+                            var text2 = document.createTextNode(prettyName(value.uri));
+                            var text3 = document.createTextNode((value.activated) ? '<%= __("Activated")%>': '<%= __("Disabled")%>');
+                            td2.appendChild(text2);
+                            td3.appendChild(text3);
+                            tr.appendChild(td1);
+                            tr.appendChild(td2);
+                            tr.appendChild(td3);
+                            tbody.appendChild(tr);   
+                    });
+                    table.appendChild(tbody);
+                    document.getElementById('table').appendChild(table);
+                    document.getElementById('loader').style.display = 'none';
+            })
+            .catch(error => {
+                    console.error('Error:', error);
+            });
+        }
+        window.addEventListener('load', loadData);
+    </script>
+  </body>
+</html>
