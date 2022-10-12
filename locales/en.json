@@ -23,5 +23,13 @@
 	"Device": "Device",
 	"Status": "Status",
 	"Activated": "Activated",
-	"Disabled": "Disabled"
+	"Disabled": "Disabled",
+	"Debug device": "Debug device",
+	"To enable": "To enable",
+	"To disable": "To disable",
+	"Last call": "Last call",
+	"Time period": "Time period",
+	"Decision": "Decision",
+	"Device name": "Device name",
+	"Power limit": "Power limit"
 }

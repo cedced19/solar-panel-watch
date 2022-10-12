@@ -272,6 +272,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 activated: devicesToActivateState[device.uri].activated, 
                 toggle: toActivate, 
                 time_limit: device.time_limit, 
+                limit: device.limit,
                 last_call: devicesToActivateState[device.uri].last_call, 
                 last_call_str: (new Date(devicesToActivateState[device.uri].last_call)).toGMTString(), 
                 info_type: 'debug'
@@ -283,6 +284,13 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         res.status(404);
         next(err);
     }
+});
+
+app.get('/device/:device_name', (req, res, next) => {
+    res.render('debug-device', {
+        timezone: config.timezone,
+        device_name: req.params.device_name
+    });
 });
 
 app.get('/api/data/activation-hist/', (req, res) => {

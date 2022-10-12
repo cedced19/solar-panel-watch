@@ -60,14 +60,14 @@
       <h2 class="title">Solar panel watch</h2>
     </header>
     <main>
-        <div id="loader" class="loader"></div>
         <h3><%= __("Activation history")%></h3>
+        <div id="loader" class="loader"></div>
         <div id="table"></div>
     </main>
     <script>
         const prettyDate = (date, bold) => {
             date = new Date(date);
-            return ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth() < 10) ? '0': '') +  date.getMonth() + '/' + date.getFullYear() +  ' ' + ((date.getHours() < 10) ? '0': '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0': '') + date.getMinutes();
+            return ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth() < 10) ? '0': '') +  date.getMonth() + '/' + date.getFullYear() +  ' ' + ((date.getHours() < 10) ? '0': '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0': '') + date.getMinutes() + ':'  + ((date.getSeconds() < 10) ? '0': '') + date.getSeconds();
         }
         const prettyName = (name) => {
             name = name.replace('-', ' ');

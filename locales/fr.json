@@ -23,5 +23,13 @@
 	"Device": "Appareil",
 	"Status": "Status",
 	"Activated": "Activé",
-	"Disabled": "Désactivé"
+	"Disabled": "Désactivé",
+	"Debug device": "Info de l'appareil",
+	"To enable": "A activer",
+	"To disable": "A désactiver",
+	"Last call": "Dernier appel",
+	"Time period": "Période temporelle",
+	"Decision": "Décision",
+	"Device name": "Nom de l'appareil",
+	"Power limit": "Limite de puissance"
 }
