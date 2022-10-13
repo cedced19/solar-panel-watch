@@ -1,7 +1,6 @@
 
 
 const express = require('express');
-const fs = require('fs')
 const favicon = require('express-favicon');
 const path = require('path');
 const logger = require('morgan');
@@ -40,7 +39,7 @@ if (app.get('env') === 'development') {
 app.use('/assets/', express.static('assets'));
 
 app.get('/', function(req, res) {
-    getInformations(function (err, data) {
+    getInformations.req(function (err, data) {
         if (err) return res.render('index', {error: true});
         res.render('index', {
             error: false,
@@ -85,7 +84,7 @@ app.get('/graph/power/:period/group-by/:group/', function(req, res) {
 });
 
 app.get('/api/data', function(req, res) {
-    getInformations(function (err, data) {
+    getInformations.req(function (err, data) {
         if (err) return next(err);
         res.json({
             power1: data.emeters[0].power,
@@ -211,17 +210,17 @@ app.get('/api/device/:name/', (req, res, next) => {
         if (!devicesToActivateState.hasOwnProperty(device.uri)) {
             devicesToActivateState[device.uri] = {activated: false, last_call: (new Date()).getTime()}
         }
-        getInformations(function (err, data) {
+        getInformations.get_moving_average_power(function (err, power) {
             if (err) return next(err);
             toActivate = false;
             if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
-                if (-data.emeters[0].power > device.limit*0.10) {
+                if (-power > device.limit*0.10) {
                     toActivate = true;
                 } else {
                     toActivate = false;
                 }
             } else {
-                if (-data.emeters[0].power > device.limit) {
+                if (-power > device.limit) {
                     toActivate = true;
                 } else {
                     toActivate = false;
@@ -252,17 +251,17 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         if (!devicesToActivateState.hasOwnProperty(device.uri)) {
             devicesToActivateState[device.uri] = {activated: false, last_call: (new Date()).getTime()}
         }
-        getInformations(function (err, data) {
+        getInformations.get_moving_average_power(0, function (err, power) {
             if (err) return next(err);
             toActivate = false;
             if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
-                if (-data.emeters[0].power > device.limit*0.10) {
+                if (-power > device.limit*0.10) {
                     toActivate = true;
                 } else {
                     toActivate = false;
                 }
             } else {
-                if (-data.emeters[0].power > device.limit) {
+                if (-power> device.limit) {
                     toActivate = true;
                 } else {
                     toActivate = false;
@@ -275,6 +274,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 limit: device.limit,
                 last_call: devicesToActivateState[device.uri].last_call, 
                 last_call_str: (new Date(devicesToActivateState[device.uri].last_call)).toGMTString(), 
+                power: -power,
                 info_type: 'debug'
             });
         });
@@ -337,5 +337,5 @@ app.listen(port, () => {
 
 // Write data
 setInterval(function () {
-    daemonInflux(app.get('env') === 'development')
+    daemonInflux(app.get('env') === 'development');
 },config.influx_update_delay)

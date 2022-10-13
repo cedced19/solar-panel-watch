@@ -31,5 +31,6 @@
 	"Time period": "Période temporelle",
 	"Decision": "Décision",
 	"Device name": "Nom de l'appareil",
-	"Power limit": "Limite de puissance"
+	"Power limit": "Limite de puissance",
+	"Current power": "Puissance actuelle"
 }

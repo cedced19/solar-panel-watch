@@ -100,14 +100,18 @@
                     li3.innerHTML = '<b><%= __("Status")%></b>: ' + ((data.activated) ? '<%= __("Activated")%>': '<%= __("Disabled")%>');
                     ul.appendChild(li3);
 
-                    var li5 = document.createElement('li');
-                    li5.innerHTML = '<b><%= __("Decision")%></b>: ' + ((data.toggle) ? '<%= __("To enable")%>': '<%= __("To disable")%>');
-                    ul.appendChild(li5);
+                    var li4 = document.createElement('li');
+                    li4.innerHTML = '<b><%= __("Decision")%></b>: ' + ((data.toggle) ? '<%= __("To enable")%>': '<%= __("To disable")%>');
+                    ul.appendChild(li4);
                     
 
-                    var li4 = document.createElement('li');
-                    li4.innerHTML = '<b><%= __("Power limit")%></b>: ' + data.limit + ' W';
-                    ul.appendChild(li4);
+                    var li5 = document.createElement('li');
+                    li5.innerHTML = '<b><%= __("Power limit")%></b>: ' + data.limit + ' W';
+                    ul.appendChild(li5);
+
+                    var li6 = document.createElement('li');
+                    li6.innerHTML = '<b><%= __("Current power")%></b>: ' + Math.floor(data.power) + ' W';
+                    ul.appendChild(li6);
 
                     
                     document.getElementById('loader').style.display = 'none';

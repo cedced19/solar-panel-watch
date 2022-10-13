@@ -14,7 +14,7 @@ function write(debug) {
     const writeApi = client.getWriteApi(org, bucket);
     writeApi.useDefaultTags({home: defaultTag});
 
-    getInformations(function (err, data) {
+    getInformations.req(function (err, data) {
         if (err) return console.log(err);
         const point = new Point('power')
         .floatField('power1', data.emeters[0].power)
