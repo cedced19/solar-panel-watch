@@ -210,7 +210,7 @@ app.get('/api/device/:name/', (req, res, next) => {
         if (!devicesToActivateState.hasOwnProperty(device.uri)) {
             devicesToActivateState[device.uri] = {activated: false, last_call: (new Date()).getTime()}
         }
-        getInformations.get_moving_average_power(function (err, power) {
+        getInformations.get_moving_average_power(0, function (err, power) {
             if (err) return next(err);
             toActivate = false;
             if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
