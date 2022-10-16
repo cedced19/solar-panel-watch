@@ -10,9 +10,10 @@ const {InfluxDB} = require('@influxdata/influxdb-client');
 const JSONStore = require('json-store-list');
 const db_energy = JSONStore('./energy-query-save.json');
 const config = require('./config.json');
-const getInformations = require('./get-informations.js');
-const daemonInflux = require('./daemon-influx.js');
-const compute_energy = require('./compute-energy.js');
+const getInformations = require('./lib/get-informations.js');
+const getAlpha = require('./lib/get-alpha.js');
+const daemonInflux = require('./lib/daemon-influx.js');
+const compute_energy = require('./lib/compute-energy.js');
 
 
 // Express App
@@ -21,7 +22,7 @@ const app = express();
 const port = require('env-port')('8889');
 app.set('port', port);
 
-const i18n = require('./i18n');
+const i18n = require('./lib/i18n');
 
 app.use(favicon(path.join(__dirname, 'assets','favicon.ico')));
 
@@ -208,27 +209,27 @@ app.get('/api/device/:name/', (req, res, next) => {
         let device = element[0];
         // make sure that device state exists
         if (!devicesToActivateState.hasOwnProperty(device.uri)) {
-            devicesToActivateState[device.uri] = {activated: false, last_call: (new Date()).getTime()}
+            devicesToActivateState[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime()}
         }
-        getInformations.get_moving_average_power(0, function (err, power) {
+        getInformations.get_moving_average_power(0, function (err, power_list, power) {
             if (err) return next(err);
-            toActivate = false;
+            to_activate= false;
             if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
-                if (-power > device.limit*0.10) {
-                    toActivate = true;
+                if (-power > device.limit*device.power_threshold_percentage) {
+                    to_activate= true;
                 } else {
-                    toActivate = false;
+                    to_activate= false;
                 }
             } else {
                 if (-power > device.limit) {
-                    toActivate = true;
+                    to_activate= true;
                 } else {
-                    toActivate = false;
+                    to_activate= false;
                 }
             }
             devicesToActivateState[device.uri].last_call = (new Date()).getTime();
             res.json({toggle: toActivate, time_limit: device.time_limit});
-            if (toActivate != devicesToActivateState[device.uri].activated) {
+            if (to_activate!= devicesToActivateState[device.uri].activated) {
                 db_devices_activation.post({uri: device.uri, activated: toActivate, time: devicesToActivateState[device.uri].last_call}, function() {});
             }
             devicesToActivateState[device.uri].activated = toActivate; 
@@ -249,32 +250,45 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         let device = element[0];
         // make sure that device state exists
         if (!devicesToActivateState.hasOwnProperty(device.uri)) {
-            devicesToActivateState[device.uri] = {activated: false, last_call: (new Date()).getTime()}
+            devicesToActivateState[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime() }
         }
-        getInformations.get_moving_average_power(0, function (err, power) {
+        getInformations.get_moving_average_power(0, function (err, power_list, power) {
             if (err) return next(err);
-            toActivate = false;
-            if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
-                if (-power > device.limit*0.10) {
-                    toActivate = true;
+            let to_activate_normal = false;
+            let to_activate_advanced = false;
+            let last_power = power_list[power_list.length-1];
+            let alpha = 128;
+            if (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) {
+                if ((devicesToActivateState[device.uri].activated == true) && (-power > device.limit*device.power_threshold_percentage)) {
+                    to_activate_normal = true;
                 } else {
-                    toActivate = false;
+                    to_activate_normal = false;
+                }
+                if ((devicesToActivateState[device.uri].activated_advanced == true) && (to_activate_advanced == true && -last_power < 0)) {
+                    to_activate_advanced = false;
                 }
             } else {
-                if (-power> device.limit) {
-                    toActivate = true;
+                if (-power > device.limit) {
+                    to_activate_normal = true;
                 } else {
-                    toActivate = false;
+                    to_activate_normal = false;
                 }
+                if ((devicesToActivateState[device.uri].activated_advanced == false) && (-last_power > device.limit*device.power_threshold_percentage)) {
+                    to_activate_advanced = true;
+                }
+            }
+            if (to_activate_advanced) {
+                alpha = getAlpha(-last_power, device.limit);
             }
             res.json({
                 activated: devicesToActivateState[device.uri].activated, 
-                toggle: toActivate, 
+                toggle: to_activate_normal, 
                 time_limit: device.time_limit, 
+                power_threshold_percentage: device.power_threshold_percentage, 
                 limit: device.limit,
                 last_call: devicesToActivateState[device.uri].last_call, 
-                last_call_str: (new Date(devicesToActivateState[device.uri].last_call)).toGMTString(), 
                 power: -power,
+                alpha: alpha,
                 info_type: 'debug'
             });
         });
