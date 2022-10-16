@@ -23,6 +23,7 @@
 	"Device": "Appareil",
 	"Status": "Status",
 	"Activated": "Activé",
+	"Activated (advanced)": "Activé (avancé)",
 	"Disabled": "Désactivé",
 	"Debug device": "Info de l'appareil",
 	"To enable": "A activer",

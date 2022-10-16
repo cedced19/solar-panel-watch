@@ -23,6 +23,7 @@
 	"Device": "Device",
 	"Status": "Status",
 	"Activated": "Activated",
+	"Activated (advanced)": "Activated (advanced)",
 	"Disabled": "Disabled",
 	"Debug device": "Debug device",
 	"To enable": "To enable",

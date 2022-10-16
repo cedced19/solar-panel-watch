@@ -201,6 +201,7 @@ app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
 const devicesToActivate = require('./devices-to-activate.json');
 const devicesToActivateState = {};
 const db_devices_activation = JSONStore('./devices-activation.json');
+
 app.get('/api/device/:name/', (req, res, next) => {
     let element = devicesToActivate.filter(value => {
         return value.uri == req.params.name;
@@ -230,9 +231,9 @@ app.get('/api/device/:name/', (req, res, next) => {
             devicesToActivateState[device.uri].last_call = (new Date()).getTime();
             res.json({toggle: toActivate, time_limit: device.time_limit});
             if (to_activate!= devicesToActivateState[device.uri].activated) {
-                db_devices_activation.post({uri: device.uri, activated: toActivate, time: devicesToActivateState[device.uri].last_call}, function() {});
+                db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devicesToActivateState[device.uri].last_call}, function() {});
             }
-            devicesToActivateState[device.uri].activated = toActivate; 
+            devicesToActivateState[device.uri].activated = to_activate; 
         });
     } else {
         let err = new Error('Device cannot be found.');
@@ -269,10 +270,11 @@ app.get('/api/device/:name/advanced/', (req, res, next) => {
             if (to_activate_advanced) {
                 alpha = getAlpha(-last_power, device.limit);
             }
-            res.json({
-                alpha: alpha,
-                time_limit: device.time_limit
-            });
+            res.json({alpha: alpha, time_limit: device.time_limit});
+            if (to_activate!= devicesToActivateState[device.uri].activated) {
+                db_devices_activation.post({uri: device.uri, activated: to_activate ? 2 : 0, time: devicesToActivateState[device.uri].last_call}, function() {});
+            }
+            devicesToActivateState[device.uri].activated = to_activate; 
         });
     } else {
         let err = new Error('Device cannot be found.');

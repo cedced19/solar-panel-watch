@@ -113,10 +113,14 @@
                             var td2 = document.createElement('td');
                             var td3 = document.createElement('td');
                             td1.innerHTML = prettyDate(value.time);
-                            var text2 = document.createTextNode(prettyName(value.uri));
-                            var text3 = document.createTextNode((value.activated) ? '<%= __("Activated")%>': '<%= __("Disabled")%>');
-                            td2.appendChild(text2);
-                            td3.appendChild(text3);
+                            td2.innerHTML = prettyName(value.uri);
+                            if (value.activated == 1 || value.activated == true) {
+                                td3.innerHTML = '<%= __("Activated")%>';
+                            } else if (value.activated == 2) {
+                                td3.innerHTML = '<%= __("Activated (advanced)")%>';
+                            } else {
+                                td3.innerHTML =  '<%= __("Disabled")%>';
+                            }
                             tr.appendChild(td1);
                             tr.appendChild(td2);
                             tr.appendChild(td3);
