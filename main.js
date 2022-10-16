@@ -242,6 +242,46 @@ app.get('/api/device/:name/', (req, res, next) => {
     }
 });
 
+app.get('/api/device/:name/advanced/', (req, res, next) => {
+    let element = devicesToActivate.filter(value => {
+        return value.uri == req.params.name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        // make sure that device state exists
+        if (!devicesToActivateState.hasOwnProperty(device.uri)) {
+            devicesToActivateState[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime() }
+        }
+        getInformations.req(function (err, power) {
+            if (err) return next(err);
+            let to_activate_advanced = false;
+            let last_power = power_list[power_list.length-1];
+            let alpha = 128;
+            if (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) {
+                if ((devicesToActivateState[device.uri].activated_advanced == true) && (to_activate_advanced == true && -power < 0)) {
+                    to_activate_advanced = false;
+                }
+            } else {
+                if ((devicesToActivateState[device.uri].activated_advanced == false) && (-power > device.limit*device.power_threshold_percentage)) {
+                    to_activate_advanced = true;
+                }
+            }
+            if (to_activate_advanced) {
+                alpha = getAlpha(-last_power, device.limit);
+            }
+            res.json({
+                alpha: alpha,
+                time_limit: device.time_limit
+            });
+        });
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
 app.get('/api/device/:name/debug/', (req, res, next) => {
     let element = devicesToActivate.filter(value => {
         return value.uri == req.params.name;
@@ -283,6 +323,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
             res.json({
                 activated: devicesToActivateState[device.uri].activated, 
                 toggle: to_activate_normal, 
+                toggle_advanced: to_activate_advanced,
                 time_limit: device.time_limit, 
                 power_threshold_percentage: device.power_threshold_percentage, 
                 limit: device.limit,

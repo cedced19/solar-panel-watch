@@ -103,7 +103,10 @@
                     var li4 = document.createElement('li');
                     li4.innerHTML = '<b><%= __("Decision")%></b>: ' + ((data.toggle) ? '<%= __("To enable")%>': '<%= __("To disable")%>');
                     ul.appendChild(li4);
-                    
+
+                    var li4b = document.createElement('li');
+                    li4b.innerHTML = '<b><%= __("Decision (advanced)")%></b>: ' + ((data.toggle_advanced) ? '<%= __("To enable")%>': '<%= __("To disable")%>');
+                    ul.appendChild(li4b);
 
                     var li5 = document.createElement('li');
                     li5.innerHTML = '<b><%= __("Power limit")%></b>: ' + data.limit + ' W';
@@ -116,7 +119,7 @@
                     var li7 = document.createElement('li');
                     li7.innerHTML = '<b>Alpha</b>: ' + data.alpha;
                     ul.appendChild(li7);
-                    
+
                     document.getElementById('loader').style.display = 'none';
             })
             .catch(error => {
