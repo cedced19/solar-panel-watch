@@ -109,7 +109,7 @@ app.get('/api/data/power/:tag/:period', (req, res, next) => {
     |> filter(fn: (r) => r["_measurement"] == "power")
     |> filter(fn: (r) => r["_field"] == "${req.params.tag}")
     |> yield(name: "mean")`
-
+    
     queryApi.queryRows(query, {
         next(row, tableMeta) {
           o = tableMeta.toObject(row);
@@ -124,6 +124,7 @@ app.get('/api/data/power/:tag/:period', (req, res, next) => {
           res.json(csv);
         },
     });
+    
 });
 
 function requestDataForEnergy(period, tag) {
@@ -171,7 +172,7 @@ app.get('/api/data/energy/:period', (req, res, next) => {
 });
 
 app.get('/api/data/energy-request-hist/', (req, res) => {
-    res.json(db_energy.getAll())
+    res.json(db_energy.getAll());
 });
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
@@ -199,7 +200,7 @@ app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
 });
 
 const devicesToActivate = require('./devices-to-activate.json');
-const devicesToActivateState = {};
+const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json');
 
 app.get('/api/device/:name/', (req, res, next) => {
@@ -209,13 +210,13 @@ app.get('/api/device/:name/', (req, res, next) => {
     if (element.length > 0) {
         let device = element[0];
         // make sure that device state exists
-        if (!devicesToActivateState.hasOwnProperty(device.uri)) {
-            devicesToActivateState[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime()}
+        if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+            devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.limit }
         }
         getInformations.get_moving_average_power(0, function (err, power_list, power) {
             if (err) return next(err);
             to_activate= false;
-            if ((devicesToActivateState[device.uri].activated == true) && (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
+            if ((devices_to_activate_state[device.uri].activated == true) && (devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
                 if (-power > device.limit*device.power_threshold_percentage) {
                     to_activate= true;
                 } else {
@@ -223,17 +224,17 @@ app.get('/api/device/:name/', (req, res, next) => {
                 }
             } else {
                 if (-power > device.limit) {
-                    to_activate= true;
+                    to_activate = true;
                 } else {
-                    to_activate= false;
+                    to_activate = false;
                 }
             }
-            devicesToActivateState[device.uri].last_call = (new Date()).getTime();
-            res.json({toggle: toActivate, time_limit: device.time_limit});
-            if (to_activate!= devicesToActivateState[device.uri].activated) {
-                db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devicesToActivateState[device.uri].last_call}, function() {});
+            res.json({toggle: to_activate, time_limit: device.time_limit});
+            devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
+            if (to_activate!= devices_to_activate_state[device.uri].activated) {
+                db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devices_to_activate_state[device.uri].last_call}, function() {});
             }
-            devicesToActivateState[device.uri].activated = to_activate; 
+            devices_to_activate_state[device.uri].activated = to_activate; 
         });
     } else {
         let err = new Error('Device cannot be found.');
@@ -250,31 +251,41 @@ app.get('/api/device/:name/advanced/', (req, res, next) => {
     if (element.length > 0) {
         let device = element[0];
         // make sure that device state exists
-        if (!devicesToActivateState.hasOwnProperty(device.uri)) {
-            devicesToActivateState[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime() }
+        if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+            devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.limit }
         }
         getInformations.req(function (err, power) {
             if (err) return next(err);
             let to_activate_advanced = false;
-            let last_power = power_list[power_list.length-1];
             let alpha = 128;
-            if (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) {
-                if ((devicesToActivateState[device.uri].activated_advanced == true) && (to_activate_advanced == true && -power < 0)) {
-                    to_activate_advanced = false;
-                }
+            if ((devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) && (devices_to_activate_state[device.uri].activated_advanced == true) && (-power < 0)) {
+                to_activate_advanced = false;
             } else {
-                if ((devicesToActivateState[device.uri].activated_advanced == false) && (-power > device.limit*device.power_threshold_percentage)) {
+                if ((-power > device.limit*device.power_threshold_percentage)) {
                     to_activate_advanced = true;
+                } else {
+                    to_activate_advanced = false;
                 }
             }
             if (to_activate_advanced) {
-                alpha = getAlpha(-last_power, device.limit);
+                let power_to_consider = -power;
+                if (devices_to_activate_state[device.uri].activated_advanced == true) {
+                    power_to_consider += devices_to_activate_state[device.uri].last_power;
+                }
+                let result = getAlpha(power_to_consider, device.limit);
+                alpha = result.alpha;
+                devices_to_activate_state[device.uri].last_power = result.percentage*device.limit;
+                console.log(result, power_to_consider, -power, devices_to_activate_state[device.uri].last_power)
+            } else {
+                devices_to_activate_state[device.uri].last_power = 0;
             }
             res.json({alpha: alpha, time_limit: device.time_limit});
-            if (to_activate!= devicesToActivateState[device.uri].activated) {
-                db_devices_activation.post({uri: device.uri, activated: to_activate ? 2 : 0, time: devicesToActivateState[device.uri].last_call}, function() {});
+            devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
+            if (to_activate_advanced!= devices_to_activate_state[device.uri].activated_advanced) {
+                db_devices_activation.post({uri: device.uri, activated: to_activate_advanced ? 2 : 0, time: devices_to_activate_state[device.uri].last_call, last_power: last_power}, function() {});
             }
-            devicesToActivateState[device.uri].activated = to_activate; 
+            devices_to_activate_state[device.uri].activated_advanced = to_activate_advanced; 
+            devices_to_activate_state[device.uri].last_call = device.limit;
         });
     } else {
         let err = new Error('Device cannot be found.');
@@ -291,46 +302,60 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
     if (element.length > 0) {
         let device = element[0];
         // make sure that device state exists
-        if (!devicesToActivateState.hasOwnProperty(device.uri)) {
-            devicesToActivateState[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime() }
+        if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+            devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.limit }
         }
         getInformations.get_moving_average_power(0, function (err, power_list, power) {
             if (err) return next(err);
-            let to_activate_normal = false;
+            let to_activate = false;
             let to_activate_advanced = false;
-            let last_power = power_list[power_list.length-1];
+            let last_power_req = power_list[power_list.length-1];
+            let power_decision_debug = device.limit;
             let alpha = 128;
-            if (devicesToActivateState[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) {
-                if ((devicesToActivateState[device.uri].activated == true) && (-power > device.limit*device.power_threshold_percentage)) {
-                    to_activate_normal = true;
+            if ((devices_to_activate_state[device.uri].activated == true) && (devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
+                if (-power > device.limit*device.power_threshold_percentage) {
+                    to_activate= true;
                 } else {
-                    to_activate_normal = false;
-                }
-                if ((devicesToActivateState[device.uri].activated_advanced == true) && (to_activate_advanced == true && -last_power < 0)) {
-                    to_activate_advanced = false;
+                    to_activate= false;
                 }
             } else {
                 if (-power > device.limit) {
-                    to_activate_normal = true;
+                    to_activate = true;
                 } else {
-                    to_activate_normal = false;
+                    to_activate = false;
                 }
-                if ((devicesToActivateState[device.uri].activated_advanced == false) && (-last_power > device.limit*device.power_threshold_percentage)) {
+            }
+            if ((devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) && (devices_to_activate_state[device.uri].activated_advanced == true) && (-last_power_req < 0)) {
+                to_activate_advanced = false;
+            } else {
+                if ((devices_to_activate_state[device.uri].activated_advanced == false) && (-last_power_req > device.limit*device.power_threshold_percentage)) {
                     to_activate_advanced = true;
+                } else {
+                    to_activate_advanced = false;
                 }
             }
             if (to_activate_advanced) {
-                alpha = getAlpha(-last_power, device.limit);
+                let power_to_consider = -power;
+                if (devices_to_activate_state[device.uri].activated_advanced == true) {
+                    power_to_consider += devices_to_activate_state[device.uri].last_power;
+                }
+                let result = getAlpha(power_to_consider, device.limit);
+                alpha = result.alpha;
+                console.log(result, power_to_consider, -power, devices_to_activate_state[device.uri].last_power)
+                power_decision_debug = result.percentage*device.limit;
+            } else {
+                power_decision_debug = 0;
             }
             res.json({
-                activated: devicesToActivateState[device.uri].activated, 
-                toggle: to_activate_normal, 
+                activated: devices_to_activate_state[device.uri].activated, 
+                toggle: to_activate, 
                 toggle_advanced: to_activate_advanced,
                 time_limit: device.time_limit, 
                 power_threshold_percentage: device.power_threshold_percentage, 
                 limit: device.limit,
-                last_call: devicesToActivateState[device.uri].last_call, 
+                last_call: devices_to_activate_state[device.uri].last_call, 
                 power: -power,
+                last_power: power_decision_debug,
                 alpha: alpha,
                 info_type: 'debug'
             });

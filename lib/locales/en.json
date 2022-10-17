@@ -34,5 +34,6 @@
 	"Decision (advanced)": "Decision (advanced)",
 	"Device name": "Device name",
 	"Power limit": "Power limit",
-	"Current power": "Current power"
+	"Current power": "Current power",
+	"Last power command": "Last power command"
 }
