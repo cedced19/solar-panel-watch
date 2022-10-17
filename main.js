@@ -57,6 +57,21 @@ app.get('/graph/power/:period', function(req, res) {
     });
 });
 
+app.get('/graph/power/:period/group-by/:group/', function(req, res) {
+    res.render('graph-power-group', {
+        period: req.params.period,
+        group: req.params.group,
+        timezone: config.timezone
+    });
+});
+
+app.get('/graph/power/:period/activation-hist-plot/', function(req, res) {
+    res.render('graph-power-activation-hist', {
+        period: req.params.period,
+        timezone: config.timezone
+    });
+});
+
 app.get('/energy/:period', function(req, res) {
     res.render('energy', {
         period: req.params.period,
@@ -72,14 +87,6 @@ app.get('/energy-hist/', function(req, res) {
 
 app.get('/activation-hist/', function(req, res) {
     res.render('activation-hist', {
-        timezone: config.timezone
-    });
-});
-
-app.get('/graph/power/:period/group-by/:group/', function(req, res) {
-    res.render('graph-power-group', {
-        period: req.params.period,
-        group: req.params.group,
         timezone: config.timezone
     });
 });
