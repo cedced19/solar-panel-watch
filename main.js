@@ -233,9 +233,9 @@ app.get('/api/device/:name/', (req, res, next) => {
         if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
             devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.limit }
         }
-        getInformations.get_moving_average_power(0, function (err, power_list, power) {
+        getInformations.get_moving_average_power(0, function (err, power) {
             if (err) return next(err);
-            normalDecision(device, power, function (to_activate) {
+            normalDecision(device, power.average, function (to_activate) {
                 res.json({toggle: to_activate, time_limit: device.time_limit});
                 devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
                 if (to_activate!= devices_to_activate_state[device.uri].activated) {
@@ -319,11 +319,11 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
             devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.limit }
         }
-        getInformations.get_moving_average_power(0, function (err, power_list, power_average) {
+        getInformations.get_moving_average_power(0, function (err, power) {
             if (err) return next(err);
-            let last_power_req = power_list[power_list.length-1];
-            advancedDecision(device, power_average, function(alpha) {
-                normalDecision(device, last_power_req, function (to_activate_normal) {
+            let last_power_req = power.list[power.list.length-1];
+            advancedDecision(device, last_power_req, function(alpha) {
+                normalDecision(device, power.average, function (to_activate_normal) {
                     res.json({
                         activated: devices_to_activate_state[device.uri].activated, 
                         toggle: to_activate_normal, 
