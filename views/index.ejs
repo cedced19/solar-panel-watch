@@ -54,7 +54,7 @@
   <% } else{ %>
   <div class="row">
     <div class="column">
-      <div class="card" id="house-consumption-card" style="background-color:<% if(power1<0){ %>#badc58<% } else{ %>#fab1a0<% } %>;">
+      <div class="card" id="house-consumption-card" style="background-color:#<% if(power1<0){ %>badc58<% } else { %>fab1a0<% } %>;">
         <h3><span id="house-consumption"><%= Math.ceil(power1*100)/100 %></span> W</h3>
         <p><%= __('House consumption')%></p>
       </div>
@@ -73,6 +73,21 @@
         <p><%= __('Total Power')%></p>
       </div>
     </div>
+
+    <div class="column">
+      <div class="card">
+        <h3><span id="activated-devices-power"><%= Math.ceil(power_activated_device*100)/100 %></span> W</h3>
+        <p><%= __('Activated devices Power')%></p>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="card" id="available-power-card" style="background-color:#<% if((power_activated_device  + ((power1<0) ? -power1 : 0))>0){ %>badc58<% } else { %>f1f1f1<% } %>;">
+        <h3><span id="available-power"><%= Math.ceil((power_activated_device  + ((power1<0) ? -power1 : 0))*100)/100 %></span> W</h3>
+        <p><%= __('Available Power')%></p>
+      </div>
+    </div>
+
     <div class="column">
       <div class="card">
         <ul>
@@ -96,6 +111,9 @@
     const houseConsumptionCard = document.getElementById('house-consumption-card');
     const solarPanelProductionEl = document.getElementById('solar-panel-production');
     const totalPowerEl = document.getElementById('total-production');
+    const activatedDevicesPowerEl = document.getElementById('activated-devices-power');
+    const availablePowerCard = document.getElementById('available-power-card');
+    const availablePowerEl = document.getElementById('available-power');
 
     function request_data(cb) {
       let url = '/api/data';
@@ -110,12 +128,22 @@
         houseConsumptionEl.textContent = Math.ceil(data.power1*100)/100;
         solarPanelProductionEl.textContent = Math.ceil(data.power2*100)/100;
         totalPowerEl.textContent = Math.ceil((data.power1 + data.power2)*100)/100;
+        activatedDevicesPowerEl.textContent = Math.ceil(data.power_activated_device*100)/100;
+        let availablePower = data.power_activated_device;
+        if (data.power1<0) {
+          availablePower-=data.power1;
+        }
+        availablePowerEl.textContent = Math.ceil(availablePower*100)/100;
         if (data.power1 < 0) {
             houseConsumptionCard.style.background = "#badc58";
         } else {
             houseConsumptionCard.style.background = "#fab1a0";
         }
-          
+        if (availablePower > 0) {
+          availablePowerCard.style.background = "#badc58";
+        } else {
+          availablePowerCard.style.background = "#f1f1f1";
+        }
       });
     }
     let interval = setInterval(update_labels, 10000);

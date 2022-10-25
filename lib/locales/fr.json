@@ -37,5 +37,7 @@
 	"Device name": "Nom de l'appareil",
 	"Power limit": "Limite de puissance",
 	"Current power": "Puissance actuelle",
-	"Last power command": "Dernière puissance commandée"
+	"Last power command": "Dernière puissance commandée",
+	"Activated devices Power": "Puissance consommée par les appareils activés",
+	"Available Power": "Puissance disponible"
 }

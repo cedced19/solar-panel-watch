@@ -7,14 +7,30 @@ const logger = require('morgan');
 const compress = require('compression');
 const minifyTemplate = require('express-beautify').minify;
 const {InfluxDB} = require('@influxdata/influxdb-client');
-const JSONStore = require('json-store-list');
-const db_energy = JSONStore('./energy-query-save.json');
-const config = require('./config.json');
+
 const getInformations = require('./lib/get-informations.js');
 const getAlpha = require('./lib/get-alpha.js');
 const daemonInflux = require('./lib/daemon-influx.js');
 const compute_energy = require('./lib/compute-energy.js');
 
+
+const JSONStore = require('json-store-list');
+
+const config = require('./config.json');
+
+const db_energy = JSONStore('./energy-query-save.json');
+
+const devices_to_activate = require('./devices-to-activate.json');
+const devices_to_activate_state = {};
+const db_devices_activation = JSONStore('./devices-activation.json');
+
+function get_power_from_activated_devices() {
+    let sum = 0;
+    for (let device in devices_to_activate_state) {
+        sum += devices_to_activate_state[device].last_power
+    }
+    return sum;
+}
 
 // Express App
 const app = express();
@@ -45,7 +61,8 @@ app.get('/', function(req, res) {
         res.render('index', {
             error: false,
             power1: data.emeters[0].power,
-            power2: data.emeters[1].power
+            power2: data.emeters[1].power,
+            power_activated_device: get_power_from_activated_devices()
         });
     });
 });
@@ -96,7 +113,8 @@ app.get('/api/data', function(req, res) {
         if (err) return next(err);
         res.json({
             power1: data.emeters[0].power,
-            power2: data.emeters[1].power
+            power2: data.emeters[1].power,
+            power_activated_device: get_power_from_activated_devices()
         });
     });
 });
@@ -206,9 +224,7 @@ app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
       });
 });
 
-const devices_to_activate = require('./devices-to-activate.json');
-const devices_to_activate_state = {};
-const db_devices_activation = JSONStore('./devices-activation.json');
+
 
 function normalDecision(device, power, cb) {
     to_activate= false;
@@ -402,7 +418,13 @@ app.listen(port, () => {
     console.log(require('server-welcome')(port, 'Solar panel watch'));
 });
 
-// Write data
+// Write data to influx
 setInterval(function () {
     daemonInflux(app.get('env') === 'development');
-},config.influx_update_delay)
+},config.influx_update_delay);
+
+// Get data updated
+setInterval(function () {
+    getInformations.update(app.get('env') === 'development');
+},config.shelly_req_thresold);
+
