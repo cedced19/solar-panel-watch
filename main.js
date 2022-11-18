@@ -197,7 +197,9 @@ app.get('/api/data/energy/:period', (req, res, next) => {
 });
 
 app.get('/api/data/energy-request-hist/', (req, res) => {
-    res.json(db_energy.getAll());
+    db_energy.save(function () {
+        res.json(db_energy.getAll());
+    });
 });
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
@@ -377,7 +379,9 @@ app.get('/device/:device_name', (req, res, next) => {
 });
 
 app.get('/api/data/activation-hist/', (req, res) => {
-    res.json(db_devices_activation.getAll())
+    db_devices_activation.save(function () {
+        res.json(db_devices_activation.getAll());
+    });
 });
 
 app.use(function (req, res, next) {
