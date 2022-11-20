@@ -6,7 +6,6 @@ const path = require('path');
 const logger = require('morgan');
 const compress = require('compression');
 const minifyTemplate = require('express-beautify').minify;
-const {InfluxDB} = require('@influxdata/influxdb-client');
 
 const getInformations = require('./lib/get-informations.js');
 const getAlpha = require('./lib/get-alpha.js');
@@ -119,62 +118,8 @@ app.get('/api/data', function(req, res) {
     });
 });
 
-const token = config.influx_tocken;
-const org = config.influx_org;
-const bucket = config.influx_bucket;
-const defaultTag = config.influx_default_tag;
-const url = config.influx_url;
-const client = new InfluxDB({url: url, token: token});
-const queryApi = client.getQueryApi(org);
-
-function requestDataOverPeriod(period, tag) {
-    return new Promise(function(resolve, reject) {
-        let csv = []
-            const query = 
-            `from(bucket: "${bucket}")
-            |> range(start: -${period})
-            |> filter(fn: (r) => r["_measurement"] == "power")
-            |> filter(fn: (r) => r["_field"] == "${tag}")
-            |> yield(name: "mean")`
-
-            queryApi.queryRows(query, {
-                next(row, tableMeta) {
-                    o = tableMeta.toObject(row);
-                    csv.push(o);
-                },
-                reject,
-                complete() {
-                    resolve(csv);
-                }
-            });
-    });
-}
-
-function requestDataOverPeriodGroupBy(period, tag, group) {
-    return new Promise(function(resolve, reject) {
-        let csv = []
-            const query = 
-            `from(bucket: "${bucket}")
-            |> range(start: -${period})
-            |> filter(fn: (r) => r["_measurement"] == "power")
-            |> filter(fn: (r) => r["_field"] == "${tag}")
-            |> aggregateWindow(fn: mean, every: ${group}, createEmpty: false)`
-
-            queryApi.queryRows(query, {
-                next(row, tableMeta) {
-                    o = tableMeta.toObject(row);
-                    csv.push(o);
-                },
-                reject,
-                complete() {
-                    resolve(csv);
-                }
-            });
-    });
-}
-
 app.get('/api/data/power/:tag/:period', (req, res, next) => {
-    requestDataOverPeriod(req.params.period, req.params.tag).then(function (data) {
+    influxLib.requestDataOverPeriod(req.params.period, req.params.tag).then(function (data) {
         res.json(data);
     }, function (error) {
         error.status = 500;
@@ -184,7 +129,7 @@ app.get('/api/data/power/:tag/:period', (req, res, next) => {
 });
 
 app.get('/api/data/energy/:period', (req, res, next) => {
-    const promises = [requestDataOverPeriod(req.params.period, 'power1'), requestDataOverPeriod(req.params.period, 'power2')];
+    const promises = [influxLib.requestDataOverPeriod(req.params.period, 'power1'), influxLib.requestDataOverPeriod(req.params.period, 'power2')];
     Promise.all(promises).then(function (data) {
         try {
             let energy_data = computeEnergy(data[0],data[1]);
@@ -210,8 +155,8 @@ app.get('/api/data/energy-request-hist/', (req, res) => {
     });
 });
 
-app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
-    requestDataOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
+app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res, next) => {
+    influxLib.requestDataOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
         res.json(data);
     }, function (error) {
         error.status = 500;
