@@ -198,6 +198,7 @@ function normalDecisionReq(device, res) {
                 db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devices_to_activate_state[device.uri].last_call}, function() {});
             }
             devices_to_activate_state[device.uri].activated = to_activate; 
+            influxLib.writePower(app.get('env') === 'development', device.uri, to_activate ? device.power_limit : 0);
         })
     });
 };
@@ -272,6 +273,7 @@ function advancedDecisionReq(device, res) {
             if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
                 db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 0 : 2, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
             }
+            influxLib.writePower(app.get('env') === 'development', device.uri, devices_to_activate_state[device.uri].last_power);
         });
         
     });
