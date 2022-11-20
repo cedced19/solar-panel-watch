@@ -226,8 +226,6 @@ app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res) => {
       });
 });
 
-
-
 function normalDecision(device, power, cb) {
     to_activate= false;
     if ((devices_to_activate_state[device.uri].activated == true) && (devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000)) {
@@ -247,27 +245,46 @@ function normalDecision(device, power, cb) {
     cb(to_activate);
 }
 
+function normalDecisionReq(device, res) {
+    // make sure that device state exists
+    if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+        devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.power_limit }
+    }
+    getInformations.get_moving_average_power(0, function (err, power) {
+        if (err) return next(err);
+        normalDecision(device, power.average, function (to_activate) {
+            res.json({toggle: to_activate, time_limit: device.time_limit});
+            devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
+            if (to_activate!= devices_to_activate_state[device.uri].activated) {
+                db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devices_to_activate_state[device.uri].last_call}, function() {});
+            }
+            devices_to_activate_state[device.uri].activated = to_activate; 
+        })
+    });
+};
+
+app.get('/api/device/id/:id/', (req, res, next) => {
+    let element = devices_to_activate.filter(value => {
+        return value.ids.includes(req.params.id);
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        normalDecisionReq(device, res);
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
 app.get('/api/device/:name/', (req, res, next) => {
     let element = devices_to_activate.filter(value => {
         return value.uri == req.params.name;
     });
     if (element.length > 0) {
         let device = element[0];
-        // make sure that device state exists
-        if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-            devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.power_limit }
-        }
-        getInformations.get_moving_average_power(0, function (err, power) {
-            if (err) return next(err);
-            normalDecision(device, power.average, function (to_activate) {
-                res.json({toggle: to_activate, time_limit: device.time_limit});
-                devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
-                if (to_activate!= devices_to_activate_state[device.uri].activated) {
-                    db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devices_to_activate_state[device.uri].last_call}, function() {});
-                }
-                devices_to_activate_state[device.uri].activated = to_activate; 
-            })
-        });
+        normalDecisionReq(device, res);
     } else {
         let err = new Error('Device cannot be found.');
         err.status = 404;
@@ -303,27 +320,46 @@ function advancedDecision(device, power, cb) {
     cb(alpha);
 }
 
+function advancedDecisionReq(device, res) {
+    // make sure that device state exists
+    if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.power_limit }
+    }
+    getInformations.req(function (err, power) {
+        if (err) return next(err);
+        advancedDecision(device, power, function(alpha) {
+            res.json({alpha: alpha, time_limit: device.time_limit});
+            devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
+            if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
+                db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 0 : 2, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
+            }
+        });
+        
+    });
+};
+
+app.get('/api/device/id/:id/advanced/', (req, res, next) => {
+    let element = devices_to_activate.filter(value => {
+        return value.ids.includes(req.params.id);
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        advancedDecisionReq(device, res);
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
 app.get('/api/device/:name/advanced/', (req, res, next) => {
     let element = devices_to_activate.filter(value => {
         return value.uri == req.params.name;
     });
     if (element.length > 0) {
         let device = element[0];
-        // make sure that device state exists
-        if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-            devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.power_limit }
-        }
-        getInformations.req(function (err, power) {
-            if (err) return next(err);
-            advancedDecision(device, power, function(alpha) {
-                res.json({alpha: alpha, time_limit: device.time_limit});
-                devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
-                if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
-                    db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 0 : 2, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
-                }
-            });
-            
-        });
+        advancedDecisionReq(device, res);
     } else {
         let err = new Error('Device cannot be found.');
         err.status = 404;
