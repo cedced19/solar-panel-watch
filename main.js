@@ -264,7 +264,7 @@ function advancedDecision(device, power, cb) {
     let to_activate_advanced = false;
     let alpha = 128;
     if (morePriorityDevicesActivated(device)) {
-        if ((devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) && (devices_to_activate_state[device.uri].activated_advanced == true) && (-power < 0)) {
+        if ((devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) && (devices_to_activate_state[device.uri].activated_advanced == true) && (-device.power_limit*device.power_threshold_percentage < 0)) {
                 to_activate_advanced = false;
         } else {
             if ((-power > device.power_limit*device.power_threshold_percentage)) {
