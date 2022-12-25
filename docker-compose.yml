@@ -1,0 +1,10 @@
+version: '3'
+services:
+  node: 
+    image: node:16
+    network_mode: host
+    command: sh -c "node main.js"
+    restart: always
+    working_dir: /app
+    volumes:
+      - ./:/app
