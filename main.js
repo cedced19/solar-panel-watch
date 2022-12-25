@@ -182,8 +182,9 @@ function morePriorityDevicesActivated(device) {
         if (device_considered == device.uri) {
             return true;
         }
-        if ((new Date()).getTime() - devices_to_activate_state[device_considered].last_call < 120000 && devices_to_activate_state[device_considered].last_power == 0) {
-            // check that the device is connected ot that the device has been activated (ie power delivred)
+        if ((new Date()).getTime() - devices_to_activate_state[device_considered].last_call < 120000 && devices_to_activate_state[device_considered].last_power < devices_to_activate_state[device_considered].power_limit*0.90) {
+            // check that the device is connected (last request inferior as 2min)
+            // and that the device has been activated (not more that 90% of the full power is delivred)
             return false;
         }
     }
