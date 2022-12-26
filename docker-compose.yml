@@ -6,5 +6,10 @@ services:
     command: sh -c "node main.js"
     restart: always
     working_dir: /app
+    init: true
     volumes:
       - ./:/app
+      - /repos/server-config/solar-panel-watch/config.json:/app/config.json # to be changed
+    environment:
+      - NODE_ENV=production
+      - PORT=8889
