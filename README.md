@@ -40,3 +40,10 @@ Watch over electricity consumption from my house.
     }
 ]
 ```
+
+## docker
+
+```
+sudo docker compose up
+sudo docker compose -f docker-compose-npm-install.yml up
+```
