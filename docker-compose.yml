@@ -9,6 +9,8 @@ services:
     init: true
     volumes:
       - ./:/app
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
       - /repos/server-config/solar-panel-watch/config.json:/app/config.json # to be changed
     environment:
       - NODE_ENV=production
