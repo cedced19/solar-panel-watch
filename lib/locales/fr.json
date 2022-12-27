@@ -40,5 +40,6 @@
 	"Last power command": "Dernière puissance commandée",
 	"Activated devices Power": "Puissance consommée par les appareils activés",
 	"Available Power": "Puissance disponible",
-	"Power threshold percentage": "Pourcentage de puissance limite"
+	"Power threshold percentage": "Pourcentage de puissance limite",
+	"Connected Devices": "Appareils connectés"
 }

@@ -87,7 +87,18 @@
         <p><%= __('Available Power')%></p>
       </div>
     </div>
-
+    <% if(list_devices.length){ %>
+      <div class="column">
+        <div class="card">
+          <p><%= __('Connected Devices')%></p>
+          <ul>
+            <% for(var i=0; i < list_devices.length; i++) { %>
+              <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a></li>
+            <% } %>
+          </ul>
+        </div>
+      </div>
+    <% } %>
     <div class="column">
       <div class="card">
         <ul>

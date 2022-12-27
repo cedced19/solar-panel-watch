@@ -40,5 +40,6 @@
 	"Last power command": "Last power command",
 	"Activated devices Power": "Activated devices Power",
 	"Available Power": "Available Power",
-	"Power threshold percentage": "Power threshold percentage"
+	"Power threshold percentage": "Power threshold percentage",
+	"Connected Devices": "Connected Devices"
 }

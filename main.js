@@ -41,6 +41,13 @@ function get_power_from_activated_devices() {
     }
     return sum;
 }
+function pretty_name(name) {
+    name = name.replace('-', ' ');
+    let words = name.split(' ');
+    return words.map((word) => { 
+        return word[0].toUpperCase() + word.substring(1); 
+    }).join(' ');
+}
 
 // Express App
 const app = express();
@@ -72,7 +79,9 @@ app.get('/', function(req, res) {
             error: false,
             power1: data.emeters[0].power,
             power2: data.emeters[1].power,
-            power_activated_device: get_power_from_activated_devices()
+            power_activated_device: get_power_from_activated_devices(),
+            list_devices: Object.keys(devices_to_activate_state),
+            pretty_name: pretty_name
         });
     });
 });
@@ -278,7 +287,7 @@ function advancedDecision(device, power, cb) {
 function advancedDecisionReq(device, res) {
     // make sure that device state exists
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.power_limit }
+        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.power_limit, last_alpha: 128 }
     }
     getInformations.get_moving_average_power(0, function (err, power) {
         if (err) return next(err);
@@ -288,8 +297,11 @@ function advancedDecisionReq(device, res) {
             if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
                 db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 0 : 2, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
             }
+            if (alpha != devices_to_activate_state[device.uri].last_alpha) {
+                influxLib.writePower(app.get('env') === 'development', device.uri, devices_to_activate_state[device.uri].last_power);
+            }            
             devices_to_activate_state[device.uri].activated_advanced = alpha < 128; 
-            influxLib.writePower(app.get('env') === 'development', device.uri, devices_to_activate_state[device.uri].last_power);
+            devices_to_activate_state[device.uri].last_alpha = alpha; 
         });
         
     });
