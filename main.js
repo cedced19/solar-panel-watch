@@ -304,7 +304,7 @@ function advancedDecisionReq(device, res) {
             res.json({alpha: alpha, time_limit: device.time_limit});
             devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
             if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
-                db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 0 : 2, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
+                db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 2 : 0, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
             }
             if (alpha != devices_to_activate_state[device.uri].last_alpha) {
                 influxLib.writePower(app.get('env') === 'development', device.uri, devices_to_activate_state[device.uri].last_power);
