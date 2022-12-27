@@ -2,8 +2,8 @@
     {
         "uri": "chauffe-eau",
         "power_limit": 400,
-        "time_limit": 10000,
-        "power_threshold_percentage": 0.015,
+        "time_limit": 5000,
+        "power_threshold_percentage": 0.04,
         "ids": ["QQqR9"]
     }
 ]
