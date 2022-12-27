@@ -347,7 +347,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                         power_threshold_percentage: device.power_threshold_percentage, 
                         limit: device.power_limit,
                         last_call: devices_to_activate_state[device.uri].last_call, 
-                        power: -last_power_req,
+                        power: -power.average,
                         last_power: devices_to_activate_state[device.uri].last_power,
                         alpha: alpha,
                         info_type: 'debug'
