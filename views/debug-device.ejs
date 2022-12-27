@@ -121,7 +121,7 @@
                     ul.appendChild(li7);
 
                     var li8 = document.createElement('li');
-                    li8.innerHTML = '<b><%= __("Last power command")%></b>: ' + data.last_power + ' W';
+                    li8.innerHTML = '<b><%= __("Last power command")%></b>: ' + Math.floor(data.last_power) + ' W';
                     ul.appendChild(li8);
 
                     var li9 = document.createElement('li');
