@@ -261,30 +261,15 @@ app.get('/api/device/:name/', (req, res, next) => {
 });
 
 function advancedDecision(device, power, cb) {
-    let to_activate_advanced = false;
     let alpha = 128;
     if (morePriorityDevicesActivated(device)) {
-        if ((devices_to_activate_state[device.uri].last_call + device.time_limit < (new Date()).getTime() + 1000) && (devices_to_activate_state[device.uri].activated_advanced == true) && (-device.power_limit*device.power_threshold_percentage < 0)) {
-                to_activate_advanced = false;
-        } else {
-            if ((-power > device.power_limit*device.power_threshold_percentage)) {
-                to_activate_advanced = true;
-            } else {
-                to_activate_advanced = false;
-            }
+        let power_to_consider = -power;
+        if (devices_to_activate_state[device.uri].activated_advanced == true) {
+            power_to_consider += devices_to_activate_state[device.uri].last_power;
         }
-        if (to_activate_advanced) {
-            let power_to_consider = -power;
-            if (devices_to_activate_state[device.uri].activated_advanced == true) {
-                power_to_consider += devices_to_activate_state[device.uri].last_power;
-            }
-            let result = getAlpha(power_to_consider, device.power_limit);
-            alpha = result.alpha;
-            devices_to_activate_state[device.uri].last_power = result.percentage*device.power_limit;
-        } else {
-            devices_to_activate_state[device.uri].last_power = 0;
-        }
-        devices_to_activate_state[device.uri].activated_advanced = to_activate_advanced; 
+        let result = getAlpha(power_to_consider, device.power_limit);
+        alpha = result.alpha;
+        devices_to_activate_state[device.uri].last_power = result.percentage*device.power_limit;
     }
     cb(alpha);
 }
@@ -294,14 +279,15 @@ function advancedDecisionReq(device, res) {
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
         devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: device.power_limit }
     }
-    getInformations.req(function (err, power) {
+    getInformations.get_moving_average_power(0, function (err, power) {
         if (err) return next(err);
-        advancedDecision(device, power, function(alpha) {
+        advancedDecision(device, power.average, function(alpha) {
             res.json({alpha: alpha, time_limit: device.time_limit});
             devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
             if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
                 db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 0 : 2, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
             }
+            devices_to_activate_state[device.uri].activated_advanced = alpha < 128; 
             influxLib.writePower(app.get('env') === 'development', device.uri, devices_to_activate_state[device.uri].last_power);
         });
         
@@ -350,8 +336,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         }
         getInformations.get_moving_average_power(0, function (err, power) {
             if (err) return next(err);
-            let last_power_req = power.list[power.list.length-1];
-            advancedDecision(device, last_power_req, function(alpha) {
+            advancedDecision(device, power.average, function(alpha) {
                 normalDecision(device, power.average, function (to_activate_normal) {
                     res.json({
                         activated: devices_to_activate_state[device.uri].activated, 
