@@ -272,16 +272,25 @@ app.get('/api/device/:name/', (req, res, next) => {
 
 function advancedDecision(device, power, cb) {
     let alpha = 128;
+    let percentage = 0;
     if (morePriorityDevicesActivated(device)) {
         let power_to_consider = -power;
+        console.log("[" + device.uri + "] Power to consider: " + power_to_consider);
+        //power_to_consider = 100; //for test
+        //console.log("[" + device.uri + "] Power to consider (for test): " + power_to_consider); // for test
         if (devices_to_activate_state[device.uri].activated_advanced == true) {
             power_to_consider += devices_to_activate_state[device.uri].last_power;
         }
         let result = getAlpha(power_to_consider, device.power_limit);
         alpha = result.alpha;
+        percentage = result.percentage;
         devices_to_activate_state[device.uri].last_power = result.percentage*device.power_limit;
+        if (app.get('env') === 'development') {
+            console.log("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].last_power + " W (" + percentage*100 + "%)")
+        }
+        //alpha = 128; // for test
     }
-    cb(alpha);
+    cb(alpha, percentage);
 }
 
 function advancedDecisionReq(device, res) {
