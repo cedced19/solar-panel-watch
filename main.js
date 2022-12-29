@@ -343,19 +343,20 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         getInformations.req(function (err, save) {
             if (err) return next(err);
             let power = save.emeters[0].power;
-            let to_activate_normal = normalDecision(device, power);
-            let {alpha, percentage} = advancedDecision(device, power+device.power_limit*device.power_threshold_percentage);
             res.json({
                 activated: devices_to_activate_state[device.uri].activated, 
-                toggle: to_activate_normal, 
-                toggle_advanced: (alpha < 128),
+                toggle: devices_to_activate_state[device.uri].requested_toggle, 
+                toggle_advanced: devices_to_activate_state[device.uri].activated_advanced,
                 time_limit: device.time_limit, 
                 power_threshold_percentage: device.power_threshold_percentage, 
                 limit: device.power_limit,
                 last_call: devices_to_activate_state[device.uri].last_call, 
-                power: -power.average,
+                power: -power,
                 last_power: devices_to_activate_state[device.uri].last_power,
-                alpha: alpha,
+                requested_power: devices_to_activate_state[device.uri].requested_power,
+                last_alpha: devices_to_activate_state[device.uri].last_alpha,
+                requested_alpha: devices_to_activate_state[device.uri].requested_alpha,
+                type: type,
                 info_type: 'debug'
             });
         });

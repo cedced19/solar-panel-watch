@@ -118,16 +118,28 @@
                     ul.appendChild(li6);
 
                     var li7 = document.createElement('li');
-                    li7.innerHTML = '<b>Alpha</b>: ' + data.alpha;
+                    li7.innerHTML = '<b><%= __("Last alpha")%></b>: ' + data.last_alpha;
                     ul.appendChild(li7);
+
+                    var li11 = document.createElement('li');
+                    li11.innerHTML = '<b><%= __("Requested alpha")%></b>: ' + data.requested_alpha;
+                    ul.appendChild(li11);
 
                     var li8 = document.createElement('li');
                     li8.innerHTML = '<b><%= __("Last power command")%></b>: ' + Math.floor(data.last_power) + ' W';
                     ul.appendChild(li8);
 
+                    var li10 = document.createElement('li');
+                    li10.innerHTML = '<b><%= __("Requested power command")%></b>: ' + Math.floor(data.requested_power) + ' W';
+                    ul.appendChild(li10);
+
                     var li9 = document.createElement('li');
                     li9.innerHTML = '<b><%= __("Power threshold percentage")%></b>: ' + data.power_threshold_percentage*100 + ' %';
                     ul.appendChild(li9);
+
+                    var li12 = document.createElement('li');
+                    li12.innerHTML = '<b><%= __("Type")%></b>: ' + data.type;
+                    ul.appendChild(li12);
 
                     document.getElementById('loader').style.display = 'none';
             })

@@ -37,9 +37,13 @@
 	"Device name": "Nom de l'appareil",
 	"Power limit": "Limite de puissance",
 	"Current power": "Puissance actuelle",
-	"Last power command": "Dernière puissance commandée",
+	"Last power command": "Dernière puissance envoyée",
 	"Activated devices Power": "Puissance consommée par les appareils activés",
 	"Available Power": "Puissance disponible",
 	"Power threshold percentage": "Pourcentage de puissance limite",
-	"Connected Devices": "Appareils connectés"
+	"Connected Devices": "Appareils connectés",
+	"Type": "Type",
+	"Requested power command": "Puissance demandée",
+	"Requested alpha": "Alpha demandée",
+	"Last alpha": "Alpha envoyé"
 }

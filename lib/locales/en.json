@@ -41,5 +41,9 @@
 	"Activated devices Power": "Activated devices Power",
 	"Available Power": "Available Power",
 	"Power threshold percentage": "Power threshold percentage",
-	"Connected Devices": "Connected Devices"
+	"Connected Devices": "Connected Devices",
+	"Type": "Type",
+	"Requested power command": "Requested power command",
+	"Requested alpha": "Requested alpha",
+	"Last alpha": "Last alpha"
 }
