@@ -54,7 +54,7 @@ function get_power_from_activated_devices() {
     return sum;
 }
 function pretty_name(name) {
-    name = name.replace('-', ' ');
+    name = name.replaceAll('-', ' ');
     let words = name.split(' ');
     return words.map((word) => { 
         return word[0].toUpperCase() + word.substring(1); 
@@ -337,7 +337,6 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
             let err = new Error('Device not connected yet.');
             err.status = 3;
             res.status(503);
-            next(err);
             return next(err);
         }
         getInformations.req(function (err, save) {
@@ -369,6 +368,12 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
 });
 
 app.get('/device/:device_name', (req, res, next) => {
+    if (!devices_to_activate_state.hasOwnProperty(req.params.device_name)) {
+        let err = new Error('Device not connected yet.');
+        err.status = 3;
+        res.status(503);
+        return next(err);
+    }
     res.render('device-info', {
         timezone: config.timezone,
         device_name: req.params.device_name
