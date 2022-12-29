@@ -80,18 +80,12 @@
             let thirdTrace;
 
             const deviceURI =  '<%= device_name %>';
-            const plotly = (traces, beginDate, endDate) =>{
+            const plotly = (traces) =>{
                 const layout = {
                     title: '<%= __("Power over time")%>',
                     width: window.innerWidth,
                     height: window.innerHeight*0.8,
-                    autoscale: true,
-                    xaxis: {
-                        autorange: true,
-                        range: [beginDate, endDate],
-                        rangeslider: {range: [beginDate, endDate]},
-                        type: 'date'
-                    },
+                    autoscale: true
                 };
                 return Plotly.newPlot('graphs-container', traces, layout);
             }
