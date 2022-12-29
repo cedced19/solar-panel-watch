@@ -300,7 +300,7 @@ function advancedDecisionReq(device, res) {
     }
     getInformations.get_power(0, function (err, power) {
         if (err) return next(err);
-        advancedDecision(device, power-device.power_limit*device.power_threshold_percentage, function(alpha) {
+        advancedDecision(device, power+device.power_limit*device.power_threshold_percentage, function(alpha) {
             res.json({alpha: alpha, time_limit: device.time_limit});
             devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
             if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
@@ -359,7 +359,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         getInformations.get_moving_average_power(0, function (err, power) {
             if (err) return next(err);
             normalDecision(device, power.average, function (to_activate_normal) {
-                advancedDecision(device, power.list[power.list.length-1]-device.power_limit*device.power_threshold_percentage, function(alpha) {
+                advancedDecision(device, power.list[power.list.length-1]+device.power_limit*device.power_threshold_percentage, function(alpha) {
                     res.json({
                         activated: devices_to_activate_state[device.uri].activated, 
                         toggle: to_activate_normal, 
@@ -385,9 +385,17 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
 });
 
 app.get('/device/:device_name', (req, res, next) => {
-    res.render('debug-device', {
+    res.render('device-info', {
         timezone: config.timezone,
         device_name: req.params.device_name
+    });
+});
+
+app.get('/device/:device_name/graph/:period', (req, res, next) => {
+    res.render('device-graph-power', {
+        timezone: config.timezone,
+        device_name: req.params.device_name,
+        period: req.params.period
     });
 });
 
