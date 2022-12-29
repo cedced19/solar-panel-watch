@@ -5,5 +5,12 @@
         "time_limit": 5000,
         "power_threshold_percentage": 0.035,
         "ids": ["QQqR9"]
+    },
+    {
+        "uri": "chauffe-eau-sanitaire",
+        "power_limit": 1000,
+        "time_limit": 5000,
+        "power_threshold_percentage": 0.035,
+        "ids": ["1b9d8"]
     }
 ]
