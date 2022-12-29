@@ -157,7 +157,7 @@
                     name: prettyName(deviceURI),
                     x: applyTZ(unpackData(data, '_time')),
                     y: unpackData(data, '_value'),
-                    line: {color: '#34495e'}
+                    line: {color: '#34495e',shape: 'hv'},
                     } 
                     return traceData        
                 }).catch((error) => {
