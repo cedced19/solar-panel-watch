@@ -445,6 +445,9 @@ setInterval(function () {
             }
             let power = save.emeters[0].power - get_power_from_activated_devices();
             // power = -800; // for test
+            if (power < 0) {
+                writePowerRaw(app.get('env') === 'development', save);
+            }
             //print("Power available: " + power);
             const devices_to_consider = includeElements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
             //print("Devices to consider: ",devices_to_consider);
