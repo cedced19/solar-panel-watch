@@ -235,7 +235,7 @@ function normalDecisionReq(device, res) {
 function advancedDecision(device, power) {
     let alpha = 128;
     let percentage = 0;
-    let power_to_consider = -power;
+    let power_to_consider = -power-device.power_limit*device.power_threshold_percentage;
     if (devices_to_activate_state[device.uri].activated_advanced == true) {
         power_to_consider += devices_to_activate_state[device.uri].last_power;
     }
