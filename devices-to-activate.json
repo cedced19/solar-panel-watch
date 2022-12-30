@@ -3,7 +3,7 @@
         "uri": "chauffe-eau",
         "power_limit": 500,
         "time_limit": 5000,
-        "power_threshold_percentage": 0.035,
+        "power_threshold_percentage": 0.05,
         "ids": ["QQqR9"],
         "priority": 1
     },
@@ -11,7 +11,7 @@
         "uri": "chauffe-eau-sanitaire",
         "power_limit": 1800,
         "time_limit": 5000,
-        "power_threshold_percentage": 0.035,
+        "power_threshold_percentage": 0.05,
         "ids": ["1b9d8"],
         "priority": 2
     }

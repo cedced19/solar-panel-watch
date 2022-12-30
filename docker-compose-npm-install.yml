@@ -3,7 +3,7 @@ services:
   node: 
     image: node:16
     network_mode: host
-    command: sh -c "npm install"
+    command: npm install
     working_dir: /app
     volumes:
       - ./:/app

@@ -3,8 +3,15 @@ services:
   node: 
     image: node:16
     network_mode: host
-    command: sh -c "node main.js"
+    command: node main.js
     restart: always
     working_dir: /app
+    init: true
     volumes:
       - ./:/app
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /repos/server-config/solar-panel-watch/config.json:/app/config.json # to be changed
+    environment:
+      - TZ=Europe/Paris
+      - PORT=8889
