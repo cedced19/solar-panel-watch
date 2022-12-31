@@ -236,9 +236,6 @@ function advancedDecision(device, power) {
     let alpha = 128;
     let percentage = 0;
     let power_to_consider = -power-device.power_limit*device.power_threshold_percentage;
-    if (devices_to_activate_state[device.uri].activated_advanced == true) {
-        power_to_consider += devices_to_activate_state[device.uri].last_power;
-    }
     let result = getAlpha(power_to_consider, device.power_limit);
     alpha = result.alpha;
     percentage = result.percentage;
@@ -444,9 +441,9 @@ setInterval(function () {
                 console.error("Error while requesting data.");
             }
             let power = save.emeters[0].power - get_power_from_activated_devices();
-            // power = -800; // for test
+            //power = -800; // for test
             if (power < 0) {
-                writePowerRaw(app.get('env') === 'development', save);
+                influxLib.writePowerRaw(app.get('env') === 'development', save);
             }
             //print("Power available: " + power);
             const devices_to_consider = includeElements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
