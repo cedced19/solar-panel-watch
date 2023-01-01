@@ -2,6 +2,7 @@
     "House consumption": "House consumption on the network",
     "Solar panel production": "Solar panel production",
     "Total Power": "Total power",
+	"Total Power activated": "Puissance des appareils connectés",
     "Error first page": "An error occured during the loading of the page.",
 	"Power over time": "Power over time (W)",
     "Graph": "Graph",

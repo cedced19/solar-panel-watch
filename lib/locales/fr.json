@@ -2,6 +2,7 @@
 	"House consumption": "Consommation de la maison sur le réseau",
 	"Solar panel production": "Production des panneaux solaires",
 	"Total Power": "Puissance totale consommée",
+	"Total Power activated": "Puissance des appareils connectés",
 	"Error first page": "Une erreur s'est produite pendant le chargement de la page.",
 	"Power over time": "Puissance au cours du temps (W)",
 	"Graph": "Graphique",
