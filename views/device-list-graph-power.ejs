@@ -74,10 +74,11 @@
     </main>
     <script src="/assets/plotly.js"></script>
     <script>
+        const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
+        const color_list = ['#3d3d3d',  '#ff9f1a', '#cd84f1', '#01a3a4', '#e66767', '#546de5'];
         const loadData = () => {
             let firstTrace;
             let secondTrace;
-            const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
 
             const plotly = (traces) =>{
                 const layout = {
@@ -154,7 +155,7 @@
                         name: prettyName(list_devices[el]),
                         x: applyTZ(unpackData(data, '_time')),
                         y: unpackData(data, '_value'),
-                        line: {color: '#34495e',shape: 'hv'},
+                        line: {color: color_list[el],shape: 'hv'},
                         } 
                         return traceData        
                     }).catch((error) => {
@@ -174,7 +175,7 @@
                     y: values[0].y.map(function (num, idx) { return num +values[1].y[idx]; }),
                     line: {color: '#2980b9'}
                 }
-                const sum_values_devices = {
+                /*const sum_values_devices = {
                     type: 'scatter',
                     mode: 'lines',
                     name: '<%= __("Total Power activated")%>',
@@ -187,8 +188,8 @@
                         return num + tmp;
                     }),
                     line: {color: '#5f27cd',shape: 'hv'}
-                }
-                plotly([...values, sum_values, sum_values_devices]);
+                }*/
+                plotly([...values, sum_values]);//, sum_values_devices]);
                 document.getElementById('loader').style.display = 'none';
             });   
         }

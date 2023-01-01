@@ -46,5 +46,6 @@
 	"Type": "Type",
 	"Requested power command": "Puissance demandée",
 	"Requested alpha": "Alpha demandée",
-	"Last alpha": "Alpha envoyé"
+	"Last alpha": "Alpha envoyé",
+	"Graph power from devices": "Graphique de puissance consommée par les appareils"
 }

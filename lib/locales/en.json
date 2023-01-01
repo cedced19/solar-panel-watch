@@ -46,5 +46,6 @@
 	"Type": "Type",
 	"Requested power command": "Requested power command",
 	"Requested alpha": "Requested alpha",
-	"Last alpha": "Last alpha"
+	"Last alpha": "Last alpha",
+	"Graph power from devices": "Graph power from devices"
 }

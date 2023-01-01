@@ -35,11 +35,12 @@ function getPriorityList(devices_to_activate) {
 
 const devices_to_activate_priority_list = getPriorityList(devices_to_activate);
 
-function includeElements(arr1, arr2) {
+function include_elements(arr1, arr2) {
     return arr1.filter(function(element) {
       return arr2.includes(element);
     });
 }
+
 function print(...args) {
     if (app.get('env') === 'development') {
         console.log(...args);
@@ -53,6 +54,7 @@ function get_power_from_activated_devices() {
     }
     return sum;
 }
+
 function pretty_name(name) {
     name = name.replaceAll('-', ' ');
     let words = name.split(' ');
@@ -378,6 +380,15 @@ app.get('/device/:device_name', (req, res, next) => {
     });
 });
 
+app.get('/device/list/graph/:period', (req, res, next) => {
+    res.render('device-list-graph-power', {
+        timezone: config.timezone,
+        list_devices: Object.keys(devices_to_activate_state),
+        period: req.params.period
+    });
+});
+
+
 app.get('/device/:device_name/graph/:period', (req, res, next) => {
     res.render('device-graph-power', {
         timezone: config.timezone,
@@ -385,6 +396,7 @@ app.get('/device/:device_name/graph/:period', (req, res, next) => {
         period: req.params.period
     });
 });
+
 
 app.get('/api/data/activation-hist/', (req, res) => {
     db_devices_activation.save(function () {
@@ -447,7 +459,7 @@ setInterval(function () {
                 influxLib.writePowerRaw(app.get('env') === 'development', save);
             }
             //print("Power available: " + power);
-            const devices_to_consider = includeElements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
+            const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
             //print("Devices to consider: ",devices_to_consider);
             for (let i = 0; i < devices_to_consider.length; i++) {
                 let device = devices_to_activate.filter(value => {
