@@ -453,7 +453,7 @@ setInterval(function () {
             if (err) {
                 console.error("Error while requesting data.");
             }
-            let power = save.emeters[0].power - get_power_from_activated_devices();
+            let power = max(save.emeters[0].power - get_power_from_activated_devices(), -save.emeters[1].power);
             //power = -800; // for test
             if (power < 0) {
                 influxLib.writePowerRaw(app.get('env') === 'development', save);
