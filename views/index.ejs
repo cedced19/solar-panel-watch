@@ -93,7 +93,7 @@
           <p><%= __('Connected Devices')%></p>
           <ul>
             <% for(var i=0; i < list_devices.length; i++) { %>
-              <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a></li>
+              <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a> (<%= Math.floor(device_states[list_devices[i]].last_power) %> W)</li>
             <% } %>
           </ul>
         </div>

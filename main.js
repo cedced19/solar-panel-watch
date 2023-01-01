@@ -93,6 +93,7 @@ app.get('/', function(req, res) {
             power2: data.emeters[1].power,
             power_activated_device: get_power_from_activated_devices(),
             list_devices: Object.keys(devices_to_activate_state),
+            device_states: devices_to_activate_state,
             pretty_name: pretty_name
         });
     });
