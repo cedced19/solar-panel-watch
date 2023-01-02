@@ -93,7 +93,7 @@
           <p><%= __('Connected Devices')%></p>
           <ul>
             <% for(var i=0; i < list_devices.length; i++) { %>
-              <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a> (<%= Math.floor(device_states[list_devices[i]].last_power) %> W)</li>
+              <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a> (<span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W)</li>
             <% } %>
           </ul>
         </div>
@@ -156,6 +156,13 @@
         } else {
           availablePowerCard.style.background = "#f1f1f1";
         }
+        Object.keys(data.device_states).forEach(function (el) {
+          let device = data.device_states[el];
+          let span = document.getElementById(el + '-power');
+          if (span != null) {
+            span.innerHTML = device.last_power;
+          }
+        });
       });
     }
     let interval = setInterval(update_labels, 10000);

@@ -24,7 +24,7 @@ const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json');
 
 
-function getPriorityList(devices_to_activate) {
+function get_priority_list(devices_to_activate) {
     const list = devices_to_activate.sort((a, b) => (a.priority > b.priority) ? 1 : -1);
     const simple_list = [];
     list.forEach(function(el) {       
@@ -33,12 +33,26 @@ function getPriorityList(devices_to_activate) {
     return simple_list;
 }
 
-const devices_to_activate_priority_list = getPriorityList(devices_to_activate);
+const devices_to_activate_priority_list = get_priority_list(devices_to_activate);
 
 function include_elements(arr1, arr2) {
     return arr1.filter(function(element) {
       return arr2.includes(element);
     });
+}
+
+function keep_properties(obj, properties) {
+    const newObj = {};
+    Object.keys(obj).forEach(key => {
+       const newInnerObj = {};
+      properties.forEach(prop => {
+        if (obj[key].hasOwnProperty(prop)) {
+          newInnerObj[prop] = obj[key][prop];
+        }
+      });
+      newObj[key] = newInnerObj;
+    });
+    return newObj;
 }
 
 function print(...args) {
@@ -70,6 +84,7 @@ const port = require('env-port')('8889');
 app.set('port', port);
 
 const i18n = require('./lib/i18n');
+const { cp } = require('fs');
 
 app.use(favicon(path.join(__dirname, 'assets','favicon.ico')));
 
@@ -148,7 +163,8 @@ app.get('/api/data', function(req, res) {
         res.json({
             power1: data.emeters[0].power,
             power2: data.emeters[1].power,
-            power_activated_device: get_power_from_activated_devices()
+            power_activated_device: get_power_from_activated_devices(),
+            device_states: keep_properties(devices_to_activate_state, ['last_power'])
         });
     });
 });
@@ -453,7 +469,7 @@ setInterval(function () {
             if (err) {
                 console.error("Error while requesting data.");
             }
-            let power = max(save.emeters[0].power - get_power_from_activated_devices(), -save.emeters[1].power);
+            let power = Math.max(save.emeters[0].power - get_power_from_activated_devices(), -save.emeters[1].power);
             //power = -800; // for test
             if (power < 0) {
                 influxLib.writePowerRaw(app.get('env') === 'development', save);
