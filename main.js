@@ -21,7 +21,7 @@ const db_energy = JSONStore('./energy-query-save.json');
 
 const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
-const db_devices_activation = JSONStore('./devices-activation.json');
+const db_devices_activation = JSONStore('./devices-activation.json',200);
 
 
 function get_priority_list(devices_to_activate) {
