@@ -259,6 +259,11 @@ function advancedDecision(device, power) {
     alpha = result.alpha;
     percentage = result.percentage;
     devices_to_activate_state[device.uri].requested_power = result.percentage*device.power_limit;
+    if (device.hasOwnProperty('min_alpha')) {
+        if (alpha < device.min_alpha) {
+            alpha = device.min_alpha;
+        }
+    }
     return {alpha, percentage}
 }
 

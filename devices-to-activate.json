@@ -13,6 +13,7 @@
         "time_limit": 3000,
         "power_threshold_percentage": 0.01,
         "ids": ["1b9d8"],
-        "priority": 2
+        "priority": 2,
+        "min_alpha": 6
     }
 ]
