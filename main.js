@@ -237,7 +237,7 @@ function normalDecision(device, power) {
 function normalDecisionReq(device, res) {
     // make sure that device state exists
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-        devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, type: 'normal' }
+        devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, type: 'normal', force_mode: false }
     }
     devices_to_activate_state[device.uri].type = 'normal';
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
@@ -270,7 +270,7 @@ function advancedDecision(device, power) {
 function advancedDecisionReq(device, res) {
     // make sure that device state exists
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, requested_power: 0, type: 'advanced' }
+        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, requested_power: 0, type: 'advanced', force_mode: false }
     }
     devices_to_activate_state[device.uri].type = 'advanced';
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
@@ -312,6 +312,29 @@ app.get('/api/device/:name/', (req, res, next) => {
         console.error('Device cannot be found.');
         res.statusCode = 404;
         res.json({ toggle: false, time_limit: 5000 });
+    }
+});
+
+app.get('/api/device/:name/force/:pass', (req, res, next) => {
+    let element = devices_to_activate.filter(value => {
+        return value.uri == req.params.name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        if (config.force_mode_pass == req.params.pass) {
+            devices_to_activate_state[device.uri].force_mode = !devices_to_activate_state[device.uri].force_mode;
+            res.json({ force_mode: devices_to_activate_state[device.uri].force_mode });
+        } else {
+            let err = new Error('Forbidden.');
+            err.status = 403;
+            res.status(403);
+            next(err); 
+        }
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
     }
 });
 
@@ -387,7 +410,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
 app.get('/device/:device_name', (req, res, next) => {
     if (!devices_to_activate_state.hasOwnProperty(req.params.device_name)) {
         let err = new Error('Device not connected yet.');
-        err.status = 3;
+        err.status = 503;
         res.status(503);
         return next(err);
     }
@@ -486,12 +509,20 @@ setInterval(function () {
                     let to_activate = normalDecision(device, power);
                     devices_to_activate_state[device.uri].requested_toggle = to_activate;
                     devices_to_activate_state[device.uri].requested_power = (to_activate) ? device.power_limit : 0; 
+                    if (devices_to_activate_state[device.uri].force_mode) {
+                        devices_to_activate_state[device.uri].requested_toggle = true;
+                        devices_to_activate_state[device.uri].requested_power = device.power_limit;
+                    }
                     //print("[" + device.uri + "] activated = " + to_activate + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (100%)")
                 }
                 if (devices_to_activate_state[device.uri].type == 'advanced') {
                     let { alpha, percentage } = advancedDecision(device, power);
                     devices_to_activate_state[device.uri].requested_alpha = alpha;
                     devices_to_activate_state[device.uri].requested_power = percentage*device.power_limit;
+                    if (devices_to_activate_state[device.uri].force_mode) {
+                        devices_to_activate_state[device.uri].requested_alpha = 64;
+                        devices_to_activate_state[device.uri].requested_power = 0.5*device.power_limit;
+                    }
                     //print("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (" + percentage*100 + "%)")
                 }
                 power += devices_to_activate_state[device.uri].requested_power;

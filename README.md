@@ -15,7 +15,8 @@ Watch over electricity consumption from my house.
     "influx_update_delay": 15000,
     "influx_url": "https://**********.influxdata.com",
     "timezone": "Europe/Paris",
-    "shelly_req_thresold": 3000
+    "shelly_req_thresold": 3000,
+    "force_mode_pass": "7HaIJtG44d"
 }
 ```
 
