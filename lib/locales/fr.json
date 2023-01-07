@@ -47,5 +47,15 @@
 	"Requested power command": "Puissance demandée",
 	"Requested alpha": "Alpha demandée",
 	"Last alpha": "Alpha envoyé",
-	"Graph power from devices": "Graphique de puissance consommée par les appareils"
+	"Graph power from devices": "Graphique de puissance consommée par les appareils",
+	"Force device": "Forcer",
+	"Force devices": "Forçage des appareils",
+	"Disable device": "Désactiver",
+	"enabled": "activé",
+	"disabled": "désactivé",
+	"No devices": "Aucun appareil connecté",
+	"Settings": "Paramètres",
+	"Percent": "Pourcentage",
+	"Password": "Mot de passe",
+	"Change percent": "Changer le pourcentage"
 }

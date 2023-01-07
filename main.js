@@ -116,6 +116,14 @@ app.get('/', function(req, res) {
     });
 });
 
+app.get('/force/', function(req, res) {
+    res.render('force', {
+        list_devices: Object.keys(devices_to_activate_state),
+        device_states: devices_to_activate_state,
+        pretty_name: pretty_name
+    });
+});
+
 app.get('/graph/power/:period', function(req, res) {
     res.render('graph-power', {
         period: req.params.period,
@@ -168,6 +176,13 @@ app.get('/api/data', function(req, res) {
         });
     });
 });
+
+app.get('/api/data-force', function(req, res) {
+    res.json({
+        device_states: keep_properties(devices_to_activate_state, ['last_power', 'force_mode_percent', 'force_mode'])
+    });
+});
+
 
 app.get('/api/data/power/:tag/:period', (req, res, next) => {
     influxLib.requestDataOverPeriod(req.params.period, req.params.tag).then(function (data) {

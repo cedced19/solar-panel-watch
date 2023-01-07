@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name=viewport content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
+  <title>Solar Panel Watch</title>
+  <link rel=manifest href=/assets/manifest.json>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 10px;
+    }
+    .column {
+      float: left;
+      width: 50%;
+      padding: 0 10px;
+      margin-bottom: 15px;
+    }
+    .row {margin: 0 -5px;}
+    .row:after {
+      content: "";
+      display: table;
+      clear: both;
+    }
+    @media screen and (max-width: 600px) {
+      .column {
+        width: 100%;
+        display: block;
+        margin-bottom: 20px;
+      }
+    }
+    .card {
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+      padding: 16px;
+      text-align: center;
+      background-color: #f1f1f1;
+    }
+    .card ul {
+      list-style-type: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>Solar Panel Watch</h2>
+  <div class="row">
+    <% if(list_devices.length){ %>
+      <div class="column">
+        <div class="card">
+          <p><%= __('Settings')%></p>
+          <p>
+            <label for="password"><%= __('Password')%></label>
+            <input type="password" id="password" name="password">
+            <label for="percent"><%= __('Percent')%></label>
+            <input type="number" id="percent" name="percent" min="0" max="1" step="0.01">
+          </p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="card">
+          <p><%= __('Connected Devices')%></p>
+          <ul>
+            <% for(var i=0; i list_devices.length; i++) { %>
+              <li> 
+                <%= pretty_name(list_devices[i]) %> (<span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled')%><% } else { %><%= __('disabled')%><% } %></span><span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %, <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W)
+                <ul>
+                  <li><a id="<%= list_devices[i] %>-btn-enable" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
+                  <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable device')%></a></li>
+                </ul>
+              </li>
+            <% } %>
+          </ul>
+        </div>
+      </div>
+    <% } else { %>
+      <p><%= __('No devices')%></p>
+    <% } %>
+  </div>
+  <script>
+    const enableLabel = "<%= __('enable')%>";
+    const disableLabel = "<%= __('disabled')%>";
+    const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
+    function request_data(cb) {
+      let url = '/api/data-force';
+      fetch(url)
+      .then(function(res) { return res.json() })
+      .then(function(out) { cb(null, out) })
+      .catch(function(err) { console.error(err); cb(err)});
+    }
+
+    function update_labels() {
+      request_data(function(err, data) {
+        Object.keys(data.device_states).forEach(function (el) {
+          let device = data.device_states[el];
+          let spanPower = document.getElementById(el + '-power');
+          if (spanPower != null) {
+            spanPower.innerHTML = device.last_power;
+          }
+          let spanPercent = document.getElementById(el + '-percent');
+          if (spanPercent != null) {
+            spanPercent.innerHTML = device.force_mode_percent;
+          }
+          let spanMode = document.getElementById(el + '-mode');
+          if (spanMode != null) {
+            spanMode.innerHTML = (device.force_mode) ? enableLabel: disableLabel;
+          }
+        });
+      });
+    }
+    let interval = setInterval(update_labels, 3000);
+    document.addEventListener('visibilitychange', function() {
+        if(document.hidden) {
+          clearInterval(interval);
+        } else {
+          update_labels();
+          interval = setInterval(update_labels, 3000);
+        }
+    });
+  </script>
+</body>
+</html>

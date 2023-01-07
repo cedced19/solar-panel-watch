@@ -47,5 +47,15 @@
 	"Requested power command": "Requested power command",
 	"Requested alpha": "Requested alpha",
 	"Last alpha": "Last alpha",
-	"Graph power from devices": "Graph power from devices"
+	"Graph power from devices": "Graph power from devices",
+	"Force device": "Force",
+	"Force devices": "Force devices",
+	"Disable device": "Disable",
+	"enabled": "enabled",
+	"disabled": "disabled",
+	"No devices": "No device connected",
+	"Settings": "Settings",
+	"Percent": "Percent",
+	"Password": "Password",
+	"Change percent": "Changer percent"
 }
