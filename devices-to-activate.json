@@ -9,7 +9,7 @@
     },
     {
         "uri": "chauffe-eau-sanitaire",
-        "power_limit": 1800,
+        "power_limit": 2400,
         "time_limit": 2500,
         "power_threshold_percentage": 0.01,
         "ids": ["1b9d8"],
