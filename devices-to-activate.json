@@ -2,15 +2,15 @@
     {
         "uri": "chauffe-eau",
         "power_limit": 500,
-        "time_limit": 3000,
+        "time_limit": 2500,
         "power_threshold_percentage": 0.04,
         "ids": ["QQqR9"],
         "priority": 1
     },
     {
         "uri": "chauffe-eau-sanitaire",
-        "power_limit": 2800,
-        "time_limit": 3000,
+        "power_limit": 1800,
+        "time_limit": 2500,
         "power_threshold_percentage": 0.01,
         "ids": ["1b9d8"],
         "priority": 2,
