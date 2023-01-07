@@ -295,10 +295,9 @@ app.get('/api/device/id/:id/', (req, res, next) => {
         let device = element[0];
         normalDecisionReq(device, res);
     } else {
-        let err = new Error('Device cannot be found.');
-        err.status = 404;
-        res.status(404);
-        next(err);
+        console.error('Device cannot be found.');
+        res.statusCode = 404;
+        res.json({ toggle: false, time_limit: 5000 });
     }
 });
 
@@ -310,10 +309,9 @@ app.get('/api/device/:name/', (req, res, next) => {
         let device = element[0];
         normalDecisionReq(device, res);
     } else {
-        let err = new Error('Device cannot be found.');
-        err.status = 404;
-        res.status(404);
-        next(err);
+        console.error('Device cannot be found.');
+        res.statusCode = 404;
+        res.json({ toggle: false, time_limit: 5000 });
     }
 });
 
@@ -325,10 +323,9 @@ app.get('/api/device/id/:id/advanced/', (req, res, next) => {
         let device = element[0];
         advancedDecisionReq(device, res);
     } else {
-        let err = new Error('Device cannot be found.');
-        err.status = 404;
-        res.status(404);
-        next(err);
+        console.error('Device cannot be found.');
+        res.statusCode = 404;
+        res.json({ alpha: 128, time_limit: 5000 });
     }
 });
 
@@ -340,10 +337,9 @@ app.get('/api/device/:name/advanced/', (req, res, next) => {
         let device = element[0];
         advancedDecisionReq(device, res);
     } else {
-        let err = new Error('Device cannot be found.');
-        err.status = 404;
-        res.status(404);
-        next(err);
+        console.error('Device cannot be found.');
+        res.statusCode = 404;
+        res.json({ alpha: 128, time_limit: 5000 });
     }
 });
 
