@@ -141,6 +141,14 @@
                     li12.innerHTML = '<b><%= __("Type")%></b>: ' + data.type;
                     ul.appendChild(li12);
 
+                    var li13 = document.createElement('li');
+                    li13.innerHTML = '<b><%= __("Forcing status")%></b>: ' + ((data.force_mode) ? '<%= __("enabled forcing")%>': '<%= __("disabled forcing")%>');
+                    ul.appendChild(li13);
+
+                    var li14 = document.createElement('li');
+                    li14.innerHTML = '<b><%= __("Forcing percent")%></b>: ' + (data.force_mode_percent*100) + ' %';
+                    ul.appendChild(li14);
+
                     document.getElementById('loader').style.display = 'none';
             })
             .catch(error => {

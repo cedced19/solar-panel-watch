@@ -443,7 +443,9 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 last_alpha: devices_to_activate_state[device.uri].last_alpha,
                 requested_alpha: devices_to_activate_state[device.uri].requested_alpha,
                 type: devices_to_activate_state[device.uri].type,
-                info_type: 'debug'
+                info_type: 'debug',
+                force_mode: devices_to_activate_state[device.uri].force_mode,
+                force_mode_percent: devices_to_activate_state[device.uri].force_mode_percent
             });
         });
     } else {

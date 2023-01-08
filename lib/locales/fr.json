@@ -60,5 +60,7 @@
 	"Change percent": "Changer le pourcentage",
 	"Successfull request": "Demande réussie.",
 	"Error requesting": "Erreur: veuillez rééssayer.",
-	"Forbidden": "Interdit: mauvais mot de passe."
+	"Forbidden": "Interdit: mauvais mot de passe.",
+	"Forcing status": "Status forçage",
+	"Forcing percent": "Pourcentage de forçage"
 }
