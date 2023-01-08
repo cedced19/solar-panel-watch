@@ -66,14 +66,15 @@
           <ul>
             <% for(var i=0; i list_devices.length; i++) { %>
               <li> 
-                <%= pretty_name(list_devices[i]) %> (<span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled')%><% } else { %><%= __('disabled')%><% } %></span><span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %, <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W)
+                <%= pretty_name(list_devices[i]) %> (<span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled forcing')%><% } else { %><%= __('disabled forcing')%><% } %></span><span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %, <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W)
                 <ul>
                   <li><a id="<%= list_devices[i] %>-btn-enable" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
-                  <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable device')%></a></li>
+                  <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable force device')%></a></li>
                 </ul>
               </li>
             <% } %>
           </ul>
+          <p id="res"></p>
         </div>
       </div>
     <% } else { %>
@@ -81,9 +82,74 @@
     <% } %>
   </div>
   <script>
-    const enableLabel = "<%= __('enable')%>";
-    const disableLabel = "<%= __('disabled')%>";
+    const enableLabel = "<%= __('enabled forcing')%>";
+    const disableLabel = "<%= __('disabled forcing')%>";
     const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
+    const resP = document.getElementById('error');
+    const password = document.getElementById('password');
+    const percent = document.getElementById('percent');
+
+    list_devices.forEach(function (el) {
+          let buttonEnable = document.getElementById(el + '-btn-enable');
+          let buttonDisable = document.getElementById(el + '-btn-disable');
+          buttonEnable.addEventListener('click', (event) => {
+            event.preventDefault();
+
+            fetch('/api/device/' + el + '/force/' + password.value + '/' + percent.value)
+              .then((response) => {
+                  if (!response.ok) {
+                    if (response.status == 403) {
+                      resP.innerHTML = "<%= __('Forbiden')%>";
+                    } else {
+                      resP.innerHTML = "<%= __('Error requesting')%>";
+                    }
+                    throw new Error(`Error HTTP : ${response.status}`);
+                  }
+                  return response.json();
+               })
+              .then((data) => {
+                let spanPercent = document.getElementById(el + '-percent');
+                if (spanPercent != null) {
+                  spanPercent.innerHTML = data.percent;
+                }
+                let spanMode = document.getElementById(el + '-mode');
+                if (spanMode != null) {
+                  spanMode.innerHTML = (device.force_mode) ? enableLabel: disableLabel;
+                }
+                resP.innerHTML = "<%= __('Successfull request.')%>";
+              })
+              .catch((error) => console.error(error));
+          });
+          buttonDisable.addEventListener('click', (event) => {
+            event.preventDefault();
+
+            fetch('/api/device/' + el + '/force/' + password.value + '/disable')
+              .then((response) => {
+                  if (!response.ok) {
+                    if (response.status == 403) {
+                      resP.innerHTML = "<%= __('Forbidden')%>";
+                    } else {
+                      resP.innerHTML = "<%= __('Error requesting')%>";
+                    }
+                    throw new Error(`Error HTTP : ${response.status}`);
+                  }
+                  return response.json();
+               })
+              .then((data) => {
+                let spanPercent = document.getElementById(el + '-percent');
+                if (spanPercent != null) {
+                  spanPercent.innerHTML = data.percent;
+                }
+                let spanMode = document.getElementById(el + '-mode');
+                if (spanMode != null) {
+                  spanMode.innerHTML = (device.force_mode) ? enableLabel: disableLabel;
+                }
+                resP.innerHTML = "<%= __('Successfull request')%>";
+              })
+              .catch((error) => console.error(error));
+          });
+    });
+
     function request_data(cb) {
       let url = '/api/data-force';
       fetch(url)
@@ -111,13 +177,13 @@
         });
       });
     }
-    let interval = setInterval(update_labels, 3000);
+    let interval = setInterval(update_labels, 5000);
     document.addEventListener('visibilitychange', function() {
         if(document.hidden) {
           clearInterval(interval);
         } else {
           update_labels();
-          interval = setInterval(update_labels, 3000);
+          interval = setInterval(update_labels, 5000);
         }
     });
   </script>

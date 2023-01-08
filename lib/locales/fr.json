@@ -50,12 +50,15 @@
 	"Graph power from devices": "Graphique de puissance consommée par les appareils",
 	"Force device": "Forcer",
 	"Force devices": "Forçage des appareils",
-	"Disable device": "Désactiver",
-	"enabled": "activé",
-	"disabled": "désactivé",
+	"Disable force device": "Désactiver le forçage",
+	"enabled forcing": "forçage activé",
+	"disabled forcing": "forçage désactivé",
 	"No devices": "Aucun appareil connecté",
 	"Settings": "Paramètres",
 	"Percent": "Pourcentage",
 	"Password": "Mot de passe",
-	"Change percent": "Changer le pourcentage"
+	"Change percent": "Changer le pourcentage",
+	"Successfull request": "Demande réussie.",
+	"Error requesting": "Erreur: veuillez rééssayer.",
+	"Forbidden": "Interdit: mauvais mot de passe."
 }
