@@ -270,16 +270,14 @@ function advancedDecision(device, power) {
     let alpha = 128;
     let percentage = 0;
     let power_to_consider = -power-device.power_limit*device.power_threshold_percentage;
-    let result = getAlpha(power_to_consider, device.power_limit);
-    alpha = result.alpha;
-    percentage = result.percentage;
-    devices_to_activate_state[device.uri].requested_power = result.percentage*device.power_limit;
+    let result = getAlpha.fromPercent(power_to_consider, device.power_limit);
     if (device.hasOwnProperty('min_alpha')) {
-        if (alpha < device.min_alpha) {
-            alpha = device.min_alpha;
+        if (result.alpha < device.min_alpha) {
+            result = getAlpha.fromMinAlpha(device.min_alpha);
         }
     }
-    return {alpha, percentage}
+    devices_to_activate_state[device.uri].requested_power = result.percentage*device.power_limit;
+    return result
 }
 
 function advancedDecisionReq(device, res) {
