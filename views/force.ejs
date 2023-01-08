@@ -63,8 +63,8 @@
           </p>
         </div>
       </div>
+      <% for(var i=0; i < list_devices.length; i++) { %>
       <div class="column">
-        <% for(var i=0; i < list_devices.length; i++) { %>
         <div class="card">
           <h2><%= pretty_name(list_devices[i]) %></h2>
           <span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled forcing')%><% } else { %><%= __('disabled forcing')%><% } %></span>, <span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %, <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W
@@ -73,9 +73,9 @@
               <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable force device')%></a></li>
           </ul>
           <p class="res" id="<%= list_devices[i] %>-res"></p>
-          <% } %>
         </div>
       </div>
+      <% } %>
     <% } else { %>
       <p><%= __('No devices')%></p>
     <% } %>
