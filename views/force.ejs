@@ -43,6 +43,9 @@
     .card ul {
       list-style-type: none;
     }
+    .res {
+      color: #636e72;
+    }
   </style>
 </head>
 <body>
@@ -51,7 +54,7 @@
     <% if(list_devices.length){ %>
       <div class="column">
         <div class="card">
-          <p><%= __('Settings')%></p>
+          <h2><%= __('Settings')%></h2>
           <p>
             <label for="password"><%= __('Password')%></label>
             <input type="password" id="password" name="password">
@@ -61,20 +64,16 @@
         </div>
       </div>
       <div class="column">
+        <% for(var i=0; i < list_devices.length; i++) { %>
         <div class="card">
-          <p><%= __('Connected Devices')%></p>
+          <h2><%= pretty_name(list_devices[i]) %></h2>
+          <span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled forcing')%><% } else { %><%= __('disabled forcing')%><% } %></span>, <span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %, <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W
           <ul>
-            <% for(var i=0; i list_devices.length; i++) { %>
-              <li> 
-                <%= pretty_name(list_devices[i]) %> (<span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled forcing')%><% } else { %><%= __('disabled forcing')%><% } %></span><span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %, <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W)
-                <ul>
-                  <li><a id="<%= list_devices[i] %>-btn-enable" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
-                  <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable force device')%></a></li>
-                </ul>
-              </li>
-            <% } %>
+              <li><a id="<%= list_devices[i] %>-btn-enable" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
+              <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable force device')%></a></li>
           </ul>
-          <p id="res"></p>
+          <p class="res" id="<%= list_devices[i] %>-res"></p>
+          <% } %>
         </div>
       </div>
     <% } else { %>
@@ -85,13 +84,13 @@
     const enableLabel = "<%= __('enabled forcing')%>";
     const disableLabel = "<%= __('disabled forcing')%>";
     const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
-    const resP = document.getElementById('error');
     const password = document.getElementById('password');
     const percent = document.getElementById('percent');
 
     list_devices.forEach(function (el) {
           let buttonEnable = document.getElementById(el + '-btn-enable');
           let buttonDisable = document.getElementById(el + '-btn-disable');
+          let resP = document.getElementById(el + '-res');
           buttonEnable.addEventListener('click', (event) => {
             event.preventDefault();
 
@@ -99,7 +98,7 @@
               .then((response) => {
                   if (!response.ok) {
                     if (response.status == 403) {
-                      resP.innerHTML = "<%= __('Forbiden')%>";
+                      resP.innerHTML = "<%= __('Forbidden')%>";
                     } else {
                       resP.innerHTML = "<%= __('Error requesting')%>";
                     }
@@ -114,9 +113,9 @@
                 }
                 let spanMode = document.getElementById(el + '-mode');
                 if (spanMode != null) {
-                  spanMode.innerHTML = (device.force_mode) ? enableLabel: disableLabel;
+                  spanMode.innerHTML = (data.force_mode) ? enableLabel: disableLabel;
                 }
-                resP.innerHTML = "<%= __('Successfull request.')%>";
+                resP.innerHTML = "<%= __('Successfull request')%>";
               })
               .catch((error) => console.error(error));
           });
@@ -142,7 +141,7 @@
                 }
                 let spanMode = document.getElementById(el + '-mode');
                 if (spanMode != null) {
-                  spanMode.innerHTML = (device.force_mode) ? enableLabel: disableLabel;
+                  spanMode.innerHTML = (data.force_mode) ? enableLabel: disableLabel;
                 }
                 resP.innerHTML = "<%= __('Successfull request')%>";
               })
