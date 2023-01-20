@@ -62,6 +62,7 @@
     <main>
         <h3><%= __("Debug device")%></h3>
         <a href="/device/<%= device_name %>/graph/24h"><%= __("Raw data 1d")%></a>
+        <a id="get-energy" href="#"><%= __("Get energy used by device 1d")%></a>
         <ul id="table"></ul>
         <div id="loader" class="loader"></div>
     </main>
@@ -77,6 +78,11 @@
                 return word[0].toUpperCase() + word.substring(1); 
             }).join(' ');
         }
+        const createLi = (label, value) => {
+            var li1 = document.createElement('li');
+            li1.innerHTML = '<b>' + label + '</b>: ' + value;
+            return li1;
+        }
         const loadData = () => {
 
             const fetchData = fetch('/api/device/<%= device_name %>/debug')
@@ -85,76 +91,45 @@
             fetchData.then(data => {
                     var ul = document.getElementById('table');
 
-                    var li1 = document.createElement('li');
-                    li1.innerHTML = '<b><%= __("Device name")%></b>: ' + prettyName('<%= device_name %>');
-                    ul.appendChild(li1);
-
-                    var li2 = document.createElement('li');
-                    li2.innerHTML = '<b><%= __("Last call")%></b>: ' + prettyDate(data.last_call);
-                    ul.appendChild(li2);
-
-                    var li2 = document.createElement('li');
-                    li2.innerHTML = '<b><%= __("Time period")%></b>: ' + Math.floor(data.time_limit/1000) + 's';
-                    ul.appendChild(li2);
-
-                    var li3 = document.createElement('li');
-                    li3.innerHTML = '<b><%= __("Status")%></b>: ' + ((data.activated) ? '<%= __("Activated")%>': '<%= __("Disabled")%>');
-                    ul.appendChild(li3);
-
-                    var li4 = document.createElement('li');
-                    li4.innerHTML = '<b><%= __("Decision")%></b>: ' + ((data.toggle) ? '<%= __("To enable")%>': '<%= __("To disable")%>');
-                    ul.appendChild(li4);
-
-                    var li4b = document.createElement('li');
-                    li4b.innerHTML = '<b><%= __("Decision (advanced)")%></b>: ' + ((data.toggle_advanced) ? '<%= __("To enable")%>': '<%= __("To disable")%>');
-                    ul.appendChild(li4b);
-
-                    var li5 = document.createElement('li');
-                    li5.innerHTML = '<b><%= __("Power limit")%></b>: ' + data.limit + ' W';
-                    ul.appendChild(li5);
-
-                    var li6 = document.createElement('li');
-                    li6.innerHTML = '<b><%= __("Current power")%></b>: ' + Math.floor(data.power) + ' W';
-                    ul.appendChild(li6);
-
-                    var li7 = document.createElement('li');
-                    li7.innerHTML = '<b><%= __("Last alpha")%></b>: ' + data.last_alpha;
-                    ul.appendChild(li7);
-
-                    var li11 = document.createElement('li');
-                    li11.innerHTML = '<b><%= __("Requested alpha")%></b>: ' + data.requested_alpha;
-                    ul.appendChild(li11);
-
-                    var li8 = document.createElement('li');
-                    li8.innerHTML = '<b><%= __("Last power command")%></b>: ' + Math.floor(data.last_power) + ' W';
-                    ul.appendChild(li8);
-
-                    var li10 = document.createElement('li');
-                    li10.innerHTML = '<b><%= __("Requested power command")%></b>: ' + Math.floor(data.requested_power) + ' W';
-                    ul.appendChild(li10);
-
-                    var li9 = document.createElement('li');
-                    li9.innerHTML = '<b><%= __("Power threshold percentage")%></b>: ' + data.power_threshold_percentage*100 + ' %';
-                    ul.appendChild(li9);
-
-                    var li12 = document.createElement('li');
-                    li12.innerHTML = '<b><%= __("Type")%></b>: ' + data.type;
-                    ul.appendChild(li12);
-
-                    var li13 = document.createElement('li');
-                    li13.innerHTML = '<b><%= __("Forcing status")%></b>: ' + ((data.force_mode) ? '<%= __("enabled forcing")%>': '<%= __("disabled forcing")%>');
-                    ul.appendChild(li13);
-
-                    var li14 = document.createElement('li');
-                    li14.innerHTML = '<b><%= __("Forcing percent")%></b>: ' + (data.force_mode_percent*100) + ' %';
-                    ul.appendChild(li14);
-
+                    var items = [
+                        { key: '<%= __("Device name")%>', value: prettyName('<%= device_name %>') },
+                        { key: '<%= __("Last call")%>', value: prettyDate(data.last_call) },
+                        { key: '<%= __("Time period")%>', value: Math.floor(data.time_limit/1000) + 's' },
+                        { key: '<%= __("Status")%>', value: (data.activated) ? '<%= __("Activated")%>': '<%= __("Disabled")%>' },
+                        { key: '<%= __("Decision")%>', value: (data.toggle) ? '<%= __("To enable")%>': '<%= __("To disable")%>' },
+                        { key: '<%= __("Decision (advanced)")%>', value: (data.toggle_advanced) ? '<%= __("To enable")%>': '<%= __("To disable")%>' },
+                        { key: '<%= __("Power limit")%>', value: data.limit + ' W' },
+                        { key: '<%= __("Current power")%>', value: Math.floor(data.power) + ' W' },
+                        { key: '<%= __("Last alpha")%>', value: data.last_alpha },
+                        { key: '<%= __("Requested alpha")%>', value: data.requested_alpha },
+                        { key: '<%= __("Last power command")%>', value: Math.floor(data.last_power) + ' W' },  
+                        { key: '<%= __("Requested power command")%>', value: Math.floor(data.requested_power) + ' W' },
+                        { key: '<%= __("Power threshold percentage")%>', value: data.power_threshold_percentage*100 + ' %' },
+                        { key: '<%= __("Type")%>', value: data.type },
+                        { key: '<%= __("Forcing status")%>', value: (data.force_mode) ? '<%= __("enabled forcing")%>': '<%= __("disabled forcing")%>' },
+                        { key: '<%= __("Forcing percent")%>', value: (data.force_mode_percent*100) + ' %'}
+                    ]
+                    for (var i = 0; i < items.length; i++) {
+                        ul.appendChild(createLi(items[i].key, items[i].value));
+                    }
                     document.getElementById('loader').style.display = 'none';
             })
             .catch(error => {
                     console.error('Error:', error);
             });
         }
+        document.getElementById("get-energy").addEventListener('click', (event) => {
+            event.preventDefault();
+            let ul = document.getElementById('table');
+            fetch('/api/device/<%= device_name %>/debug/energy/24h/')
+              .then((response) => {
+                return response.json();
+               })
+              .then((data) => {
+                ul.appendChild(createLi('<%= __("Energy used by device 1d")%> (' + prettyDate((new Date()).getTime()) + ')', data.value  + ' ' + data.unit ));
+              })
+              .catch((error) => console.error(error));
+        });
         window.addEventListener('load', loadData);
     </script>
   </body>

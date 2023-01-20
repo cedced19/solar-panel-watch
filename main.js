@@ -10,6 +10,7 @@ const minifyTemplate = require('express-beautify').minify;
 const getInformations = require('./lib/get-informations.js');
 const getAlpha = require('./lib/get-alpha.js');
 const influxLib = require('./lib/influx-lib.js');
+const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const computeEnergy = require('./lib/compute-energy.js');
 
 
@@ -455,6 +456,40 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         next(err);
     }
 });
+
+app.get('/api/device/:name/debug/energy/:period/', (req, res, next) => {
+    let element = devices_to_activate.filter(value => {
+        return value.uri == req.params.name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        // make sure that device state exists
+        if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+            let err = new Error('Device not connected yet.');
+            err.status = 503;
+            res.status(503);
+            return next(err);
+        }
+        getDeviceEnergy(req.params.period, req.params.name, (err, value) => {
+            if (err) {
+                let err = new Error('Cannot compute data.');
+                err.status = 500;
+                res.status(500);
+                return next(err);
+            }
+            res.json({
+                value: value,
+                unit: 'Wh'
+            });
+        });
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
 
 app.get('/device/:device_name', (req, res, next) => {
     if (!devices_to_activate_state.hasOwnProperty(req.params.device_name)) {

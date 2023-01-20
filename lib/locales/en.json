@@ -62,5 +62,7 @@
 	"Error requesting": "Error requesting: try again.",
 	"Forbidden": "Forbidden: wrong password.",
 	"Forcing status": "Forcing status",
-	"Forcing percent": "Forcing percent"
+	"Forcing percent": "Forcing percent",
+	"Get energy used by device 1d": "Get energy used by device 1d",
+	"Energy used by device 1d": "Energy used by device 1d"
 }
