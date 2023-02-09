@@ -6,15 +6,15 @@
         "power_threshold_percentage": 0.03,
         "ids": ["QQqR9"],
         "priority": 1,
-        "min_alpha": 10
+        "min_alpha": 11
     },
     {
         "uri": "chauffe-eau-sanitaire",
         "power_limit": 2300,
         "time_limit": 2500,
-        "power_threshold_percentage": 0.01,
+        "power_threshold_percentage": 0.02,
         "ids": ["1b9d8"],
         "priority": 2,
-        "min_alpha": 70
+        "min_alpha": 50
     }
 ]
