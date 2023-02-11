@@ -1,12 +1,12 @@
 [
     {
         "uri": "chauffe-eau",
-        "power_limit": 600,
+        "power_limit": 2600,
         "time_limit": 2500,
-        "power_threshold_percentage": 0.03,
+        "power_threshold_percentage": 0.01,
         "ids": ["QQqR9"],
         "priority": 1,
-        "min_alpha": 11
+        "min_alpha": 60
     },
     {
         "uri": "chauffe-eau-sanitaire",
@@ -15,6 +15,6 @@
         "power_threshold_percentage": 0.02,
         "ids": ["1b9d8"],
         "priority": 2,
-        "min_alpha": 50
+        "min_alpha": 60
     }
 ]
