@@ -3,16 +3,16 @@
         "uri": "chauffe-eau",
         "power_limit": 2600,
         "time_limit": 2500,
-        "power_threshold_percentage": 0.01,
+        "power_threshold_percentage": 0.007,
         "ids": ["QQqR9"],
         "priority": 1,
-        "min_alpha": 60
+        "min_alpha": 65
     },
     {
         "uri": "chauffe-eau-sanitaire",
         "power_limit": 2300,
         "time_limit": 2500,
-        "power_threshold_percentage": 0.02,
+        "power_threshold_percentage": 0.01,
         "ids": ["1b9d8"],
         "priority": 2,
         "min_alpha": 60
