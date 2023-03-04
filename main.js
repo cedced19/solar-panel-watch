@@ -24,6 +24,23 @@ const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json',200);
 
+function init_device(device_uri, type) {
+    if (!devices_to_activate_state.hasOwnProperty(device_uri)) {
+        devices_to_activate_state[device_uri] = {
+            activated: false, 
+            activated_advanced: false, 
+            last_call: (new Date()).getTime(),
+            last_power: 0, 
+            requested_alpha: 128, 
+            requested_toggle: false,
+            requested_power: 0, 
+            type: type, 
+            force_mode: false, 
+            force_mode_percent: 0, 
+            max_energy_reached: false 
+        }
+    }
+}
 
 function get_priority_list(devices_to_activate) {
     const list = devices_to_activate.sort((a, b) => (a.priority > b.priority) ? 1 : -1);
@@ -252,10 +269,7 @@ function normalDecision(device, power) {
 
 function normalDecisionReq(device, res) {
     // make sure that device state exists
-    if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-        devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, type: 'normal', force_mode: false, force_mode_percent: 0, max_energy_reached: false }
-    }
-    devices_to_activate_state[device.uri].type = 'normal';
+    init_device(device_uri, 'normal');
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
     res.json({toggle: to_activate, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_power = devices_to_activate_state[device.uri].requested_power;
@@ -283,10 +297,7 @@ function advancedDecision(device, power) {
 
 function advancedDecisionReq(device, res) {
     // make sure that device state exists
-    if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, requested_power: 0, type: 'advanced', force_mode: false, force_mode_percent: 0, max_energy_reached: false }
-    }
-    devices_to_activate_state[device.uri].type = 'advanced';
+    init_device(device_uri, 'advanced');
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
     res.json({alpha: alpha, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
