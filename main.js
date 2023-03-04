@@ -253,7 +253,7 @@ function normalDecision(device, power) {
 function normalDecisionReq(device, res) {
     // make sure that device state exists
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-        devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, type: 'normal', force_mode: false, force_mode_percent: 0 }
+        devices_to_activate_state[device.uri] = {activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, type: 'normal', force_mode: false, force_mode_percent: 0, max_energy_reached: false }
     }
     devices_to_activate_state[device.uri].type = 'normal';
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
@@ -284,7 +284,7 @@ function advancedDecision(device, power) {
 function advancedDecisionReq(device, res) {
     // make sure that device state exists
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
-        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, requested_power: 0, type: 'advanced', force_mode: false, force_mode_percent: 0 }
+        devices_to_activate_state[device.uri] = { activated: false, activated_advanced: false, last_call: (new Date()).getTime(), last_power: 0, requested_alpha: 128, requested_toggle: false, requested_power: 0, requested_power: 0, type: 'advanced', force_mode: false, force_mode_percent: 0, max_energy_reached: false }
     }
     devices_to_activate_state[device.uri].type = 'advanced';
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
@@ -571,6 +571,24 @@ setInterval(function () {
     influxLib.daemon(app.get('env') === 'development');
 },config.influx_update_delay);
 
+// Check if energy threshold is not reached (in case of water boiler)
+setInterval(function () {
+    for (let i = 0; i < devices_to_consider.length; i++) {
+        let device = devices_to_activate.filter(value => {
+            return value.uri == devices_to_consider[i];
+        })[0];
+        if (device.hasOwnProperty('max_energy_time_range') && device.hasOwnProperty('max_energy_val')) {
+            getDeviceEnergy(device.max_energy_time_range, device.uri, (err, value) => {
+                if (err) {
+                    return console.error('Cannot determine energy.');
+                }
+                devices_to_activate_state[device.uri].max_energy_reached = (value >= device.max_energy_val);
+            });
+        }
+        // Might require some delay between tasks if too much devices
+    }
+},config.energy_req_threshold);
+
 // Get data updated
 setInterval(function () {
     getInformations.req(function (err, save) {
@@ -594,9 +612,11 @@ setInterval(function () {
                     if (devices_to_activate_state[device.uri].force_mode) {
                         to_activate = (devices_to_activate_state[device.uri].force_mode_percent >= 1);
                     }
+                    if (devices_to_activate_state[device.uri].max_energy_reached) {
+                        to_activate = false;
+                    }
                     devices_to_activate_state[device.uri].requested_toggle = to_activate;
                     devices_to_activate_state[device.uri].requested_power = (to_activate) ? device.power_limit : 0; 
-                    
                     //print("[" + device.uri + "] activated = " + to_activate + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (100%)")
                 }
                 if (devices_to_activate_state[device.uri].type == 'advanced') {
@@ -608,11 +628,15 @@ setInterval(function () {
                         devices_to_activate_state[device.uri].requested_alpha = alpha;
                         devices_to_activate_state[device.uri].requested_power = percentage*device.power_limit;
                     }
+                    if (devices_to_activate_state[device.uri].max_energy_reached) {
+                        devices_to_activate_state[device.uri].requested_alpha = 128;
+                        devices_to_activate_state[device.uri].requested_power = 0;
+                    }
                     //print("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (" + percentage*100 + "%)")
                 }
                 power += devices_to_activate_state[device.uri].requested_power;
                 //print("Power to consider after '" + device.uri + "' : " + power);
             }
     });
-},config.shelly_req_thresold);
+},config.shelly_req_threshold);
 

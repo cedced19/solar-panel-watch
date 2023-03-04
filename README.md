@@ -15,7 +15,8 @@ Watch over electricity consumption from my house.
     "influx_update_delay": 15000,
     "influx_url": "https://**********.influxdata.com",
     "timezone": "Europe/Paris",
-    "shelly_req_thresold": 3000,
+    "shelly_req_threshold": 3000,
+    "energy_req_threshold": 1200000,
     "force_mode_pass": "7HaIJtG44d"
 }
 ```
@@ -48,3 +49,11 @@ Watch over electricity consumption from my house.
 sudo docker compose up
 sudo docker compose -f docker-compose-npm-install.yml up
 ```
+
+## TODO
+
+* Add documentation on config files
+* Add testing bots for devices
+* Add local influx in docker compose
+* Add a night mode in order to prevent calculation and communications during night
+* Add a UI to configure the system
