@@ -64,5 +64,10 @@
 	"Forcing status": "Forcing status",
 	"Forcing percent": "Forcing percent",
 	"Get energy used by device 1d": "Get energy used by device 1d",
-	"Energy used by device 1d": "Energy used by device 1d"
+	"Energy used by device 1d": "Energy used by device 1d",
+	"Max energy time range": "Max energy time range",
+	"Max energy val": "Max energy val",
+	"Max energy reached": "Max energy reached",
+	"Reached": "Reached",
+	"Not reached": "Not reached"
 }

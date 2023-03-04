@@ -457,7 +457,10 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 type: devices_to_activate_state[device.uri].type,
                 info_type: 'debug',
                 force_mode: devices_to_activate_state[device.uri].force_mode,
-                force_mode_percent: devices_to_activate_state[device.uri].force_mode_percent
+                force_mode_percent: devices_to_activate_state[device.uri].force_mode_percent,
+                max_energy_reached: devices_to_activate_state[device.uri].max_energy_reached,
+                max_energy_val: (device.hasOwnProperty('max_energy_val')) ? device.max_energy_val: 'N/A',
+                max_energy_time_range: (device.hasOwnProperty('max_energy_time_range')) ? device.max_energy_time_range: 'N/A'
             });
         });
     } else {

@@ -64,5 +64,10 @@
 	"Forcing status": "Status forçage",
 	"Forcing percent": "Pourcentage de forçage",
 	"Get energy used by device 1d": "Obtenir l'énergie utilisée par l'appareil sur un jour",
-	"Energy used by device 1d": "Energie utilisée par l'appareil sur un jour"
+	"Energy used by device 1d": "Energie utilisée par l'appareil sur un jour",
+	"Max energy time range": "Energie maximale sur une plage de temps de durée",
+	"Max energy val": "Seuil d'énergie maximale sur la plage de temps",
+	"Max energy reached": "Maximum d'énergie atteint",
+	"Reached": "Atteint",
+	"Not reached": "Non atteint"
 }

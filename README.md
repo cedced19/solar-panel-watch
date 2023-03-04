@@ -57,5 +57,5 @@ sudo docker compose -f docker-compose-npm-install.yml up
 * Add local influx in docker compose
 * Add a night mode in order to prevent calculation and communications during night
 * Add a UI to configure the system
-* Add max_value_reached to the debug system
+* Improve the debug system to adapt the period of request to the value
 * Add threshold on disconnection of devices
