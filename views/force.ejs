@@ -109,7 +109,7 @@
               .then((data) => {
                 let spanPercent = document.getElementById(el + '-percent');
                 if (spanPercent != null) {
-                  spanPercent.innerHTML = data.percent;
+                  spanPercent.innerHTML = data.percent * 100;
                 }
                 let spanMode = document.getElementById(el + '-mode');
                 if (spanMode != null) {
