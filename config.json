@@ -1,8 +1,12 @@
 {
     "ip_adress_shelly": "192.168.0.91",
-    "influx_tocken": "WB0HLKZwDBK_fBRF2kdXVrRtdwMJ-CxQy2BM2LxDRUqacZI9fxzFDH2VHXi61xc9Q0F6CNhJnYPs2v4w1BXzPQ==",
-    "influx_org": "cjung",
-    "influx_bucket": "solar-panel",
+    "influx_tocken": "joWbkcAOqD8hPtRRyEz7U64PLqOrPO",
+    "influx_org": "solar_panel_org",
+    "influx_bucket": "solar_panel",
     "influx_default_tag": "home1",
-    "influx_update_delay": 15000
+    "influx_update_delay": 15000,
+    "influx_url": "http://localhost:8086",
+    "timezone": "Europe/Paris",
+    "shelly_req_threshold": 2000,
+    "force_mode_pass": "qD8hPtRRyEz"
 }

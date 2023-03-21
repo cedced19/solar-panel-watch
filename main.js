@@ -587,6 +587,7 @@ setInterval(function () {
 
 // Check if energy threshold is not reached (in case of water boiler)
 setInterval(function () {
+    const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
     for (let i = 0; i < devices_to_consider.length; i++) {
         let device = devices_to_activate.filter(value => {
             return value.uri == devices_to_consider[i];

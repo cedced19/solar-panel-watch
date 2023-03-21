@@ -50,6 +50,11 @@ sudo docker compose up
 sudo docker compose -f docker-compose-npm-install.yml up
 ```
 
+to remove volume:
+```
+sudo docker volume rm solar-panel-watch_data
+```
+
 ## TODO
 
 * Add documentation on config files
