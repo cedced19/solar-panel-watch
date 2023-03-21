@@ -603,6 +603,7 @@ setInterval(function () {
         if (device.hasOwnProperty('max_energy_time_range') && device.hasOwnProperty('max_energy_val')) {
             getDeviceEnergy(device.max_energy_time_range, device.uri, (err, value) => {
                 if (err) {
+                    console.log(err);
                     return console.error('Cannot determine energy.');
                 }
                 devices_to_activate_state[device.uri].max_energy_reached = (value >= device.max_energy_val);

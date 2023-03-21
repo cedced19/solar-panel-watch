@@ -58,7 +58,6 @@ sudo docker volume rm solar-panel-watch_data
 ## TODO
 
 * Add documentation on config files
-* Add testing bots for devices
 * Add a night mode in order to prevent calculation and communications during night
 * Add a UI to configure the system
 * Improve the debug system to adapt the period of request to the value
