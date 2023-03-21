@@ -8,5 +8,6 @@
     "influx_url": "http://localhost:8086",
     "timezone": "Europe/Paris",
     "shelly_req_threshold": 2000,
+    "energy_req_threshold": 1200000,
     "force_mode_pass": "qD8hPtRRyEz"
 }
