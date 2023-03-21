@@ -24,9 +24,9 @@ const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json',200);
 
-function init_device(device_uri, type) {
-    if (!devices_to_activate_state.hasOwnProperty(device_uri)) {
-        devices_to_activate_state[device_uri] = {
+function init_device(device, type) {
+    if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+        devices_to_activate_state[device.uri] = {
             activated: false, 
             activated_advanced: false, 
             last_call: (new Date()).getTime(),
@@ -38,6 +38,14 @@ function init_device(device_uri, type) {
             force_mode: false, 
             force_mode_percent: 0, 
             max_energy_reached: false 
+        }
+        if (device.hasOwnProperty('max_energy_time_range') && device.hasOwnProperty('max_energy_val')) {
+            getDeviceEnergy(device.max_energy_time_range, device.uri, (err, value) => {
+                if (err) {
+                    return console.error('Cannot determine energy.');
+                }
+                devices_to_activate_state[device.uri].max_energy_reached = (value >= device.max_energy_val);
+            });
         }
     }
 }
@@ -269,7 +277,7 @@ function normalDecision(device, power) {
 
 function normalDecisionReq(device, res) {
     // make sure that device state exists
-    init_device(device.uri, 'normal');
+    init_device(device, 'normal');
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
     res.json({toggle: to_activate, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_power = devices_to_activate_state[device.uri].requested_power;
@@ -297,7 +305,7 @@ function advancedDecision(device, power) {
 
 function advancedDecisionReq(device, res) {
     // make sure that device state exists
-    init_device(device.uri, 'advanced');
+    init_device(device, 'advanced');
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
     res.json({alpha: alpha, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
