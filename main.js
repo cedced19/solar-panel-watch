@@ -269,7 +269,7 @@ function normalDecision(device, power) {
 
 function normalDecisionReq(device, res) {
     // make sure that device state exists
-    init_device(device_uri, 'normal');
+    init_device(device.uri, 'normal');
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
     res.json({toggle: to_activate, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_power = devices_to_activate_state[device.uri].requested_power;
@@ -297,7 +297,7 @@ function advancedDecision(device, power) {
 
 function advancedDecisionReq(device, res) {
     // make sure that device state exists
-    init_device(device_uri, 'advanced');
+    init_device(device.uri, 'advanced');
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
     res.json({alpha: alpha, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
