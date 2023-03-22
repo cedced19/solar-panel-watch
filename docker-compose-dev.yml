@@ -27,6 +27,8 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=joWbkcAOqD8hPtRRyEz7U64PLqOrPO
     volumes:
       - data:/var/lib/influxdb2
-
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      
 volumes:
   data:

@@ -11,8 +11,25 @@ services:
       - ./:/app
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - /repos/server-config/solar-panel-watch/config.json:/app/config.json # to be changed
     environment:
       - NODE_ENV=production
       - TZ=Europe/Paris
       - PORT=8889
+  influxdb:
+    image: influxdb:2.6-alpine
+    network_mode: host
+    environment: 
+      - TZ=Europe/Paris
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=home
+      - DOCKER_INFLUXDB_INIT_PASSWORD=0dBdJpACMCW2CwCRLu0iRyEz7U64P
+      - DOCKER_INFLUXDB_INIT_ORG=solar_panel_org
+      - DOCKER_INFLUXDB_INIT_BUCKET=solar_panel
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=joWbkcAOqD8hPtRRyEz7U64PLqOrPO
+    volumes:
+      - data:/var/lib/influxdb2
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      
+volumes:
+  data:
