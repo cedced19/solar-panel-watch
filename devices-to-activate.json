@@ -6,7 +6,7 @@
         "power_threshold_percentage": 0.007,
         "ids": ["QQqR9"],
         "priority": 1,
-        "min_alpha": 65
+        "min_alpha": 20
     },
     {
         "uri": "chauffe-eau-sanitaire",
