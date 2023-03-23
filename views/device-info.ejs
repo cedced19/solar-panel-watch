@@ -93,6 +93,7 @@
 
                     var items = [
                         { key: '<%= __("Device name")%>', value: prettyName('<%= device_name %>') },
+                        { key: 'Ids', value: String(data.ids) },
                         { key: '<%= __("Last call")%>', value: prettyDate(data.last_call) },
                         { key: '<%= __("Time period")%>', value: Math.floor(data.time_limit/1000) + 's' },
                         { key: '<%= __("Status")%>', value: (data.activated) ? '<%= __("Activated")%>': '<%= __("Disabled")%>' },
