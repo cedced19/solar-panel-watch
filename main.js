@@ -90,7 +90,9 @@ function print(...args) {
 function get_power_from_activated_devices() {
     let sum = 0;
     for (let device in devices_to_activate_state) {
-        sum += devices_to_activate_state[device].last_power
+        if (devices_to_activate_state[device].force_mode == false) { // Prevent from considering forced power as available power
+            sum += devices_to_activate_state[device].last_power; 
+        }
     }
     return sum;
 }
@@ -681,8 +683,8 @@ setInterval(function () {
                     devices_to_activate_state[device.uri].requested_alpha = 128;
                     devices_to_activate_state[device.uri].requested_power = 0;
                 }
-                if (devices_to_activate_state[device.uri].force_mode == false) {
-                    power += devices_to_activate_state[device.uri].requested_power; // prevent from considering forced power as available power
+                if (devices_to_activate_state[device.uri].force_mode == false) { // Prevent from considering forced power as available power
+                    power += devices_to_activate_state[device.uri].requested_power; 
                 }
                 //print("Power to consider after '" + device.uri + "' : " + power);
             }
