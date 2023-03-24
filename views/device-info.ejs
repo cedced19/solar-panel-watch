@@ -94,6 +94,7 @@
                     var items = [
                         { key: '<%= __("Device name")%>', value: prettyName('<%= device_name %>') },
                         { key: '<%= __("Last call")%>', value: prettyDate(data.last_call) },
+                        { key: '<%= __("Connected")%>', value: (data.connected) ? '<%= __("True")%>' : '<%= __("False")%>' },
                         { key: '<%= __("Time period")%>', value: Math.floor(data.time_limit/1000) + 's' },
                         { key: '<%= __("Status")%>', value: (data.activated) ? '<%= __("Activated")%>': '<%= __("Disabled")%>' },
                         { key: '<%= __("Decision")%>', value: (data.toggle) ? '<%= __("To enable")%>': '<%= __("To disable")%>' },

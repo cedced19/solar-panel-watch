@@ -103,6 +103,19 @@ function pretty_name(name) {
     }).join(' ');
 }
 
+function is_device_connected(time_limit, last_call) {
+    // Calculate the maximum allowed time since the last call
+    let max_allowed_time = 50 * time_limit;
+    // Now
+    let now = (new Date()).getTime();
+    // Check if the device is still connected
+    if (now - last_call < max_allowed_time) {
+      return true;
+    } else {
+      return false;
+    }
+}
+
 // Express App
 const app = express();
 
@@ -468,7 +481,8 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 force_mode_percent: devices_to_activate_state[device.uri].force_mode_percent,
                 max_energy_reached: devices_to_activate_state[device.uri].max_energy_reached,
                 max_energy_val: (device.hasOwnProperty('max_energy_val')) ? device.max_energy_val: 'N/A',
-                max_energy_time_range: (device.hasOwnProperty('max_energy_time_range')) ? device.max_energy_time_range: 'N/A'
+                max_energy_time_range: (device.hasOwnProperty('max_energy_time_range')) ? device.max_energy_time_range: 'N/A',
+                connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call)
             });
         });
     } else {
@@ -631,32 +645,41 @@ setInterval(function () {
                 let device = devices_to_activate.filter(value => {
                     return value.uri == devices_to_consider[i];
                 })[0];
-                if (devices_to_activate_state[device.uri].type == 'normal') {
-                    let to_activate = normalDecision(device, power);
-                    if (devices_to_activate_state[device.uri].force_mode) {
-                        to_activate = (devices_to_activate_state[device.uri].force_mode_percent >= 1);
+                // Check for connection
+                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call)) {
+                    // Normal mode
+                    if (devices_to_activate_state[device.uri].type == 'normal') {
+                        let to_activate = normalDecision(device, power);
+                        if (devices_to_activate_state[device.uri].force_mode) {
+                            to_activate = (devices_to_activate_state[device.uri].force_mode_percent >= 1);
+                        }
+                        if (devices_to_activate_state[device.uri].max_energy_reached) {
+                            to_activate = false;
+                        }
+                        devices_to_activate_state[device.uri].requested_toggle = to_activate;
+                        devices_to_activate_state[device.uri].requested_power = (to_activate) ? device.power_limit : 0; 
+                        //print("[" + device.uri + "] activated = " + to_activate + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (100%)")
                     }
-                    if (devices_to_activate_state[device.uri].max_energy_reached) {
-                        to_activate = false;
-                    }
-                    devices_to_activate_state[device.uri].requested_toggle = to_activate;
-                    devices_to_activate_state[device.uri].requested_power = (to_activate) ? device.power_limit : 0; 
-                    //print("[" + device.uri + "] activated = " + to_activate + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (100%)")
-                }
-                if (devices_to_activate_state[device.uri].type == 'advanced') {
-                    let { alpha, percentage } = advancedDecision(device, power);
-                    devices_to_activate_state[device.uri].requested_alpha = alpha;
-                    devices_to_activate_state[device.uri].requested_power = percentage*device.power_limit;
-                    if (devices_to_activate_state[device.uri].force_mode) {
-                        let { alpha, percentage } = advancedDecision(device, -devices_to_activate_state[device.uri].force_mode_percent*device.power_limit);
+                    // Advanced mode
+                    if (devices_to_activate_state[device.uri].type == 'advanced') {
+                        let { alpha, percentage } = advancedDecision(device, power);
                         devices_to_activate_state[device.uri].requested_alpha = alpha;
                         devices_to_activate_state[device.uri].requested_power = percentage*device.power_limit;
+                        if (devices_to_activate_state[device.uri].force_mode) {
+                            let { alpha, percentage } = advancedDecision(device, -devices_to_activate_state[device.uri].force_mode_percent*device.power_limit);
+                            devices_to_activate_state[device.uri].requested_alpha = alpha;
+                            devices_to_activate_state[device.uri].requested_power = percentage*device.power_limit;
+                        }
+                        if (devices_to_activate_state[device.uri].max_energy_reached) {
+                            devices_to_activate_state[device.uri].requested_alpha = 128;
+                            devices_to_activate_state[device.uri].requested_power = 0;
+                        }
+                        //print("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (" + percentage*100 + "%)")
                     }
-                    if (devices_to_activate_state[device.uri].max_energy_reached) {
-                        devices_to_activate_state[device.uri].requested_alpha = 128;
-                        devices_to_activate_state[device.uri].requested_power = 0;
-                    }
-                    //print("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (" + percentage*100 + "%)")
+                } else {
+                    // If no connection requested power to 0
+                    devices_to_activate_state[device.uri].requested_alpha = 128;
+                    devices_to_activate_state[device.uri].requested_power = 0;
                 }
                 if (devices_to_activate_state[device.uri].force_mode == false) {
                     power += devices_to_activate_state[device.uri].requested_power; // prevent from considering forced power as available power

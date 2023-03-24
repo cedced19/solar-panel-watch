@@ -69,5 +69,8 @@
 	"Max energy val": "Seuil d'énergie maximale sur la plage de temps",
 	"Max energy reached": "Maximum d'énergie atteint",
 	"Reached": "Atteint",
-	"Not reached": "Non atteint"
+	"Not reached": "Non atteint",
+	"True": "Vrai",
+	"False": "Faux",
+	"Connected": "Connecté"
 }

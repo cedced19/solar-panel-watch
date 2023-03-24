@@ -69,5 +69,8 @@
 	"Max energy val": "Max energy val",
 	"Max energy reached": "Max energy reached",
 	"Reached": "Reached",
-	"Not reached": "Not reached"
+	"Not reached": "Not reached",
+	"True": "True",
+	"False": "False",
+	"Connected": "Connected"
 }
