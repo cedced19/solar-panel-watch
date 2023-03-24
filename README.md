@@ -62,7 +62,8 @@ sudo docker volume rm solar-panel-watch_data
 * Add a UI to configure the system
 * Improve the debug system to adapt the period of request to the value
 
-## Device Disconnection Mechanism in `is_device_connected`
+## Device Disconnection Mechanism in `is_device_connected`
+
 The is_device_connected function checks if a device is still connected to a server based on the time of its last call. If the elapsed time since the last call is less than 50 times the `time_limit value`, the function returns true, indicating that the device is still connected. Otherwise, the function returns false, indicating that the device is disconnected.
 
 The mechanism for device disconnection in this function is based on the assumption that a device should make regular calls to the server within a certain time frame. If the device fails to make a call within that time frame, it is considered disconnected. The time frame is determined by the  `time_limit` parameter, which represents the time in milliseconds between device calls to the server. The maximum allowed time between calls is 50 times the `time_limit` value, which is calculated in the function as `max_allowed_time = 50 * time_limit`.
