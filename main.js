@@ -658,7 +658,9 @@ setInterval(function () {
                     }
                     //print("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (" + percentage*100 + "%)")
                 }
-                power += devices_to_activate_state[device.uri].requested_power;
+                if (devices_to_activate_state[device.uri].force_mode == false) {
+                    power += devices_to_activate_state[device.uri].requested_power; // prevent from considering forced power as available power
+                }
                 //print("Power to consider after '" + device.uri + "' : " + power);
             }
     });
