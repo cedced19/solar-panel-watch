@@ -465,6 +465,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
             if (err) return next(err);
             let power = save.emeters[0].power;
             res.json({
+                ids: device.ids, 
                 activated: devices_to_activate_state[device.uri].activated, 
                 toggle: devices_to_activate_state[device.uri].requested_toggle, 
                 toggle_advanced: devices_to_activate_state[device.uri].activated_advanced,
