@@ -229,7 +229,17 @@ app.get('/api/data-force', function(req, res) {
 
 
 app.get('/api/data/power/:tag/:period', (req, res, next) => {
-    influxLib.requestDataOverPeriod(req.params.period, req.params.tag).then(function (data) {
+    influxLib.requestPowerOverPeriod(req.params.period, req.params.tag).then(function (data) {
+        res.json(data);
+    }, function (error) {
+        error.status = 500;
+        res.status(500);
+        next(error);
+    });
+});
+
+app.get('/api/data/var/:tag/:period', (req, res, next) => {
+    influxLib.requestVarOverPeriod(req.params.period, req.params.tag).then(function (data) {
         res.json(data);
     }, function (error) {
         error.status = 500;
@@ -239,7 +249,7 @@ app.get('/api/data/power/:tag/:period', (req, res, next) => {
 });
 
 app.get('/api/data/energy/:period', (req, res, next) => {
-    const promises = [influxLib.requestDataOverPeriod(req.params.period, 'power1'), influxLib.requestDataOverPeriod(req.params.period, 'power2')];
+    const promises = [influxLib.requestPowerOverPeriod(req.params.period, 'power1'), influxLib.requestPowerOverPeriod(req.params.period, 'power2')];
     Promise.all(promises).then(function (data) {
         try {
             let energy_data = computeEnergy(data[0],data[1]);
@@ -266,7 +276,7 @@ app.get('/api/data/energy-request-hist/', (req, res) => {
 });
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res, next) => {
-    influxLib.requestDataOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
+    influxLib.requestPowerOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
         res.json(data);
     }, function (error) {
         error.status = 500;
@@ -571,6 +581,25 @@ app.get('/device/list/graph/:period', (req, res, next) => {
     });
 });
 
+app.get('/device/:device_name/control-variable/graph/:period', (req, res, next) => {
+    let element = devices_to_activate.filter(value => {
+        return value.uri == req.params.device_name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        res.render('device-graph-var', {
+            timezone: config.timezone,
+            device_name: req.params.device_name,
+            period: req.params.period,
+            label: device.var_label
+        });
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
 
 app.get('/device/:device_name/graph/:period', (req, res, next) => {
     res.render('device-graph-power', {
@@ -579,7 +608,6 @@ app.get('/device/:device_name/graph/:period', (req, res, next) => {
         period: req.params.period
     });
 });
-
 
 app.get('/api/data/activation-hist/', (req, res) => {
     db_devices_activation.save(function () {
