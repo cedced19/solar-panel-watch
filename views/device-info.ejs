@@ -62,6 +62,7 @@
     <main>
         <h3><%= __("Debug device")%></h3>
         <a href="/device/<%= device_name %>/graph/24h"><%= __("Raw data 1d")%></a>
+        <a href="/device/<%= device_name %>/var/graph/24h"><%= __("Control var data 1d")%></a>
         <a id="get-energy" href="#"><%= __("Get energy used by device 1d")%></a>
         <ul id="table"></ul>
         <div id="loader" class="loader"></div>
@@ -112,6 +113,7 @@
                         { key: '<%= __("Forcing percent")%>', value: (data.force_mode_percent*100) + ' %'},
                         { key: '<%= __("Max energy reached")%>', value: (data.max_energy_reached) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                         { key: '<%= __("Max energy val")%>', value: (data.max_energy_val == 'N/A') ? 'N/A': data.max_energy_val + ' kWh'},
+                        { key: '<%= __("Max control var val")%> - ' + data.var_label, value: (data.max_var_val == 'N/A') ? 'N/A': data.max_var_val},
                         { key: '<%= __("Max energy time range")%>', value: data.max_energy_time_range}
                     ]
                     for (var i = 0; i < items.length; i++) {

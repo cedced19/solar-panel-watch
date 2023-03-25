@@ -72,5 +72,7 @@
 	"Not reached": "Not reached",
 	"True": "True",
 	"False": "False",
-	"Connected": "Connected"
+	"Connected": "Connected",
+	"Control var data 1d": "Control variable over 1d",
+	"Max control var val": "Max control variable value"
 }

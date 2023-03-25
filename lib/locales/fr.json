@@ -72,5 +72,7 @@
 	"Not reached": "Non atteint",
 	"True": "Vrai",
 	"False": "Faux",
-	"Connected": "Connecté"
+	"Connected": "Connecté",
+	"Control var data 1d": "Variable de contrôle journée",
+	"Max control var val": "Seuil maximal sur la variable de contrôle"
 }

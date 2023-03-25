@@ -488,7 +488,9 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 max_energy_reached: devices_to_activate_state[device.uri].max_energy_reached,
                 max_energy_val: (device.hasOwnProperty('max_energy_val')) ? device.max_energy_val: 'N/A',
                 max_energy_time_range: (device.hasOwnProperty('max_energy_time_range')) ? device.max_energy_time_range: 'N/A',
-                connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call)
+                connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call),
+                var_label : (device.hasOwnProperty('var_label')) ? device.var_label: 'N/A',
+                max_var_val : (device.hasOwnProperty('max_var_val')) ? device.max_var_val: 'N/A'
             });
         });
     } else {
