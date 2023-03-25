@@ -125,7 +125,6 @@ const port = require('env-port')('8889');
 app.set('port', port);
 
 const i18n = require('./lib/i18n');
-const { cp } = require('fs');
 
 app.use(favicon(path.join(__dirname, 'assets','favicon.ico')));
 
@@ -139,6 +138,10 @@ if (app.get('env') === 'development') {
     app.use(compress());
     app.use(minifyTemplate());
 }
+
+app.use(express.urlencoded({
+    extended: true
+}));
 
 app.use('/assets/', express.static('assets'));
 
@@ -529,6 +532,11 @@ app.get('/api/device/:name/debug/energy/:period/', (req, res, next) => {
     }
 });
 
+
+app.post('/api/device/id/:id/control-variable/', (req, res, next) => {
+    print(req.body)
+    res.json({ status: 'ok' })
+});
 
 app.get('/device/:device_name', (req, res, next) => {
     if (!devices_to_activate_state.hasOwnProperty(req.params.device_name)) {
