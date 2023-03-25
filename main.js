@@ -534,8 +534,18 @@ app.get('/api/device/:name/debug/energy/:period/', (req, res, next) => {
 
 
 app.post('/api/device/id/:id/control-variable/', (req, res, next) => {
-    print(req.body)
-    res.json({ status: 'ok' })
+    let element = devices_to_activate.filter(value => {
+        return value.ids.includes(req.params.id);
+    });
+    if (element.length > 0) {
+        res.json({ status: 'ok' });
+        let device = element[0];
+        influxLib.writeVar(app.get('env') === 'development', device.uri, Number(req.body.var));
+    } else {
+        console.error('Device cannot be found.');
+        res.statusCode = 404;
+        res.json({ status: 'error' });
+    }
 });
 
 app.get('/device/:device_name', (req, res, next) => {
