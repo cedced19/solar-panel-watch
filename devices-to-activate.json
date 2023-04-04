@@ -19,6 +19,6 @@
         "max_energy_time_range": "6h",
         "max_energy_val": 3000,
         "var_label": "Temperature (°C)",
-        "max_var_val": 75
+        "max_control_var_val": 75
     }
 ]

@@ -37,7 +37,8 @@ function init_device(device, type) {
             type: type, 
             force_mode: false, 
             force_mode_percent: 0, 
-            max_energy_reached: false 
+            max_energy_reached: false,
+            last_control_var: NaN 
         }
         if (device.hasOwnProperty('max_energy_time_range') && device.hasOwnProperty('max_energy_val')) {
             getDeviceEnergy(device.max_energy_time_range, device.uri, (err, value) => {
@@ -45,6 +46,13 @@ function init_device(device, type) {
                     return console.error('Cannot determine energy.');
                 }
                 devices_to_activate_state[device.uri].max_energy_reached = (value >= device.max_energy_val);
+            });
+        }
+        if (device.hasOwnProperty('max_control_var_val')) {
+            influxLib.requestLastVar(device.uri).then(function (data) {
+                if (data.length) {
+                    devices_to_activate_state[device.uri].last_control_var = data[0]._value;
+                }
             });
         }
     }
@@ -500,7 +508,8 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 max_energy_time_range: (device.hasOwnProperty('max_energy_time_range')) ? device.max_energy_time_range: 'N/A',
                 connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call),
                 var_label : (device.hasOwnProperty('var_label')) ? device.var_label: 'N/A',
-                max_var_val : (device.hasOwnProperty('max_var_val')) ? device.max_var_val: 'N/A'
+                max_control_var_val : (device.hasOwnProperty('max_control_var_val')) ? device.max_control_var_val: 'N/A',
+                last_control_var : (isNaN(devices_to_activate_state[device.uri].last_control_var)) ? 'N/A': device.last_control_var
             });
         });
     } else {
@@ -552,6 +561,7 @@ app.post('/api/device/id/:id/control-variable/', (req, res, next) => {
     if (element.length > 0) {
         res.json({ status: 'ok' });
         let device = element[0];
+        devices_to_activate[device.uri].last_control_var = Number(req.body.var);
         influxLib.writeVar(app.get('env') === 'development', device.uri, Number(req.body.var));
     } else {
         console.error('Device cannot be found.');

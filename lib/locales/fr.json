@@ -74,5 +74,6 @@
 	"False": "Faux",
 	"Connected": "Connecté",
 	"Control var data 1d": "Variable de contrôle journée",
-	"Max control var val": "Seuil maximal sur la variable de contrôle"
+	"Max control var val": "Seuil maximal sur la variable de contrôle",
+	"Last control var val": "Dernière valeur de la variable de contrôle"
 }
