@@ -75,5 +75,6 @@
 	"Connected": "Connecté",
 	"Control var data 1d": "Variable de contrôle journée",
 	"Max control var val": "Seuil maximal sur la variable de contrôle",
-	"Last control var val": "Dernière valeur de la variable de contrôle"
+	"Last control var val": "Dernière valeur de la variable de contrôle",
+	"Control threshold reached": "Seuil sur la variable de contrôle atteint"
 }
