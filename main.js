@@ -93,8 +93,8 @@ function check_environment_for_power_consumption(device) {
     if (devices_to_activate_state[device.uri].max_energy_reached) { // Check using energy
         return false;
     }
-    if (device.hasOwnProperty('max_control_var_val') && !isNaN(devices_to_activate[device.uri].last_control_var)) {
-        if (devices_to_activate[device.uri].last_control_var < device.max_control_var_val) { // Check using control variable
+    if (device.hasOwnProperty('max_control_var_val') && !isNaN(devices_to_activate_state[device.uri].last_control_var)) {
+        if (devices_to_activate_state[device.uri].last_control_var > device.max_control_var_val) { // Check using control variable
             return false;
         }
     }
@@ -521,7 +521,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call),
                 var_label : (device.hasOwnProperty('var_label')) ? device.var_label: 'N/A',
                 max_control_var_val : (device.hasOwnProperty('max_control_var_val')) ? device.max_control_var_val: 'N/A',
-                last_control_var : (isNaN(devices_to_activate_state[device.uri].last_control_var)) ? 'N/A': device.last_control_var
+                last_control_var : (isNaN(devices_to_activate_state[device.uri].last_control_var)) ? 'N/A': devices_to_activate_state[device.uri].last_control_var
             });
         });
     } else {
@@ -573,8 +573,18 @@ app.post('/api/device/id/:id/control-variable/', (req, res, next) => {
     if (element.length > 0) {
         res.json({ status: 'ok' });
         let device = element[0];
-        devices_to_activate[device.uri].last_control_var = Number(req.body.var);
-        influxLib.writeVar(app.get('env') === 'development', device.uri, Number(req.body.var));
+        let value = Number(req.body.var);
+        devices_to_activate_state[device.uri].last_control_var = value;
+        try {
+            if (!isNaN(value)) {
+                influxLib.writeVar(app.get('env') === 'development', device.uri, value);
+            } else {
+                console.error('Value is NaN');
+                console.log(req.body);
+            }
+        } catch (e) {
+            console.error(e);
+        }
     } else {
         console.error('Device cannot be found.');
         res.statusCode = 404;
