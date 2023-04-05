@@ -16,9 +16,9 @@
         "ids": ["1b9d8"],
         "priority": 2,
         "min_alpha": 40,
-        "max_energy_time_range": "6h",
-        "max_energy_val": 5000,
+        "max_energy_time_range": "5h",
+        "max_energy_val": 4000,
         "var_label": "Temperature (°C)",
-        "max_control_var_val": 70
+        "max_control_var_val": 65
     }
 ]
