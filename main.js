@@ -736,7 +736,7 @@ setInterval(function () {
                         if (devices_to_activate_state[device.uri].force_mode) {
                             to_activate = (devices_to_activate_state[device.uri].force_mode_percent >= 1);
                         }
-                        if (check_environment_for_power_consumption(device)) {
+                        if (!check_environment_for_power_consumption(device)) {
                             to_activate = false;
                         }
                         devices_to_activate_state[device.uri].requested_toggle = to_activate;
@@ -753,7 +753,7 @@ setInterval(function () {
                             devices_to_activate_state[device.uri].requested_alpha = alpha;
                             devices_to_activate_state[device.uri].requested_power = percentage*device.power_limit;
                         }
-                        if (check_environment_for_power_consumption(device)) {
+                        if (!check_environment_for_power_consumption(device)) {
                             devices_to_activate_state[device.uri].requested_alpha = 128;
                             devices_to_activate_state[device.uri].requested_power = 0;
                         }
