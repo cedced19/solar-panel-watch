@@ -107,11 +107,30 @@ function print(...args) {
     }
 }
 
+function is_device_connected(time_limit, last_call, coeff) {
+    // Calculate the maximum allowed time since the last call
+    let max_allowed_time = coeff * time_limit;
+    // Now
+    let now = (new Date()).getTime();
+    // Check if the device is still connected
+    if (now - last_call < max_allowed_time) {
+      return true;
+    } else {
+      return false;
+    }
+}
+
 function get_power_from_activated_devices() {
+    const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
     let sum = 0;
-    for (let device in devices_to_activate_state) {
-        if (devices_to_activate_state[device].force_mode == false) { // Prevent from considering forced power as available power
-            sum += devices_to_activate_state[device].last_power; 
+    for (let i = 0; i < devices_to_consider.length; i++) {
+        let device = devices_to_activate.filter(value => {
+            return value.uri == devices_to_consider[i];
+        })[0];
+        if ((devices_to_activate_state[device.uri].force_mode == false) && (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 2))) { 
+            // Prevent from considering forced power as available power
+            // Short disconnections are to be considered
+            sum += devices_to_activate_state[device.uri].last_power; 
         }
     }
     return sum;
@@ -125,18 +144,7 @@ function pretty_name(name) {
     }).join(' ');
 }
 
-function is_device_connected(time_limit, last_call) {
-    // Calculate the maximum allowed time since the last call
-    let max_allowed_time = 50 * time_limit;
-    // Now
-    let now = (new Date()).getTime();
-    // Check if the device is still connected
-    if (now - last_call < max_allowed_time) {
-      return true;
-    } else {
-      return false;
-    }
-}
+
 
 // Express App
 const app = express();
@@ -729,7 +737,7 @@ setInterval(function () {
                     return value.uri == devices_to_consider[i];
                 })[0];
                 // Check for connection
-                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call)) {
+                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 50)) {
                     // Normal mode
                     if (devices_to_activate_state[device.uri].type == 'normal') {
                         let to_activate = normalDecision(device, power);
