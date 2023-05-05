@@ -6,7 +6,9 @@
         "power_threshold_percentage": 0.02,
         "ids": ["QQqR9"],
         "priority": 1,
-        "min_alpha": 37
+        "min_alpha": 37,
+        "max_energy_time_range": "5h",
+        "max_energy_val": 7000
     },
     {
         "uri": "chauffe-eau-sanitaire",
