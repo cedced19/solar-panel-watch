@@ -526,7 +526,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 max_energy_reached: devices_to_activate_state[device.uri].max_energy_reached,
                 max_energy_val: (device.hasOwnProperty('max_energy_val')) ? device.max_energy_val: 'N/A',
                 max_energy_time_range: (device.hasOwnProperty('max_energy_time_range')) ? device.max_energy_time_range: 'N/A',
-                connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 50),
+                connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20),
                 var_label : (device.hasOwnProperty('var_label')) ? device.var_label: 'N/A',
                 max_control_var_val : (device.hasOwnProperty('max_control_var_val')) ? device.max_control_var_val: 'N/A',
                 last_control_var : (isNaN(devices_to_activate_state[device.uri].last_control_var)) ? 'N/A': devices_to_activate_state[device.uri].last_control_var
@@ -737,7 +737,7 @@ setInterval(function () {
                     return value.uri == devices_to_consider[i];
                 })[0];
                 // Check for connection
-                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 50)) {
+                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
                     // Normal mode
                     if (devices_to_activate_state[device.uri].type == 'normal') {
                         let to_activate = normalDecision(device, power);
