@@ -17,6 +17,7 @@ Watch over electricity consumption from my house.
     "timezone": "Europe/Paris",
     "shelly_req_threshold": 3000,
     "energy_req_threshold": 1200000,
+    "target_req_threshold": 240000,
     "force_mode_pass": "7HaIJtG44d"
 }
 ```

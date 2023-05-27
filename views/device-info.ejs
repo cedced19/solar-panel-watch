@@ -116,6 +116,8 @@
                         { key: '<%= __("Max energy reached")%>', value: (data.max_energy_reached) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                         { key: '<%= __("Max control var val")%> - ' + data.var_label, value: (data.max_control_var_val == 'N/A') ? 'N/A': data.max_control_var_val},
                         { key: '<%= __("Last control var val")%> - ' + data.var_label, value: (data.max_control_var_val == 'N/A') ? 'N/A': data.last_control_var },
+                        { key: '<%= __("Period after target")%>', value: (data.period_after_target == 'N/A') ? 'N/A': data.period_after_target },
+                        { key: '<%= __("Target reached over period")%>', value: (data.target_reached_over_period) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                         { key: '<%= __("Control threshold reached")%>', value: ((data.max_control_var_val != 'N/A') && (data.last_control_var > data.max_control_var_val)) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                     ]
                     for (var i = 0; i < items.length; i++) {

@@ -38,6 +38,7 @@ function init_device(device, type) {
             force_mode: false, 
             force_mode_percent: 0, 
             max_energy_reached: false,
+            target_reached_over_period: false,
             last_control_var: NaN 
         }
         if (device.hasOwnProperty('max_energy_time_range') && device.hasOwnProperty('max_energy_val')) {
@@ -46,6 +47,14 @@ function init_device(device, type) {
                     return console.error('Cannot determine energy.');
                 }
                 devices_to_activate_state[device.uri].max_energy_reached = (value >= device.max_energy_val);
+            });
+        }
+        if (device.hasOwnProperty('max_control_var_val') && device.hasOwnProperty('period_after_target')) {
+            influxLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
+                devices_to_activate_state[device.uri].target_reached_over_period = (influxLib.getMaxValueOverData(data) >= device.max_control_var_val);
+            }, function (error) {
+                console.log(error);
+                return console.error('Cannot determine when if target has been reached over period.');
             });
         }
         if (device.hasOwnProperty('max_control_var_val')) {
@@ -91,6 +100,9 @@ function keep_properties(obj, properties) {
 
 function check_environment_for_power_consumption(device) {
     if (devices_to_activate_state[device.uri].max_energy_reached) { // Check using energy
+        return false;
+    }
+    if (devices_to_activate_state[device.uri].target_reached_over_period) { // Check if target has been reached over period
         return false;
     }
     if (device.hasOwnProperty('max_control_var_val') && !isNaN(devices_to_activate_state[device.uri].last_control_var)) {
@@ -519,6 +531,8 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 requested_power: devices_to_activate_state[device.uri].requested_power,
                 last_alpha: devices_to_activate_state[device.uri].last_alpha,
                 requested_alpha: devices_to_activate_state[device.uri].requested_alpha,
+                target_reached_over_period : devices_to_activate_state[device.uri].target_reached_over_period,
+                period_after_target : (device.hasOwnProperty('period_after_target')) ? device.period_after_target: 'N/A',
                 type: devices_to_activate_state[device.uri].type,
                 info_type: 'debug',
                 force_mode: devices_to_activate_state[device.uri].force_mode,
@@ -717,6 +731,25 @@ setInterval(function () {
         // Might require some delay between tasks if too much devices
     }
 },config.energy_req_threshold);
+
+// Check if max variable has been reached once over the last check period (in case of water boiler)
+setInterval(function () {
+    const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
+    for (let i = 0; i < devices_to_consider.length; i++) {
+        let device = devices_to_activate.filter(value => {
+            return value.uri == devices_to_consider[i];
+        })[0];
+        if (device.hasOwnProperty('max_control_var_val') && device.hasOwnProperty('period_after_target')) {
+            influxLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
+                devices_to_activate_state[device.uri].target_reached_over_period = (influxLib.getMaxValueOverData(data) >= device.max_control_var_val);
+            }, function (error) {
+                console.log(error);
+                return console.error('Cannot determine when if target has been reached over period.');
+            });
+        }
+        // Might require some delay between tasks if too much devices
+    }
+},config.target_req_threshold);
 
 // Get data updated
 setInterval(function () {
