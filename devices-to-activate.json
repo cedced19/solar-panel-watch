@@ -7,11 +7,11 @@
         "ids": ["QQqR9"],
         "priority": 1,
         "min_alpha": 37,
-        "max_energy_time_range": "5h",
+        "max_energy_time_range": "6h",
         "max_energy_val": 7000,
         "var_label": "Temperature (°C)",
         "max_control_var_val": 40,
-        "period_after_target": "1h"
+        "period_after_target": "30m"
     },
     {
         "uri": "chauffe-eau-sanitaire",
@@ -24,6 +24,7 @@
         "max_energy_time_range": "5h",
         "max_energy_val": 4000,
         "var_label": "Temperature (°C)",
-        "max_control_var_val": 62
+        "max_control_var_val": 55,
+        "period_after_target": "30m"
     }
 ]
