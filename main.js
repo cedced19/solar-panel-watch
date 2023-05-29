@@ -107,6 +107,10 @@ function check_environment_for_power_consumption(device) {
     }
     if (device.hasOwnProperty('max_control_var_val') && !isNaN(devices_to_activate_state[device.uri].last_control_var)) {
         if (devices_to_activate_state[device.uri].last_control_var > device.max_control_var_val) { // Check using control variable
+            if (device.hasOwnProperty('period_after_target')) {
+                // Target has been reached over period
+                devices_to_activate_state[device.uri].target_reached_over_period = true;
+            }
             return false;
         }
     }
