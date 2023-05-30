@@ -78,5 +78,7 @@
 	"Last control var val": "Last control variable value",
 	"Control threshold reached": "Control threshold reached",
 	"Period after target": "Period after target",
-	"Target reached over period": "Target reached over period"
+	"Target reached over period": "Target reached over period",
+	"Power": "Power",
+	"Control var data with power 1d": "Control var data with power 1d"
 }

@@ -659,6 +659,26 @@ app.get('/device/:device_name/control-variable/graph/:period', (req, res, next) 
     }
 });
 
+app.get('/device/:device_name/control-variable-power/graph/:period', (req, res, next) => {
+    let element = devices_to_activate.filter(value => {
+        return value.uri == req.params.device_name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        res.render('device-graph-var-power', {
+            timezone: config.timezone,
+            device_name: req.params.device_name,
+            period: req.params.period,
+            label: device.var_label
+        });
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
 app.get('/device/:device_name/graph/:period', (req, res, next) => {
     res.render('device-graph-power', {
         timezone: config.timezone,

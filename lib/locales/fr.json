@@ -74,9 +74,11 @@
 	"False": "Faux",
 	"Connected": "Connecté",
 	"Control var data 1d": "Variable de contrôle journée",
+	"Control var data with power 1d": "Variable de contrôle avec puissance journée",
 	"Max control var val": "Seuil maximal sur la variable de contrôle",
 	"Last control var val": "Dernière valeur de la variable de contrôle",
 	"Control threshold reached": "Seuil sur la variable de contrôle atteint",
 	"Period after target": "Plage de temps sur laquelle on vérifie la cible",
-	"Target reached over period": "Cible atteinte sur la plage de temps"
+	"Target reached over period": "Cible atteinte sur la plage de temps",
+	"Power": "Puissance"
 }
