@@ -38,6 +38,7 @@ function init_device(device, type) {
             force_mode: false, 
             force_mode_percent: 0, 
             max_energy_reached: false,
+            target_reached_over_period: false,
             last_control_var: NaN 
         }
         if (device.hasOwnProperty('max_energy_time_range') && device.hasOwnProperty('max_energy_val')) {
@@ -46,6 +47,14 @@ function init_device(device, type) {
                     return console.error('Cannot determine energy.');
                 }
                 devices_to_activate_state[device.uri].max_energy_reached = (value >= device.max_energy_val);
+            });
+        }
+        if (device.hasOwnProperty('max_control_var_val') && device.hasOwnProperty('period_after_target')) {
+            influxLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
+                devices_to_activate_state[device.uri].target_reached_over_period = (influxLib.getMaxValueOverData(data) >= device.max_control_var_val);
+            }, function (error) {
+                console.log(error);
+                return console.error('Cannot determine when if target has been reached over period.');
             });
         }
         if (device.hasOwnProperty('max_control_var_val')) {
@@ -93,8 +102,15 @@ function check_environment_for_power_consumption(device) {
     if (devices_to_activate_state[device.uri].max_energy_reached) { // Check using energy
         return false;
     }
+    if (devices_to_activate_state[device.uri].target_reached_over_period) { // Check if target has been reached over period
+        return false;
+    }
     if (device.hasOwnProperty('max_control_var_val') && !isNaN(devices_to_activate_state[device.uri].last_control_var)) {
         if (devices_to_activate_state[device.uri].last_control_var > device.max_control_var_val) { // Check using control variable
+            if (device.hasOwnProperty('period_after_target')) {
+                // Target has been reached over period
+                devices_to_activate_state[device.uri].target_reached_over_period = true;
+            }
             return false;
         }
     }
@@ -107,11 +123,30 @@ function print(...args) {
     }
 }
 
+function is_device_connected(time_limit, last_call, coeff) {
+    // Calculate the maximum allowed time since the last call
+    let max_allowed_time = coeff * time_limit;
+    // Now
+    let now = (new Date()).getTime();
+    // Check if the device is still connected
+    if (now - last_call < max_allowed_time) {
+      return true;
+    } else {
+      return false;
+    }
+}
+
 function get_power_from_activated_devices() {
+    const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
     let sum = 0;
-    for (let device in devices_to_activate_state) {
-        if (devices_to_activate_state[device].force_mode == false) { // Prevent from considering forced power as available power
-            sum += devices_to_activate_state[device].last_power; 
+    for (let i = 0; i < devices_to_consider.length; i++) {
+        let device = devices_to_activate.filter(value => {
+            return value.uri == devices_to_consider[i];
+        })[0];
+        if ((devices_to_activate_state[device.uri].force_mode == false) && (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 2))) { 
+            // Prevent from considering forced power as available power
+            // Short disconnections are to be considered
+            sum += devices_to_activate_state[device.uri].last_power; 
         }
     }
     return sum;
@@ -125,18 +160,7 @@ function pretty_name(name) {
     }).join(' ');
 }
 
-function is_device_connected(time_limit, last_call) {
-    // Calculate the maximum allowed time since the last call
-    let max_allowed_time = 50 * time_limit;
-    // Now
-    let now = (new Date()).getTime();
-    // Check if the device is still connected
-    if (now - last_call < max_allowed_time) {
-      return true;
-    } else {
-      return false;
-    }
-}
+
 
 // Express App
 const app = express();
@@ -511,6 +535,8 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 requested_power: devices_to_activate_state[device.uri].requested_power,
                 last_alpha: devices_to_activate_state[device.uri].last_alpha,
                 requested_alpha: devices_to_activate_state[device.uri].requested_alpha,
+                target_reached_over_period : devices_to_activate_state[device.uri].target_reached_over_period,
+                period_after_target : (device.hasOwnProperty('period_after_target')) ? device.period_after_target: 'N/A',
                 type: devices_to_activate_state[device.uri].type,
                 info_type: 'debug',
                 force_mode: devices_to_activate_state[device.uri].force_mode,
@@ -518,7 +544,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 max_energy_reached: devices_to_activate_state[device.uri].max_energy_reached,
                 max_energy_val: (device.hasOwnProperty('max_energy_val')) ? device.max_energy_val: 'N/A',
                 max_energy_time_range: (device.hasOwnProperty('max_energy_time_range')) ? device.max_energy_time_range: 'N/A',
-                connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call),
+                connected: is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20),
                 var_label : (device.hasOwnProperty('var_label')) ? device.var_label: 'N/A',
                 max_control_var_val : (device.hasOwnProperty('max_control_var_val')) ? device.max_control_var_val: 'N/A',
                 last_control_var : (isNaN(devices_to_activate_state[device.uri].last_control_var)) ? 'N/A': devices_to_activate_state[device.uri].last_control_var
@@ -633,6 +659,26 @@ app.get('/device/:device_name/control-variable/graph/:period', (req, res, next) 
     }
 });
 
+app.get('/device/:device_name/control-variable-power/graph/:period', (req, res, next) => {
+    let element = devices_to_activate.filter(value => {
+        return value.uri == req.params.device_name;
+    });
+    if (element.length > 0) {
+        let device = element[0];
+        res.render('device-graph-var-power', {
+            timezone: config.timezone,
+            device_name: req.params.device_name,
+            period: req.params.period,
+            label: device.var_label
+        });
+    } else {
+        let err = new Error('Device cannot be found.');
+        err.status = 404;
+        res.status(404);
+        next(err);
+    }
+});
+
 app.get('/device/:device_name/graph/:period', (req, res, next) => {
     res.render('device-graph-power', {
         timezone: config.timezone,
@@ -710,6 +756,25 @@ setInterval(function () {
     }
 },config.energy_req_threshold);
 
+// Check if max variable has been reached once over the last check period (in case of water boiler)
+setInterval(function () {
+    const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
+    for (let i = 0; i < devices_to_consider.length; i++) {
+        let device = devices_to_activate.filter(value => {
+            return value.uri == devices_to_consider[i];
+        })[0];
+        if (device.hasOwnProperty('max_control_var_val') && device.hasOwnProperty('period_after_target')) {
+            influxLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
+                devices_to_activate_state[device.uri].target_reached_over_period = (influxLib.getMaxValueOverData(data) >= device.max_control_var_val);
+            }, function (error) {
+                console.log(error);
+                return console.error('Cannot determine when if target has been reached over period.');
+            });
+        }
+        // Might require some delay between tasks if too much devices
+    }
+},config.target_req_threshold);
+
 // Get data updated
 setInterval(function () {
     getInformations.req(function (err, save) {
@@ -729,14 +794,14 @@ setInterval(function () {
                     return value.uri == devices_to_consider[i];
                 })[0];
                 // Check for connection
-                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call)) {
+                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
                     // Normal mode
                     if (devices_to_activate_state[device.uri].type == 'normal') {
                         let to_activate = normalDecision(device, power);
                         if (devices_to_activate_state[device.uri].force_mode) {
                             to_activate = (devices_to_activate_state[device.uri].force_mode_percent >= 1);
                         }
-                        if (check_environment_for_power_consumption(device)) {
+                        if (!check_environment_for_power_consumption(device)) {
                             to_activate = false;
                         }
                         devices_to_activate_state[device.uri].requested_toggle = to_activate;
@@ -753,7 +818,7 @@ setInterval(function () {
                             devices_to_activate_state[device.uri].requested_alpha = alpha;
                             devices_to_activate_state[device.uri].requested_power = percentage*device.power_limit;
                         }
-                        if (check_environment_for_power_consumption(device)) {
+                        if (!check_environment_for_power_consumption(device)) {
                             devices_to_activate_state[device.uri].requested_alpha = 128;
                             devices_to_activate_state[device.uri].requested_power = 0;
                         }

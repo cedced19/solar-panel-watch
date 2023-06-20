@@ -128,11 +128,12 @@
                             var td7 = document.createElement('td');
                             td1.innerHTML = prettyDate(value.result[k].start_date, true);
                             var text2 = document.createTextNode(prettyDate(value.result[k].end_date));
-                            var text3 = document.createTextNode(value.result[k].consumption_on_network);
+                            var text3 = document.createTextNode(value.result[k].consumption_on_network + ' (' + Math.floor((value.result[k].consumption_on_network/value.result[k].house_consumption)*100) + '%)');
                             var text4 = document.createTextNode(value.result[k].solar_panel);
                             var text5 = document.createTextNode(value.result[k].house_consumption);
                             var text6 = document.createTextNode(value.result[k].introduced_on_network);
-                            var text7 = document.createTextNode(Math.floor((value.result[k].house_consumption - value.result[k].consumption_on_network)*1000)/1000);
+                            var energySaved = Math.floor((value.result[k].house_consumption - value.result[k].consumption_on_network)*1000)/1000;
+                            var text7 = document.createTextNode(energySaved + ' (' + Math.floor((energySaved/value.result[k].house_consumption)*100) + '%)');
                             td2.appendChild(text2);
                             td3.appendChild(text3);
                             td4.appendChild(text4);

@@ -63,6 +63,7 @@
         <h3><%= __("Debug device")%></h3>
         <a href="/device/<%= device_name %>/graph/24h"><%= __("Raw data 1d")%></a>
         <a href="/device/<%= device_name %>/control-variable/graph/24h"><%= __("Control var data 1d")%></a>
+        <a href="/device/<%= device_name %>/control-variable-power/graph/24h"><%= __("Control var data with power 1d")%></a>
         <a id="get-energy" href="#"><%= __("Get energy used by device 1d")%></a>
         <ul id="table"></ul>
         <div id="loader" class="loader"></div>
@@ -116,6 +117,8 @@
                         { key: '<%= __("Max energy reached")%>', value: (data.max_energy_reached) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                         { key: '<%= __("Max control var val")%> - ' + data.var_label, value: (data.max_control_var_val == 'N/A') ? 'N/A': data.max_control_var_val},
                         { key: '<%= __("Last control var val")%> - ' + data.var_label, value: (data.max_control_var_val == 'N/A') ? 'N/A': data.last_control_var },
+                        { key: '<%= __("Period after target")%>', value: (data.period_after_target == 'N/A') ? 'N/A': data.period_after_target },
+                        { key: '<%= __("Target reached over period")%>', value: (data.target_reached_over_period) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                         { key: '<%= __("Control threshold reached")%>', value: ((data.max_control_var_val != 'N/A') && (data.last_control_var > data.max_control_var_val)) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                     ]
                     for (var i = 0; i < items.length; i++) {

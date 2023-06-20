@@ -7,7 +7,8 @@
     "influx_update_delay": 15000,
     "influx_url": "http://localhost:8086",
     "timezone": "Europe/Paris",
-    "shelly_req_threshold": 2000,
-    "energy_req_threshold": 1200000,
+    "shelly_req_threshold": 1500,
+    "energy_req_threshold": 360000,
+    "target_req_threshold": 240000,
     "force_mode_pass": "qD8hPtRRyEz"
 }
