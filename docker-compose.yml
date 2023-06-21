@@ -18,6 +18,7 @@ services:
   influxdb:
     image: influxdb:2.6-alpine
     network_mode: host
+    restart: always
     environment: 
       - TZ=Europe/Paris
       - DOCKER_INFLUXDB_INIT_MODE=setup
