@@ -733,7 +733,7 @@ app.listen(port, () => {
 
 // Write data to influx
 setInterval(function () {
-    influxLib.daemon(app.get('env') === 'development');
+    influxLib.daemon(app.get('env') === 'development', config.save_network_data);
 },config.influx_update_delay);
 
 // Check if energy threshold is not reached (in case of water boiler)
@@ -784,7 +784,14 @@ setInterval(function () {
             let power = save.emeters[0].power - get_power_from_activated_devices();
             //power = -800; // for test
             if (power < 0) {
-                influxLib.writePowerRaw(app.get('env') === 'development', save);
+                if (config.save_network_data) {
+                    // log also data from network
+                    influxLib.writeNetworkData(app.get('env') === 'development', save);
+                } else {
+                    // simply log power
+                    influxLib.writePowerRaw(app.get('env') === 'development', save);
+                }
+                
             }
             //print("Power available: " + power);
             const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
