@@ -1,5 +1,5 @@
 
-
+const fs = require('fs');
 const express = require('express');
 const favicon = require('express-favicon');
 const path = require('path');
@@ -24,8 +24,46 @@ const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json',200);
 
+const reload_files_dir = './reload_files/'; // reload files
+
+if (!fs.existsSync(reload_files_dir)){
+    fs.mkdirSync(reload_files_dir);
+}
+
+function save_force_mode(uri, obj) {
+    let file_path = reload_files_dir + uri + '.json';
+    let json_data = JSON.stringify(obj, null, 2);
+
+    fs.writeFile(file_path, json_data, (err) => {
+      if (err) {
+        console.error('File ' + uri + '.json could not be written.');
+        console.error(err);
+      }
+    });
+}
+
+function load_force_mode(uri) {
+    let file_path = reload_files_dir + uri + '.json';
+    if (fs.existsSync(file_path)){
+        try {
+            const json_data = fs.readFileSync(file_path, 'utf8');
+            const data = JSON.parse(json_data);
+            
+            return data;
+        } catch (error) {
+            console.error(`Error reading JSON file: ${error.message}`);
+            return {force_mode: false, percent: 0};
+        }
+    } else {
+        return {force_mode: false, percent: 0};
+    }
+}
+
+
+
 function init_device(device, type) {
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
+        force_mode_values_reload = load_force_mode(device.uri); // get the previous saved forced values
         devices_to_activate_state[device.uri] = {
             activated: false, 
             activated_advanced: false, 
@@ -35,8 +73,8 @@ function init_device(device, type) {
             requested_toggle: false,
             requested_power: 0, 
             type: type, 
-            force_mode: false, 
-            force_mode_percent: 0, 
+            force_mode: force_mode_values_reload.force_mode, 
+            force_mode_percent: force_mode_values_reload.percent, 
             max_energy_reached: false,
             target_reached_over_period: false,
             last_control_var: NaN 
@@ -429,7 +467,9 @@ app.get('/api/device/:name/force/:pass/disable', (req, res, next) => {
         if (config.force_mode_pass == req.params.pass) {
             devices_to_activate_state[device.uri].force_mode = false;
             devices_to_activate_state[device.uri].force_mode_percent = 0;
-            res.json({ force_mode: devices_to_activate_state[device.uri].force_mode, percent: devices_to_activate_state[device.uri].force_mode_percent });
+            let obj = { force_mode: devices_to_activate_state[device.uri].force_mode, percent: devices_to_activate_state[device.uri].force_mode_percent };
+            save_force_mode(device.uri, obj);
+            res.json(obj);
         } else {
             let err = new Error('Forbidden.');
             err.status = 403;
@@ -462,7 +502,9 @@ app.get('/api/device/:name/force/:pass/:percent', (req, res, next) => {
                 }
                 devices_to_activate_state[device.uri].force_mode_percent = tmp;
             }
-            res.json({ force_mode: devices_to_activate_state[device.uri].force_mode, percent: devices_to_activate_state[device.uri].force_mode_percent });
+            let obj = { force_mode: devices_to_activate_state[device.uri].force_mode, percent: devices_to_activate_state[device.uri].force_mode_percent };
+            save_force_mode(device.uri, obj);
+            res.json(obj);
         } else {
             let err = new Error('Forbidden.');
             err.status = 403;

@@ -71,6 +71,7 @@
           <ul>
               <li><a id="<%= list_devices[i] %>-btn-enable" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
               <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable force device')%></a></li>
+              <li><a id="<%= list_devices[i] %>-btn-stop" href="#"><%= __('Stop')%></a></li>
           </ul>
           <p class="res" id="<%= list_devices[i] %>-res"></p>
         </div>
@@ -84,17 +85,13 @@
     const enableLabel = "<%= __('enabled forcing')%>";
     const disableLabel = "<%= __('disabled forcing')%>";
     const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
-    const password = document.getElementById('password');
-    const percent = document.getElementById('percent');
+    const password_box = document.getElementById('password');
+    const percent_box = document.getElementById('percent');
 
-    list_devices.forEach(function (el) {
-          let buttonEnable = document.getElementById(el + '-btn-enable');
-          let buttonDisable = document.getElementById(el + '-btn-disable');
-          let resP = document.getElementById(el + '-res');
-          buttonEnable.addEventListener('click', (event) => {
-            event.preventDefault();
 
-            fetch('/api/device/' + el + '/force/' + password.value + '/' + percent.value)
+    function apply_percent(uri, percent) {
+            let resP = document.getElementById(uri + '-res');
+            fetch('/api/device/' + uri + '/force/' + password_box.value + '/' + percent)
               .then((response) => {
                   if (!response.ok) {
                     if (response.status == 403) {
@@ -107,17 +104,32 @@
                   return response.json();
                })
               .then((data) => {
-                let spanPercent = document.getElementById(el + '-percent');
+                let spanPercent = document.getElementById(uri + '-percent');
                 if (spanPercent != null) {
                   spanPercent.innerHTML = data.percent * 100;
                 }
-                let spanMode = document.getElementById(el + '-mode');
+                let spanMode = document.getElementById(uri + '-mode');
                 if (spanMode != null) {
                   spanMode.innerHTML = (data.force_mode) ? enableLabel: disableLabel;
                 }
                 resP.innerHTML = "<%= __('Successfull request')%>";
               })
               .catch((error) => console.error(error));
+    }
+
+
+    list_devices.forEach(function (el) {
+          let buttonEnable = document.getElementById(el + '-btn-enable');
+          let buttonDisable = document.getElementById(el + '-btn-disable');
+          let buttonStop = document.getElementById(el + '-btn-stop');
+
+          buttonEnable.addEventListener('click', (event) => {
+            event.preventDefault();
+            apply_percent(el, percent_box.value);
+          });
+          buttonStop.addEventListener('click', (event) => {
+            event.preventDefault();
+            apply_percent(el, 0);
           });
           buttonDisable.addEventListener('click', (event) => {
             event.preventDefault();
