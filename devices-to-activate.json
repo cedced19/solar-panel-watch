@@ -25,6 +25,6 @@
         "max_energy_val": 7000,
         "var_label": "Temperature (°C)",
         "max_control_var_val": 58,
-        "period_after_target": "30m"
+        "period_after_target": "20m"
     }
 ]
