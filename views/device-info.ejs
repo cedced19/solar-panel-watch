@@ -112,7 +112,7 @@
                         { key: '<%= __("Type")%>', value: data.type },
                         { key: '<%= __("Forcing status")%>', value: (data.force_mode) ? '<%= __("enabled forcing")%>': '<%= __("disabled forcing")%>' },
                         { key: '<%= __("Forcing percent")%>', value: (data.force_mode_percent*100) + ' %'},
-                        { key: '<%= __("Max energy val")%>', value: (data.max_energy_val == 'N/A') ? 'N/A': data.max_energy_val + ' kWh'},
+                        { key: '<%= __("Max energy val")%>', value: (data.max_energy_val == 'N/A') ? 'N/A': data.max_energy_val + ' Wh'},
                         { key: '<%= __("Max energy time range")%>', value: data.max_energy_time_range },
                         { key: '<%= __("Max energy reached")%>', value: (data.max_energy_reached) ? '<%= __("Reached")%>' : '<%= __("Not reached")%>'},
                         { key: '<%= __("Max control var val")%> - ' + data.var_label, value: (data.max_control_var_val == 'N/A') ? 'N/A': data.max_control_var_val},
