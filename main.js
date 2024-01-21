@@ -6,6 +6,7 @@ const path = require('path');
 const logger = require('morgan');
 const compress = require('compression');
 const minifyTemplate = require('express-beautify').minify;
+const requestIp = require('request-ip');
 
 const getInformations = require('./lib/get-informations.js');
 const getAlpha = require('./lib/get-alpha.js');
@@ -61,7 +62,7 @@ function load_force_mode(uri) {
 
 
 
-function init_device(device, type) {
+function init_device(device, type, req) {
     if (!devices_to_activate_state.hasOwnProperty(device.uri)) {
         force_mode_values_reload = load_force_mode(device.uri); // get the previous saved forced values
         devices_to_activate_state[device.uri] = {
@@ -77,7 +78,8 @@ function init_device(device, type) {
             force_mode_percent: force_mode_values_reload.percent, 
             max_energy_reached: false,
             target_reached_over_period: false,
-            last_control_var: NaN 
+            last_control_var: NaN,
+            ip: requestIp.getClientIp(req)
         }
         if (device.hasOwnProperty('max_energy_time_range') && device.hasOwnProperty('max_energy_val')) {
             getDeviceEnergy(device.max_energy_time_range, device.uri, (err, value) => {
@@ -385,9 +387,9 @@ function normalDecision(device, power) {
     return to_activate;
 }
 
-function normalDecisionReq(device, res) {
+function normalDecisionReq(device, req, res) {
     // make sure that device state exists
-    init_device(device, 'normal');
+    init_device(device, 'normal', req);
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
     res.json({toggle: to_activate, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_power = devices_to_activate_state[device.uri].requested_power;
@@ -413,9 +415,9 @@ function advancedDecision(device, power) {
     return result
 }
 
-function advancedDecisionReq(device, res) {
+function advancedDecisionReq(device, req, res) {
     // make sure that device state exists
-    init_device(device, 'advanced');
+    init_device(device, 'advanced', req);
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
     res.json({alpha: alpha, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
@@ -436,7 +438,7 @@ app.get('/api/device/id/:id/', (req, res, next) => {
     });
     if (element.length > 0) {
         let device = element[0];
-        normalDecisionReq(device, res);
+        normalDecisionReq(device, req, res);
     } else {
         console.error('Device cannot be found.');
         res.statusCode = 404;
@@ -450,7 +452,7 @@ app.get('/api/device/:name/', (req, res, next) => {
     });
     if (element.length > 0) {
         let device = element[0];
-        normalDecisionReq(device, res);
+        normalDecisionReq(device, req, res);
     } else {
         console.error('Device cannot be found.');
         res.statusCode = 404;
@@ -525,7 +527,7 @@ app.get('/api/device/id/:id/advanced/', (req, res, next) => {
     });
     if (element.length > 0) {
         let device = element[0];
-        advancedDecisionReq(device, res);
+        advancedDecisionReq(device, req, res);
     } else {
         console.error('Device cannot be found.');
         res.statusCode = 404;
@@ -539,7 +541,7 @@ app.get('/api/device/:name/advanced/', (req, res, next) => {
     });
     if (element.length > 0) {
         let device = element[0];
-        advancedDecisionReq(device, res);
+        advancedDecisionReq(device, req, res);
     } else {
         console.error('Device cannot be found.');
         res.statusCode = 404;
@@ -582,6 +584,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
                 type: devices_to_activate_state[device.uri].type,
                 info_type: 'debug',
                 force_mode: devices_to_activate_state[device.uri].force_mode,
+                ip: devices_to_activate_state[device.uri].ip,
                 force_mode_percent: devices_to_activate_state[device.uri].force_mode_percent,
                 max_energy_reached: devices_to_activate_state[device.uri].max_energy_reached,
                 max_energy_val: (device.hasOwnProperty('max_energy_val')) ? device.max_energy_val: 'N/A',
