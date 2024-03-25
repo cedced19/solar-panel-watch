@@ -8,7 +8,7 @@
         "priority": 1,
         "min_alpha": 50,
         "max_energy_time_range": "3h",
-        "max_energy_val": 3600,
+        "max_energy_val": 5000,
         "var_label": "Temperature (°C)",
         "max_control_var_val": 55,
         "period_after_target": "15m"
