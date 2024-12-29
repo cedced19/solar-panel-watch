@@ -824,7 +824,7 @@ setInterval(function () {
 setInterval(function () {
     getInformations.req(function (err, save) {
             if (err) {
-                console.error("Error while requesting data.");
+                return console.error("Error while requesting data.");
             }
             let power = save.emeters[0].power - get_power_from_activated_devices();
             //power = -800; // for test

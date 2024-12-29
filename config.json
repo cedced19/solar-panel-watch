@@ -10,6 +10,6 @@
     "shelly_req_threshold": 1500,
     "energy_req_threshold": 360000,
     "target_req_threshold": 240000,
-    "force_mode_pass": "qD8hPtRRyEz",
-    "save_network_data": true
+    "force_mode_pass": "jifgLBHnUV",
+    "save_network_data": false
 }

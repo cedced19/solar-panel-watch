@@ -8,7 +8,7 @@
         "priority": 1,
         "min_alpha": 40,
         "max_energy_time_range": "3h",
-        "max_energy_val": 5000,
+        "max_energy_val": 6000,
         "var_label": "Temperature (°C)",
         "max_control_var_val": 55,
         "period_after_target": "15m"
@@ -24,7 +24,7 @@
         "max_energy_time_range": "3h",
         "max_energy_val": 3600,
         "var_label": "Temperature (°C)",
-        "max_control_var_val": 55,
+        "max_control_var_val": 53,
         "period_after_target": "20m"
     }
 ]
