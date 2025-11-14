@@ -3,7 +3,8 @@ services:
   node: 
     image: node:16
     network_mode: host
-    command: npm install
+    command: tail -f /dev/null
+    restart: unless-stopped
     working_dir: /app
     volumes:
       - ./:/app
