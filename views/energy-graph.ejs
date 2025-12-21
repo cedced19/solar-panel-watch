@@ -165,6 +165,12 @@
             </div>
             <div id="graph-total" class="graph-container"></div>
         </div>
+
+        <!-- Stacked Energy Breakdown Graph -->
+        <div class="graph-section" id="stacked-section" style="display: none;">
+            <h3><%= __("Energy breakdown (stacked)")%></h3>
+            <div id="graph-stacked" class="graph-container"></div>
+        </div>
     </main>
     <script src="/assets/plotly.js"></script>
     <script>
@@ -194,6 +200,93 @@
                 movingAverage.push(avg);
             }
             return movingAverage;
+        };
+        
+        const createStackedGraph = (containerId, consumptionData, solarData, introducedData) => {
+            if (!dateObjects || !consumptionData || !solarData || !introducedData) return;
+            
+            // Stacked bars: consumption at bottom, solar on top (positive), introduced below 0 (negative)
+            const trace1 = {
+                type: 'bar',
+                x: dateObjects,
+                y: consumptionData,
+                name: '<%= __("Consumption on network")%>',
+                marker: { color: '#3498db' }
+            };
+            
+            // Used produced energy = solar + introduced
+            const usedProducedEnergy = solarData.map((solar, index) => {
+                return solar + introducedData[index];
+            });
+            
+            const trace2 = {
+                type: 'bar',
+                x: dateObjects,
+                y: usedProducedEnergy,
+                name: '<%= __("Used produced energy")%>',
+                marker: { color: '#2ecc71' }
+            };
+            
+            // Introduced energy displayed as negative (below 0)
+            const trace3 = {
+                type: 'bar',
+                x: dateObjects,
+                y: introducedData,
+                name: '<%= __("Energy Introduced")%>',
+                marker: { color: '#f39c12' }
+            };
+            
+            // Get container width dynamically
+            const container = document.getElementById(containerId);
+            let containerWidth = 1000;
+            
+            if (container) {
+                const parent = container.closest('.graph-section');
+                if (parent && parent.offsetWidth > 0) {
+                    containerWidth = parent.offsetWidth - 40;
+                } else {
+                    containerWidth = Math.min(window.innerWidth - 80, 1360);
+                }
+            } else {
+                containerWidth = Math.min(window.innerWidth - 80, 1360);
+            }
+            
+            const layout = {
+                title: '<%= __("Energy breakdown (stacked)")%>',
+                width: containerWidth,
+                height: 400,
+                barmode: 'relative',
+                xaxis: {
+                    title: '<%= __("Date")%>',
+                    type: 'date'
+                },
+                yaxis: {
+                    title: '<%= __("Energy")%> (kWh)'
+                },
+                autoscale: true,
+                margin: { l: 60, r: 20, t: 40, b: 80 },
+                legend: {
+                    orientation: 'h',
+                    y: -0.25,
+                    x: 0.5,
+                    xanchor: 'center'
+                },
+                autosize: false
+            };
+            
+            Plotly.newPlot(containerId, [trace1, trace2, trace3], layout);
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                const updatedContainer = document.getElementById(containerId);
+                if (updatedContainer) {
+                    const updatedParent = updatedContainer.closest('.graph-section');
+                    if (updatedParent && updatedParent.offsetWidth > 0) {
+                        const newWidth = updatedParent.offsetWidth - 40;
+                        Plotly.relayout(containerId, { width: newWidth });
+                    }
+                }
+            });
         };
         
         const createGraph = (containerId, title, yAxisTitle, data, metricName, weekendCheckboxId) => {
@@ -386,6 +479,7 @@
                 createGraph('graph-saved', '<%= __("Energy Saved")%>', '<%= __("Energy Saved")%>', saved, 'saved', 'weekend-coloring-saved');
                 createGraph('graph-introduced', '<%= __("Energy Introduced")%>', '<%= __("Energy Introduced")%>', introduced, 'introduced', 'weekend-coloring-introduced');
                 createGraph('graph-total', '<%= __("Total energy used")%>', '<%= __("Total energy used")%>', totalEnergyUsed, 'total', 'weekend-coloring-total');
+                createStackedGraph('graph-stacked', consumption, solar, introduced);
                 
                 // Show all sections and hide loader
                 document.getElementById('loader').style.display = 'none';
@@ -394,6 +488,7 @@
                 document.getElementById('saved-section').style.display = 'block';
                 document.getElementById('introduced-section').style.display = 'block';
                 document.getElementById('total-energy-section').style.display = 'block';
+                document.getElementById('stacked-section').style.display = 'block';
             });
         }
         window.addEventListener('load', loadData);

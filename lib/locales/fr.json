@@ -25,6 +25,9 @@
 	"Consumption on network": "Consommation sur le réseau",
 	"Moving average": "Moyenne mobile",
 	"Color weekends": "Colorer les weekends",
+	"Total energy used": "Énergie totale utilisée",
+	"Energy breakdown (stacked)": "Répartition de l'énergie (empilé)",
+	"Used produced energy": "Énergie produite utilisée",
 	"Activation history": "Historique des activations",
 	"Activation history plot": "Graphique des activations",
 	"Date": "Date",
@@ -87,6 +90,5 @@
 	"Period after target": "Plage de temps sur laquelle on vérifie la cible",
 	"Target reached over period": "Cible atteinte sur la plage de temps",
 	"Power": "Puissance",
-	"Stop": "Arrêter",
-	"Total energy used": "Energie totale utilisée"
+	"Stop": "Arrêter"
 }
