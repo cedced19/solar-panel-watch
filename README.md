@@ -52,6 +52,20 @@ sudo docker compose -f docker-compose-npm-install.yml up
 sudo docker exec -it solar-panel-watch-node-1 bash
 ```
 
+### Development with hot-reload
+
+For development with automatic reloading when `.js` or `.ejs` files change:
+
+```
+sudo docker compose -f docker-compose-reload.yml up
+```
+
+This uses `nodemon` to watch for file changes and automatically restart the Node.js application. The configuration watches:
+- `*.js` files in the root directory
+- `lib/**/*.js` files
+- `views/**/*.ejs` files
+- `bot/**/*.js` files
+
 to remove volume:
 ```
 sudo docker volume rm solar-panel-watch_data

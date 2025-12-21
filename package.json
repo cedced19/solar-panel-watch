@@ -4,7 +4,11 @@
   "description": "Watch over electricity consumption from my house.",
   "main": "main.js",
   "scripts": {
-    "start": "node main.js"
+    "start": "node main.js",
+    "dev": "nodemon main.js"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   },
   "repository": {
     "type": "git",

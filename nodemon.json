@@ -1,0 +1,17 @@
+{
+  "watch": [
+    "*.js",
+    "lib/**/*.js",
+    "views/**/*.ejs",
+    "bot/**/*.js"
+  ],
+  "ext": "js,ejs",
+  "ignore": [
+    "node_modules/**",
+    "*.log",
+    "*.json"
+  ],
+  "delay": 500,
+  "verbose": true
+}
+
