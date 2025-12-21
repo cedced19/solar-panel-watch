@@ -90,11 +90,36 @@
             height: 18px;
             cursor: pointer;
         }
+        .graph-controls select {
+            padding: 5px 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
         .graph-container {
             width: 100%;
             height: 400px;
             overflow: hidden;
             position: relative;
+        }
+        .global-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .global-controls label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: bold;
         }
     </style>
     <title>Solar panel watch | <%= __('Energy graph')%></title>
@@ -105,6 +130,19 @@
     </header>
     <main>
         <div id="loader" class="loader"></div>
+        
+        <!-- Global Controls -->
+        <div class="global-controls" id="global-controls" style="display: none;">
+            <label>
+                <span><%= __("Aggregation")%>:</span>
+                <select id="aggregation-select">
+                    <option value="day"><%= __("Day")%></option>
+                    <option value="week"><%= __("Week")%></option>
+                    <option value="month"><%= __("Month")%></option>
+                    <option value="year"><%= __("Year")%></option>
+                </select>
+            </label>
+        </div>
         
         <!-- Consumption on Network Graph -->
         <div class="graph-section" id="consumption-section" style="display: none;">
@@ -175,6 +213,7 @@
     <script src="/assets/plotly.js"></script>
     <script>
         let dateObjects = null;
+        let rawFlattenedData = null;
         let dataMetrics = {
             consumption: null,
             solar: null,
@@ -186,6 +225,131 @@
         const isWeekend = (date) => {
             const day = date.getDay();
             return day === 0 || day === 6; // Sunday = 0, Saturday = 6
+        };
+        
+        const getAggregationKey = (date, aggregation) => {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            
+            switch(aggregation) {
+                case 'day':
+                    return d.toISOString().split('T')[0]; // YYYY-MM-DD
+                case 'week':
+                    // Get Monday of the week
+                    const day = d.getDay();
+                    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+                    const monday = new Date(d);
+                    monday.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+                    return monday.toISOString().split('T')[0];
+                case 'month':
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+                case 'year':
+                    return String(d.getFullYear()); // YYYY
+                default:
+                    return d.toISOString().split('T')[0];
+            }
+        };
+        
+        const getAggregationDate = (key, aggregation) => {
+            switch(aggregation) {
+                case 'day':
+                    return new Date(key);
+                case 'week':
+                    return new Date(key); // Already Monday
+                case 'month':
+                    const [year, month] = key.split('-');
+                    return new Date(parseInt(year), parseInt(month) - 1, 1);
+                case 'year':
+                    return new Date(parseInt(key), 0, 1);
+                default:
+                    return new Date(key);
+            }
+        };
+        
+        const aggregateData = (aggregation) => {
+            if (!rawFlattenedData) return null;
+            
+            const grouped = {};
+            
+            // Group data by aggregation key
+            for (const entry of rawFlattenedData) {
+                const dateObj = new Date(entry.start_date);
+                dateObj.setHours(0, 0, 0, 0);
+                const key = getAggregationKey(dateObj, aggregation);
+                
+                if (!grouped[key]) {
+                    grouped[key] = [];
+                }
+                grouped[key].push(entry);
+            }
+            
+            // Sort keys chronologically
+            const sortedKeys = Object.keys(grouped).sort();
+            const aggregatedDates = sortedKeys.map(key => getAggregationDate(key, aggregation));
+            
+            // Aggregate metrics (sum for all aggregations, or max for day)
+            const aggregateFn = aggregation === 'day' ? 
+                (arr) => Math.max(...arr) : 
+                (arr) => arr.reduce((sum, val) => sum + val, 0);
+            
+            const consumption = sortedKeys.map(key => {
+                const entries = grouped[key];
+                return aggregateFn(entries.map(e => e.consumption_on_network));
+            });
+            
+            const solar = sortedKeys.map(key => {
+                const entries = grouped[key];
+                return aggregateFn(entries.map(e => e.solar_panel));
+            });
+            
+            const saved = sortedKeys.map(key => {
+                const entries = grouped[key];
+                return aggregateFn(entries.map(e => {
+                    return Math.floor((e.house_consumption - e.consumption_on_network) * 1000) / 1000;
+                }));
+            });
+            
+            const introduced = sortedKeys.map(key => {
+                const entries = grouped[key];
+                return aggregateFn(entries.map(e => e.introduced_on_network));
+            });
+            
+            const totalEnergyUsed = sortedKeys.map(key => {
+                const entries = grouped[key];
+                return aggregateFn(entries.map(e => {
+                    const total = e.consumption_on_network + (e.solar_panel + e.introduced_on_network);
+                    return Math.floor(total * 1000) / 1000;
+                }));
+            });
+            
+            return {
+                dates: aggregatedDates,
+                consumption,
+                solar,
+                saved,
+                introduced,
+                totalEnergyUsed
+            };
+        };
+        
+        const updateAllGraphs = (aggregation) => {
+            const aggregated = aggregateData(aggregation);
+            if (!aggregated) return;
+            
+            dateObjects = aggregated.dates;
+            dataMetrics.consumption = aggregated.consumption;
+            dataMetrics.solar = aggregated.solar;
+            dataMetrics.saved = aggregated.saved;
+            dataMetrics.introduced = aggregated.introduced;
+            dataMetrics.totalEnergyUsed = aggregated.totalEnergyUsed;
+            
+            // Recreate all graphs
+            createGraph('graph-consumption', '<%= __("Consumption on network")%>', '<%= __("Consumption on network")%>', aggregated.consumption, 'consumption', 'weekend-coloring-consumption');
+            createGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', aggregated.solar, 'solar', 'weekend-coloring-solar');
+            createGraph('graph-saved', '<%= __("Energy Saved")%>', '<%= __("Energy Saved")%>', aggregated.saved, 'saved', 'weekend-coloring-saved');
+            createGraph('graph-introduced', '<%= __("Energy Introduced")%>', '<%= __("Energy Introduced")%>', aggregated.introduced, 'introduced', 'weekend-coloring-introduced');
+            createGraph('graph-total', '<%= __("Total energy used")%>', '<%= __("Total energy used")%>', aggregated.totalEnergyUsed, 'total', 'weekend-coloring-total');
+            createStackedGraph('graph-stacked', aggregated.consumption, aggregated.solar, aggregated.introduced);
         };
         
         const calculateMovingAverage = (data, windowSize) => {
@@ -406,89 +570,27 @@
                     flattened.push(...el.result);
                 }
                 
-                // Add date key (as Date object) and formatted date string to each element
-                for (const el of flattened) {
-                    const dateObj = new Date(el.start_date);
-                    // Set time to midnight for grouping by day
-                    dateObj.setHours(0, 0, 0, 0);
-                    el.dateObj = dateObj;
-                    const day = String(dateObj.getDate()).padStart(2, '0');
-                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                    const year = String(dateObj.getFullYear()).slice(-2);
-                    el.date = `${day}-${month}-${year}`;
-                }
-
-                // Group by date
-                const filtered = {};
+                // Store raw flattened data for aggregation
+                rawFlattenedData = flattened;
                 
-                for (const entry of flattened) {
-                    // Use ISO date string as key for proper grouping
-                    const dateKey = entry.dateObj.toISOString().split('T')[0];
-                    if (!filtered[dateKey]) {
-                        filtered[dateKey] = [];
-                    }
-                    filtered[dateKey].push(entry);
-                }
-                
-                // Sort dates chronologically and calculate metrics for each date
-                const sortedDates = Object.keys(filtered).sort();
-                dateObjects = sortedDates.map(dateStr => new Date(dateStr));
-                
-                // Calculate max values for each metric per day
-                const consumption = sortedDates.map(dateStr => {
-                    const entries = filtered[dateStr];
-                    return Math.max(...entries.map(e => e.consumption_on_network));
-                });
-                
-                const solar = sortedDates.map(dateStr => {
-                    const entries = filtered[dateStr];
-                    return Math.max(...entries.map(e => e.solar_panel));
-                });
-                
-                const saved = sortedDates.map(dateStr => {
-                    const entries = filtered[dateStr];
-                    return Math.max(...entries.map(e => {
-                        return Math.floor((e.house_consumption - e.consumption_on_network) * 1000) / 1000;
-                    }));
-                });
-                
-                const introduced = sortedDates.map(dateStr => {
-                    const entries = filtered[dateStr];
-                    return Math.max(...entries.map(e => e.introduced_on_network));
-                });
-                
-                // Calculate total energy used: consumption + (solar + introduced)
-                const totalEnergyUsed = sortedDates.map((dateStr, index) => {
-                    const entries = filtered[dateStr];
-                    return Math.max(...entries.map(e => {
-                        const total = e.consumption_on_network + (e.solar_panel + e.introduced_on_network);
-                        return Math.floor(total * 1000) / 1000;
-                    }));
-                });
-                
-                // Store data
-                dataMetrics.consumption = consumption;
-                dataMetrics.solar = solar;
-                dataMetrics.saved = saved;
-                dataMetrics.introduced = introduced;
-                dataMetrics.totalEnergyUsed = totalEnergyUsed;
-                
-                // Create all graphs
-                createGraph('graph-consumption', '<%= __("Consumption on network")%>', '<%= __("Consumption on network")%>', consumption, 'consumption', 'weekend-coloring-consumption');
-                createGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', solar, 'solar', 'weekend-coloring-solar');
-                createGraph('graph-saved', '<%= __("Energy Saved")%>', '<%= __("Energy Saved")%>', saved, 'saved', 'weekend-coloring-saved');
-                createGraph('graph-introduced', '<%= __("Energy Introduced")%>', '<%= __("Energy Introduced")%>', introduced, 'introduced', 'weekend-coloring-introduced');
-                createGraph('graph-total', '<%= __("Total energy used")%>', '<%= __("Total energy used")%>', totalEnergyUsed, 'total', 'weekend-coloring-total');
-                createStackedGraph('graph-stacked', consumption, solar, introduced);
+                // Get initial aggregation (default: day)
+                const initialAggregation = document.getElementById('aggregation-select').value;
+                updateAllGraphs(initialAggregation);
                 
                 // Show all sections and hide loader
                 document.getElementById('loader').style.display = 'none';
+                document.getElementById('global-controls').style.display = 'flex';
                 document.getElementById('consumption-section').style.display = 'block';
                 document.getElementById('solar-section').style.display = 'block';
                 document.getElementById('saved-section').style.display = 'block';
                 document.getElementById('introduced-section').style.display = 'block';
                 document.getElementById('total-energy-section').style.display = 'block';
                 document.getElementById('stacked-section').style.display = 'block';
+                
+                // Add event listener for aggregation change
+                document.getElementById('aggregation-select').addEventListener('change', function(e) {
+                    updateAllGraphs(e.target.value);
+                });
             });
         }
         window.addEventListener('load', loadData);
