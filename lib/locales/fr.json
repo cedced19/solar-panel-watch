@@ -31,6 +31,7 @@
 	"Weather data": "Données météorologiques",
 	"Sunshine duration": "Durée d'ensoleillement",
 	"Max temperature": "Température maximale",
+	"Show sunshine duration": "Show sunshine duration",
 	"Aggregation": "Agrégation",
 	"Day": "Jour",
 	"Week": "Semaine",
@@ -98,5 +99,7 @@
 	"Period after target": "Plage de temps sur laquelle on vérifie la cible",
 	"Target reached over period": "Cible atteinte sur la plage de temps",
 	"Power": "Puissance",
-	"Stop": "Arrêter"
+	"Stop": "Arrêter",
+	"Show sunshine duration": "Afficher la durée d'ensoleillement",
+	"hours": "heures"
 }

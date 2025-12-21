@@ -164,6 +164,10 @@
                     <input type="checkbox" id="weekend-coloring-solar" />
                     <span><%= __("Color weekends")%></span>
                 </label>
+                <label>
+                    <input type="checkbox" id="show-sunshine-solar" />
+                    <span><%= __("Show sunshine duration")%></span>
+                </label>
             </div>
             <div id="graph-solar" class="graph-container"></div>
         </div>
@@ -221,6 +225,7 @@
         let dateObjects = null;
         let rawFlattenedData = null;
         let energyDateRange = { minDate: null, maxDate: null };
+        let weatherData = null;
         let dataMetrics = {
             consumption: null,
             solar: null,
@@ -352,7 +357,7 @@
             
             // Recreate all graphs
             createGraph('graph-consumption', '<%= __("Consumption on network")%>', '<%= __("Consumption on network")%>', aggregated.consumption, 'consumption', 'weekend-coloring-consumption');
-            createGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', aggregated.solar, 'solar', 'weekend-coloring-solar');
+            createSolarGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', aggregated.solar, 'weekend-coloring-solar', 'show-sunshine-solar');
             createGraph('graph-saved', '<%= __("Energy Saved")%>', '<%= __("Energy Saved")%>', aggregated.saved, 'saved', 'weekend-coloring-saved');
             createGraph('graph-introduced', '<%= __("Energy Introduced")%>', '<%= __("Energy Introduced")%>', aggregated.introduced, 'introduced', 'weekend-coloring-introduced');
             createGraph('graph-total', '<%= __("Total energy used")%>', '<%= __("Total energy used")%>', aggregated.totalEnergyUsed, 'total', 'weekend-coloring-total');
@@ -421,7 +426,7 @@
                     type: 'date'
                 },
                 yaxis: {
-                    title: '<%= __("Sunshine duration")%> (hours)',
+                    title: '<%= __("Sunshine duration")%> (<%= __("hours")%>)',
                     side: 'left',
                     titlefont: { color: '#f39c12' },
                     tickfont: { color: '#f39c12' }
@@ -543,6 +548,171 @@
                         Plotly.relayout(containerId, { width: newWidth });
                     }
                 }
+            });
+        };
+        
+        const createSolarGraph = (containerId, title, yAxisTitle, data, weekendCheckboxId, sunshineCheckboxId) => {
+            if (!dateObjects || !data || data.length === 0) return;
+            
+            const weekendColoringEnabled = document.getElementById(weekendCheckboxId).checked;
+            const showSunshine = document.getElementById(sunshineCheckboxId).checked;
+            
+            const barColors = dateObjects.map(date => {
+                if (weekendColoringEnabled) {
+                    return isWeekend(date) ? '#e67e22' : '#3498db';
+                } else {
+                    return '#3498db';
+                }
+            });
+            
+            const movingAverage = calculateMovingAverage(data, 7);
+            
+            const traces = [];
+            
+            // Bar trace for solar production
+            traces.push({
+                type: 'bar',
+                x: dateObjects,
+                y: data,
+                marker: {
+                    color: barColors
+                },
+                name: title + ' (kWh)',
+                yaxis: 'y'
+            });
+            
+            // Moving average line
+            traces.push({
+                type: 'scatter',
+                mode: 'lines',
+                x: dateObjects,
+                y: movingAverage,
+                line: {
+                    color: '#e74c3c',
+                    width: 2
+                },
+                name: '<%= __("Moving average")%>',
+                yaxis: 'y'
+            });
+            
+            // Sunshine duration line (if enabled)
+            if (showSunshine && weatherData && weatherData.sunshineData && weatherData.sunshineData.length > 0) {
+                // Match weather dates with energy dates
+                const sunshineAligned = dateObjects.map(energyDate => {
+                    // Find closest weather date
+                    let closestIndex = -1;
+                    let minDiff = Infinity;
+                    
+                    for (let i = 0; i < weatherData.weatherDates.length; i++) {
+                        const diff = Math.abs(energyDate - weatherData.weatherDates[i]);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            closestIndex = i;
+                        }
+                    }
+                    
+                    if (closestIndex >= 0 && minDiff < 24 * 60 * 60 * 1000) { // Within 1 day
+                        return weatherData.sunshineData[closestIndex];
+                    }
+                    return null;
+                });
+                
+                traces.push({
+                    type: 'scatter',
+                    mode: 'markers',
+                    x: dateObjects,
+                    y: sunshineAligned,
+                    marker: {
+                        color: '#f39c12',
+                        size: 6
+                    },
+                    name: '<%= __("Sunshine duration")%>',
+                    yaxis: 'y2'
+                });
+            }
+            
+            // Get container width dynamically
+            const container = document.getElementById(containerId);
+            let containerWidth = 1000;
+            
+            if (container) {
+                const parent = container.closest('.graph-section');
+                if (parent && parent.offsetWidth > 0) {
+                    containerWidth = parent.offsetWidth - 40;
+                } else {
+                    containerWidth = Math.min(window.innerWidth - 80, 1360);
+                }
+            } else {
+                containerWidth = Math.min(window.innerWidth - 80, 1360);
+            }
+            
+            const layout = {
+                title: title,
+                width: containerWidth,
+                height: 400,
+                xaxis: {
+                    title: '<%= __("Date")%>',
+                    type: 'date'
+                },
+                yaxis: {
+                    title: yAxisTitle + ' (kWh)',
+                    side: 'left',
+                    titlefont: { color: '#3498db' },
+                    tickfont: { color: '#3498db' }
+                },
+                autoscale: true,
+                margin: { l: 60, r: showSunshine && weatherData && weatherData.sunshineData ? 60 : 20, t: 40, b: 80 },
+                legend: {
+                    orientation: 'h',
+                    y: -0.25,
+                    x: 0.5,
+                    xanchor: 'center'
+                },
+                autosize: false
+            };
+            
+            // Add yaxis2 only if sunshine is enabled
+            if (showSunshine && weatherData && weatherData.sunshineData) {
+                layout.yaxis2 = {
+                    title: '<%= __("Sunshine duration")%> (<%= __("hours")%>)',
+                    overlaying: 'y',
+                    side: 'right',
+                    titlefont: { color: '#f39c12' },
+                    tickfont: { color: '#f39c12' }
+                };
+            }
+            
+            Plotly.newPlot(containerId, traces, layout);
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                const updatedContainer = document.getElementById(containerId);
+                if (updatedContainer) {
+                    const updatedParent = updatedContainer.closest('.graph-section');
+                    if (updatedParent && updatedParent.offsetWidth > 0) {
+                        const newWidth = updatedParent.offsetWidth - 40;
+                        Plotly.relayout(containerId, { width: newWidth });
+                    }
+                }
+            });
+            
+            // Add event listeners
+            document.getElementById(weekendCheckboxId).addEventListener('change', function(e) {
+                const colors = dateObjects.map(date => {
+                    if (e.target.checked) {
+                        return isWeekend(date) ? '#e67e22' : '#3498db';
+                    } else {
+                        return '#3498db';
+                    }
+                });
+                Plotly.restyle(containerId, {
+                    'marker.color': [colors]
+                }, [0]);
+            });
+            
+            document.getElementById(sunshineCheckboxId).addEventListener('change', function(e) {
+                // Recreate graph with updated sunshine visibility
+                createSolarGraph(containerId, title, yAxisTitle, data, weekendCheckboxId, sunshineCheckboxId);
             });
         };
         
@@ -742,12 +912,12 @@
                 }
                 
                 // Process weather data similar to energy data
-                const weatherData = [];
+                const processedWeatherData = [];
                 for (const el of weatherJsonData) {
                     if (el.result) {
                         const dateObj = new Date(el.date);
                         dateObj.setHours(0, 0, 0, 0);
-                        weatherData.push({
+                        processedWeatherData.push({
                             date: dateObj,
                             sunshine_duration: el.result.sunshine_duration || 0,
                             max_temp: el.result.max_temp || 0
@@ -762,7 +932,7 @@
                 const aggregation = aggregationSelect.value;
                 const weatherGrouped = {};
                 
-                for (const entry of weatherData) {
+                for (const entry of processedWeatherData) {
                     const key = getAggregationKey(entry.date, aggregation);
                     if (!weatherGrouped[key]) {
                         weatherGrouped[key] = [];
@@ -788,10 +958,23 @@
                     return aggregateFn(entries.map(e => e.max_temp));
                 });
                 
+                // Store weather data for use in solar graph
+                weatherData = {
+                    weatherDates: weatherDates,
+                    sunshineData: sunshineData,
+                    maxTempData: maxTempData
+                };
+                
                 // Create weather graph
                 if (weatherDates.length > 0) {
                     createWeatherGraph('graph-weather', weatherDates, sunshineData, maxTempData);
                     document.getElementById('weather-section').style.display = 'block';
+                    
+                    // Update solar graph if it exists and sunshine checkbox is checked
+                    const sunshineCheckbox = document.getElementById('show-sunshine-solar');
+                    if (sunshineCheckbox && sunshineCheckbox.checked && dataMetrics.solar) {
+                        createSolarGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', dataMetrics.solar, 'weekend-coloring-solar', 'show-sunshine-solar');
+                    }
                 }
             });
         }

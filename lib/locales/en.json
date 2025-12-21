@@ -31,6 +31,7 @@
 	"Weather data": "Weather data",
 	"Sunshine duration": "Sunshine duration",
 	"Max temperature": "Max temperature",
+	"Show sunshine duration": "Show sunshine duration",
 	"Aggregation": "Aggregation",
 	"Day": "Day",
 	"Week": "Week",
@@ -98,5 +99,6 @@
 	"Target reached over period": "Target reached over period",
 	"Power": "Power",
 	"Control var data with power 1d": "Control var data with power 1d",
-	"Stop": "Stop"
+	"Stop": "Stop",
+	"hours": "hours"
 }
