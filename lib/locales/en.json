@@ -100,5 +100,6 @@
 	"Power": "Power",
 	"Control var data with power 1d": "Control var data with power 1d",
 	"Stop": "Stop",
-	"hours": "hours"
+	"hours": "hours",
+	"Energy graph": "Energy plot summary"
 }
