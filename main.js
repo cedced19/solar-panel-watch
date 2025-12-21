@@ -287,6 +287,12 @@ app.get('/energy-hist/', function(req, res) {
     });
 });
 
+app.get('/energy-graph/', function(req, res) {
+    res.render('energy-graph', {
+        timezone: config.timezone
+    });
+});
+
 app.get('/activation-hist/', function(req, res) {
     res.render('activation-hist', {
         timezone: config.timezone
