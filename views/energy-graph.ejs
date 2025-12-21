@@ -19,6 +19,7 @@
             height: 100%;
             background: #f8f8f8;
             font-family: sans-serif;
+            overflow-x: hidden;
         }
 
         header {
@@ -34,11 +35,13 @@
         }
 
         main {
-            height: 80vh;
+            min-height: 80vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             max-width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
         }
         .loader {
             border: 16px solid #f3f3f3; 
@@ -52,23 +55,46 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .controls {
-            margin: 20px 0;
+        .graph-section {
+            width: 100%;
+            max-width: 1400px;
+            margin: 30px 0;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        .graph-section h3 {
+            margin-bottom: 15px;
+            font-size: 24px;
+            color: #333;
+        }
+        .graph-controls {
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
+            flex-wrap: wrap;
         }
-        .controls label {
+        .graph-controls label {
             display: flex;
             align-items: center;
             gap: 8px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
         }
-        .controls input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
+        .graph-controls input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
             cursor: pointer;
+        }
+        .graph-container {
+            width: 100%;
+            height: 400px;
+            overflow: hidden;
+            position: relative;
         }
     </style>
     <title>Solar panel watch | <%= __('Energy graph')%></title>
@@ -79,38 +105,185 @@
     </header>
     <main>
         <div id="loader" class="loader"></div>
-        <div class="controls">
-            <label>
-                <input type="checkbox" id="weekend-coloring" />
-                <span><%= __("Color weekends")%></span>
-            </label>
+        
+        <!-- Consumption on Network Graph -->
+        <div class="graph-section" id="consumption-section" style="display: none;">
+            <h3><%= __("Consumption on network")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <input type="checkbox" id="weekend-coloring-consumption" />
+                    <span><%= __("Color weekends")%></span>
+                </label>
+            </div>
+            <div id="graph-consumption" class="graph-container"></div>
         </div>
-        <div id="graphs-container"></div>
+
+        <!-- Solar Panel Production Graph -->
+        <div class="graph-section" id="solar-section" style="display: none;">
+            <h3><%= __("Solar panel production energy")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <input type="checkbox" id="weekend-coloring-solar" />
+                    <span><%= __("Color weekends")%></span>
+                </label>
+            </div>
+            <div id="graph-solar" class="graph-container"></div>
+        </div>
+
+        <!-- Energy Saved Graph -->
+        <div class="graph-section" id="saved-section" style="display: none;">
+            <h3><%= __("Energy Saved")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <input type="checkbox" id="weekend-coloring-saved" />
+                    <span><%= __("Color weekends")%></span>
+                </label>
+            </div>
+            <div id="graph-saved" class="graph-container"></div>
+        </div>
+
+        <!-- Energy Introduced Graph -->
+        <div class="graph-section" id="introduced-section" style="display: none;">
+            <h3><%= __("Energy Introduced")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <input type="checkbox" id="weekend-coloring-introduced" />
+                    <span><%= __("Color weekends")%></span>
+                </label>
+            </div>
+            <div id="graph-introduced" class="graph-container"></div>
+        </div>
     </main>
     <script src="/assets/plotly.js"></script>
     <script>
         let dateObjects = null;
-        let maxConsumption = null;
+        let dataMetrics = {
+            consumption: null,
+            solar: null,
+            saved: null,
+            introduced: null
+        };
         
         const isWeekend = (date) => {
             const day = date.getDay();
             return day === 0 || day === 6; // Sunday = 0, Saturday = 6
         };
         
-        const updateBarColors = (weekendColoringEnabled) => {
-            if (!dateObjects || !maxConsumption) return;
+        const calculateMovingAverage = (data, windowSize) => {
+            const movingAverage = [];
+            const effectiveWindowSize = Math.min(windowSize, Math.max(3, Math.floor(data.length / 10)));
             
-            const colors = dateObjects.map(date => {
+            for (let i = 0; i < data.length; i++) {
+                const start = Math.max(0, i - Math.floor(effectiveWindowSize / 2));
+                const end = Math.min(data.length, i + Math.ceil(effectiveWindowSize / 2));
+                const window = data.slice(start, end);
+                const avg = window.reduce((sum, val) => sum + val, 0) / window.length;
+                movingAverage.push(avg);
+            }
+            return movingAverage;
+        };
+        
+        const createGraph = (containerId, title, yAxisTitle, data, metricName, weekendCheckboxId) => {
+            if (!dateObjects || !data || data.length === 0) return;
+            
+            const weekendColoringEnabled = document.getElementById(weekendCheckboxId).checked;
+            const barColors = dateObjects.map(date => {
                 if (weekendColoringEnabled) {
-                    return isWeekend(date) ? '#e67e22' : '#3498db'; // Orange for weekends, blue for weekdays
+                    return isWeekend(date) ? '#e67e22' : '#3498db';
                 } else {
-                    return '#3498db'; // Default blue for all
+                    return '#3498db';
                 }
             });
             
-            Plotly.restyle('graphs-container', {
-                'marker.color': [colors]
-            }, [0]); // Update first trace (bar chart)
+            const movingAverage = calculateMovingAverage(data, 7);
+            
+            const barTrace = {
+                type: 'bar',
+                x: dateObjects,
+                y: data,
+                marker: {
+                    color: barColors
+                },
+                name: title + ' (kWh)'
+            };
+            
+            const lineTrace = {
+                type: 'scatter',
+                mode: 'lines',
+                x: dateObjects,
+                y: movingAverage,
+                line: {
+                    color: '#e74c3c',
+                    width: 2
+                },
+                name: '<%= __("Moving average")%>'
+            };
+            
+            // Get container width dynamically - wait for container to be visible
+            const container = document.getElementById(containerId);
+            let containerWidth = 1000; // default fallback
+            
+            if (container) {
+                // If container is not visible yet, use parent width
+                const parent = container.closest('.graph-section');
+                if (parent && parent.offsetWidth > 0) {
+                    containerWidth = parent.offsetWidth - 40; // subtract padding
+                } else {
+                    containerWidth = Math.min(window.innerWidth - 80, 1360); // account for main padding
+                }
+            } else {
+                containerWidth = Math.min(window.innerWidth - 80, 1360);
+            }
+            
+            const layout = {
+                title: title,
+                width: containerWidth,
+                height: 400,
+                xaxis: {
+                    title: '<%= __("Date")%>',
+                    type: 'date'
+                },
+                yaxis: {
+                    title: yAxisTitle + ' (kWh)'
+                },
+                autoscale: true,
+                margin: { l: 60, r: 20, t: 40, b: 80 },
+                legend: {
+                    orientation: 'h',
+                    y: -0.25,
+                    x: 0.5,
+                    xanchor: 'center'
+                },
+                autosize: false
+            };
+            
+            Plotly.newPlot(containerId, [barTrace, lineTrace], layout);
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                const updatedContainer = document.getElementById(containerId);
+                if (updatedContainer) {
+                    const updatedParent = updatedContainer.closest('.graph-section');
+                    if (updatedParent && updatedParent.offsetWidth > 0) {
+                        const newWidth = updatedParent.offsetWidth - 40;
+                        Plotly.relayout(containerId, { width: newWidth });
+                    }
+                }
+            });
+            
+            // Add event listener for weekend coloring toggle
+            document.getElementById(weekendCheckboxId).addEventListener('change', function(e) {
+                const colors = dateObjects.map(date => {
+                    if (e.target.checked) {
+                        return isWeekend(date) ? '#e67e22' : '#3498db';
+                    } else {
+                        return '#3498db';
+                    }
+                });
+                Plotly.restyle(containerId, {
+                    'marker.color': [colors]
+                }, [0]);
+            });
         };
         
         const loadData = () => {
@@ -139,7 +312,7 @@
                     el.date = `${day}-${month}-${year}`;
                 }
 
-                // Group by date and find max consumption_on_network
+                // Group by date
                 const filtered = {};
                 
                 for (const entry of flattened) {
@@ -151,85 +324,54 @@
                     filtered[dateKey].push(entry);
                 }
                 
-                // Sort dates chronologically and get max consumption for each date
+                // Sort dates chronologically and calculate metrics for each date
                 const sortedDates = Object.keys(filtered).sort();
                 dateObjects = sortedDates.map(dateStr => new Date(dateStr));
-                maxConsumption = sortedDates.map(dateStr => {
+                
+                // Calculate max values for each metric per day
+                const consumption = sortedDates.map(dateStr => {
                     const entries = filtered[dateStr];
                     return Math.max(...entries.map(e => e.consumption_on_network));
                 });
                 
-                // Calculate moving average (using a window of 7 days, or adaptive based on data size)
-                const windowSize = Math.min(7, Math.max(3, Math.floor(maxConsumption.length / 10)));
-                const movingAverage = [];
-                
-                for (let i = 0; i < maxConsumption.length; i++) {
-                    const start = Math.max(0, i - Math.floor(windowSize / 2));
-                    const end = Math.min(maxConsumption.length, i + Math.ceil(windowSize / 2));
-                    const window = maxConsumption.slice(start, end);
-                    const avg = window.reduce((sum, val) => sum + val, 0) / window.length;
-                    movingAverage.push(avg);
-                }
-                
-                // Determine bar colors based on weekend coloring setting
-                const weekendColoringEnabled = document.getElementById('weekend-coloring').checked;
-                const barColors = dateObjects.map(date => {
-                    if (weekendColoringEnabled) {
-                        return isWeekend(date) ? '#e67e22' : '#3498db'; // Orange for weekends, blue for weekdays
-                    } else {
-                        return '#3498db'; // Default blue for all
-                    }
+                const solar = sortedDates.map(dateStr => {
+                    const entries = filtered[dateStr];
+                    return Math.max(...entries.map(e => e.solar_panel));
                 });
                 
-                // Create bar chart
-                const barTrace = {
-                    type: 'bar',
-                    x: dateObjects,
-                    y: maxConsumption,
-                    marker: {
-                        color: barColors
-                    },
-                    name: '<%= __("Max consumption on network")%> (kWh)'
-                };
+                const saved = sortedDates.map(dateStr => {
+                    const entries = filtered[dateStr];
+                    return Math.max(...entries.map(e => {
+                        return Math.floor((e.house_consumption - e.consumption_on_network) * 1000) / 1000;
+                    }));
+                });
                 
-                // Create moving average line
-                const lineTrace = {
-                    type: 'scatter',
-                    mode: 'lines',
-                    x: dateObjects,
-                    y: movingAverage,
-                    line: {
-                        color: '#e74c3c',
-                        width: 2
-                    },
-                    name: '<%= __("Moving average")%>'
-                };
+                const introduced = sortedDates.map(dateStr => {
+                    const entries = filtered[dateStr];
+                    return Math.max(...entries.map(e => e.introduced_on_network));
+                });
                 
-                const layout = {
-                    title: '<%= __("Energy consumption over time")%>',
-                    width: window.innerWidth,
-                    height: window.innerHeight * 0.8,
-                    xaxis: {
-                        title: '<%= __("Date")%>',
-                        type: 'date'
-                    },
-                    yaxis: {
-                        title: '<%= __("Consumption on network")%> (kWh)'
-                    },
-                    autoscale: true
-                };
+                // Store data
+                dataMetrics.consumption = consumption;
+                dataMetrics.solar = solar;
+                dataMetrics.saved = saved;
+                dataMetrics.introduced = introduced;
                 
-                Plotly.newPlot('graphs-container', [barTrace, lineTrace], layout);
+                // Create all graphs
+                createGraph('graph-consumption', '<%= __("Consumption on network")%>', '<%= __("Consumption on network")%>', consumption, 'consumption', 'weekend-coloring-consumption');
+                createGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', solar, 'solar', 'weekend-coloring-solar');
+                createGraph('graph-saved', '<%= __("Energy Saved")%>', '<%= __("Energy Saved")%>', saved, 'saved', 'weekend-coloring-saved');
+                createGraph('graph-introduced', '<%= __("Energy Introduced")%>', '<%= __("Energy Introduced")%>', introduced, 'introduced', 'weekend-coloring-introduced');
+                
+                // Show all sections and hide loader
                 document.getElementById('loader').style.display = 'none';
-                
-                // Add event listener for weekend coloring toggle
-                document.getElementById('weekend-coloring').addEventListener('change', function(e) {
-                    updateBarColors(e.target.checked);
-                });
+                document.getElementById('consumption-section').style.display = 'block';
+                document.getElementById('solar-section').style.display = 'block';
+                document.getElementById('saved-section').style.display = 'block';
+                document.getElementById('introduced-section').style.display = 'block';
             });
         }
         window.addEventListener('load', loadData);
     </script>
   </body>
 </html>
-
