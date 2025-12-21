@@ -23,6 +23,8 @@
 	"Max consumption on network": "Consommation maximale sur le réseau",
 	"Energy consumption over time": "Consommation d'énergie au cours du temps",
 	"Consumption on network": "Consommation sur le réseau",
+	"Moving average": "Moyenne mobile",
+	"Color weekends": "Colorer les weekends",
 	"Activation history": "Historique des activations",
 	"Activation history plot": "Graphique des activations",
 	"Date": "Date",
