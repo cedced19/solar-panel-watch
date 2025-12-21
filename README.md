@@ -49,6 +49,7 @@ Watch over electricity consumption from my house.
 ```
 sudo docker compose up
 sudo docker compose -f docker-compose-npm-install.yml up
+sudo docker exec -it solar-panel-watch-node-1 bash
 ```
 
 to remove volume:
