@@ -209,11 +209,18 @@
             <h3><%= __("Energy breakdown (stacked)")%></h3>
             <div id="graph-stacked" class="graph-container"></div>
         </div>
+
+        <!-- Weather Data Graph -->
+        <div class="graph-section" id="weather-section" style="display: none;">
+            <h3><%= __("Weather data")%></h3>
+            <div id="graph-weather" class="graph-container"></div>
+        </div>
     </main>
     <script src="/assets/plotly.js"></script>
     <script>
         let dateObjects = null;
         let rawFlattenedData = null;
+        let energyDateRange = { minDate: null, maxDate: null };
         let dataMetrics = {
             consumption: null,
             solar: null,
@@ -364,6 +371,92 @@
                 movingAverage.push(avg);
             }
             return movingAverage;
+        };
+        
+        const createWeatherGraph = (containerId, weatherDates, sunshineData, maxTempData) => {
+            if (!weatherDates || !sunshineData || !maxTempData || weatherDates.length === 0) return;
+            
+            // Create dual y-axis graph: sunshine duration (left) and max temperature (right)
+            const trace1 = {
+                type: 'bar',
+                x: weatherDates,
+                y: sunshineData,
+                name: '<%= __("Sunshine duration")%>',
+                marker: { color: '#f39c12' },
+                yaxis: 'y'
+            };
+            
+            const trace2 = {
+                type: 'scatter',
+                mode: 'lines+markers',
+                x: weatherDates,
+                y: maxTempData,
+                name: '<%= __("Max temperature")%>',
+                line: { color: '#e74c3c', width: 2 },
+                marker: { color: '#e74c3c', size: 4 },
+                yaxis: 'y2'
+            };
+            
+            // Get container width dynamically
+            const container = document.getElementById(containerId);
+            let containerWidth = 1000;
+            
+            if (container) {
+                const parent = container.closest('.graph-section');
+                if (parent && parent.offsetWidth > 0) {
+                    containerWidth = parent.offsetWidth - 40;
+                } else {
+                    containerWidth = Math.min(window.innerWidth - 80, 1360);
+                }
+            } else {
+                containerWidth = Math.min(window.innerWidth - 80, 1360);
+            }
+            
+            const layout = {
+                title: '<%= __("Weather data")%>',
+                width: containerWidth,
+                height: 400,
+                xaxis: {
+                    title: '<%= __("Date")%>',
+                    type: 'date'
+                },
+                yaxis: {
+                    title: '<%= __("Sunshine duration")%> (hours)',
+                    side: 'left',
+                    titlefont: { color: '#f39c12' },
+                    tickfont: { color: '#f39c12' }
+                },
+                yaxis2: {
+                    title: '<%= __("Max temperature")%> (°C)',
+                    overlaying: 'y',
+                    side: 'right',
+                    titlefont: { color: '#e74c3c' },
+                    tickfont: { color: '#e74c3c' }
+                },
+                autoscale: true,
+                margin: { l: 60, r: 60, t: 40, b: 80 },
+                legend: {
+                    orientation: 'h',
+                    y: -0.25,
+                    x: 0.5,
+                    xanchor: 'center'
+                },
+                autosize: false
+            };
+            
+            Plotly.newPlot(containerId, [trace1, trace2], layout);
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                const updatedContainer = document.getElementById(containerId);
+                if (updatedContainer) {
+                    const updatedParent = updatedContainer.closest('.graph-section');
+                    if (updatedParent && updatedParent.offsetWidth > 0) {
+                        const newWidth = updatedParent.offsetWidth - 40;
+                        Plotly.relayout(containerId, { width: newWidth });
+                    }
+                }
+            });
         };
         
         const createStackedGraph = (containerId, consumptionData, solarData, introducedData) => {
@@ -573,6 +666,24 @@
                 // Store raw flattened data for aggregation
                 rawFlattenedData = flattened;
                 
+                // Calculate date range from energy data
+                let minDate = null;
+                let maxDate = null;
+                
+                for (const entry of flattened) {
+                    const dateObj = new Date(entry.start_date);
+                    if (!minDate || dateObj < minDate) {
+                        minDate = dateObj;
+                    }
+                    if (!maxDate || dateObj > maxDate) {
+                        maxDate = dateObj;
+                    }
+                }
+                
+                // Store date range for later use
+                energyDateRange.minDate = minDate;
+                energyDateRange.maxDate = maxDate;
+                
                 // Get initial aggregation (default: day)
                 const initialAggregation = document.getElementById('aggregation-select').value;
                 updateAllGraphs(initialAggregation);
@@ -590,9 +701,101 @@
                 // Add event listener for aggregation change
                 document.getElementById('aggregation-select').addEventListener('change', function(e) {
                     updateAllGraphs(e.target.value);
+                    if (energyDateRange.minDate && energyDateRange.maxDate) {
+                        loadWeatherData(energyDateRange.minDate, energyDateRange.maxDate);
+                    }
                 });
+                
+                // Load weather data with date range from energy data
+                if (minDate && maxDate) {
+                    loadWeatherData(minDate, maxDate);
+                }
             });
         }
+        
+        const loadWeatherData = (startDate, endDate) => {
+            // Build URL with date range parameters
+            let url = '/api/data/weather-hist/';
+            if (startDate && endDate) {
+                // Add a small buffer to ensure we get all data
+                const bufferStart = new Date(startDate);
+                bufferStart.setDate(bufferStart.getDate() - 1);
+                const bufferEnd = new Date(endDate);
+                bufferEnd.setDate(bufferEnd.getDate() + 1);
+                
+                const startStr = bufferStart.toISOString().split('T')[0];
+                const endStr = bufferEnd.toISOString().split('T')[0];
+                url += `?start_date=${startStr}&end_date=${endStr}`;
+            }
+            
+            const fetchWeatherData = fetch(url)
+                .then(response => response.json())
+                .catch(error => {
+                    console.error('Error fetching weather data:', error);
+                    return [];
+                });
+            
+            fetchWeatherData.then(weatherJsonData => {
+                if (!weatherJsonData || weatherJsonData.length === 0) {
+                    // No weather data available
+                    return;
+                }
+                
+                // Process weather data similar to energy data
+                const weatherData = [];
+                for (const el of weatherJsonData) {
+                    if (el.result) {
+                        const dateObj = new Date(el.date);
+                        dateObj.setHours(0, 0, 0, 0);
+                        weatherData.push({
+                            date: dateObj,
+                            sunshine_duration: el.result.sunshine_duration || 0,
+                            max_temp: el.result.max_temp || 0
+                        });
+                    }
+                }
+                
+                // Group by date (using same aggregation as energy data)
+                const aggregationSelect = document.getElementById('aggregation-select');
+                if (!aggregationSelect) return;
+                
+                const aggregation = aggregationSelect.value;
+                const weatherGrouped = {};
+                
+                for (const entry of weatherData) {
+                    const key = getAggregationKey(entry.date, aggregation);
+                    if (!weatherGrouped[key]) {
+                        weatherGrouped[key] = [];
+                    }
+                    weatherGrouped[key].push(entry);
+                }
+                
+                // Aggregate weather data
+                const sortedWeatherKeys = Object.keys(weatherGrouped).sort();
+                const weatherDates = sortedWeatherKeys.map(key => getAggregationDate(key, aggregation));
+                
+                const aggregateFn = aggregation === 'day' ? 
+                    (arr) => Math.max(...arr) : 
+                    (arr) => arr.reduce((sum, val) => sum + val, 0) / arr.length; // Average for aggregated periods
+                
+                const sunshineData = sortedWeatherKeys.map(key => {
+                    const entries = weatherGrouped[key];
+                    return aggregateFn(entries.map(e => e.sunshine_duration));
+                });
+                
+                const maxTempData = sortedWeatherKeys.map(key => {
+                    const entries = weatherGrouped[key];
+                    return aggregateFn(entries.map(e => e.max_temp));
+                });
+                
+                // Create weather graph
+                if (weatherDates.length > 0) {
+                    createWeatherGraph('graph-weather', weatherDates, sunshineData, maxTempData);
+                    document.getElementById('weather-section').style.display = 'block';
+                }
+            });
+        }
+        
         window.addEventListener('load', loadData);
     </script>
   </body>

@@ -13,6 +13,7 @@ const getAlpha = require('./lib/get-alpha.js');
 const influxLib = require('./lib/influx-lib.js');
 const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const computeEnergy = require('./lib/compute-energy.js');
+const getWeather = require('./lib/get-weather.js');
 
 
 const JSONStore = require('json-store-list');
@@ -362,6 +363,38 @@ app.get('/api/data/energy/:period', (req, res, next) => {
 app.get('/api/data/energy-request-hist/', (req, res) => {
     db_energy.save(function () {
         res.json(db_energy.getAll());
+    });
+});
+
+app.get('/api/data/weather-hist/', (req, res, next) => {
+    // Get date range from query params or use default (last 30 days)
+    let endDate = new Date();
+    let startDate = new Date();
+    
+    if (req.query.start_date && req.query.end_date) {
+        startDate = new Date(req.query.start_date);
+        endDate = new Date(req.query.end_date);
+    } else {
+        // Default to last 30 days
+        startDate.setDate(startDate.getDate() - 30);
+    }
+    
+    getWeather.getHistoricalWeather(startDate, endDate, function (err, data) {
+        if (err) {
+            err.status = 500;
+            res.status(500);
+            return next(err);
+        }
+        // Transform to match expected format
+        const formattedData = data.map(item => ({
+            date: item.date,
+            result: {
+                max_temp: item.max_temp,
+                min_temp: item.min_temp,
+                sunshine_duration: item.sunshine_duration
+            }
+        }));
+        res.json(formattedData);
     });
 });
 
