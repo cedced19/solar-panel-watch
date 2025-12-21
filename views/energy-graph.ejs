@@ -153,6 +153,18 @@
             </div>
             <div id="graph-introduced" class="graph-container"></div>
         </div>
+
+        <!-- Total Energy Used Graph -->
+        <div class="graph-section" id="total-energy-section" style="display: none;">
+            <h3><%= __("Total energy used")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <input type="checkbox" id="weekend-coloring-total" />
+                    <span><%= __("Color weekends")%></span>
+                </label>
+            </div>
+            <div id="graph-total" class="graph-container"></div>
+        </div>
     </main>
     <script src="/assets/plotly.js"></script>
     <script>
@@ -161,7 +173,8 @@
             consumption: null,
             solar: null,
             saved: null,
-            introduced: null
+            introduced: null,
+            totalEnergyUsed: null
         };
         
         const isWeekend = (date) => {
@@ -351,17 +364,28 @@
                     return Math.max(...entries.map(e => e.introduced_on_network));
                 });
                 
+                // Calculate total energy used: consumption + (solar + introduced)
+                const totalEnergyUsed = sortedDates.map((dateStr, index) => {
+                    const entries = filtered[dateStr];
+                    return Math.max(...entries.map(e => {
+                        const total = e.consumption_on_network + (e.solar_panel + e.introduced_on_network);
+                        return Math.floor(total * 1000) / 1000;
+                    }));
+                });
+                
                 // Store data
                 dataMetrics.consumption = consumption;
                 dataMetrics.solar = solar;
                 dataMetrics.saved = saved;
                 dataMetrics.introduced = introduced;
+                dataMetrics.totalEnergyUsed = totalEnergyUsed;
                 
                 // Create all graphs
                 createGraph('graph-consumption', '<%= __("Consumption on network")%>', '<%= __("Consumption on network")%>', consumption, 'consumption', 'weekend-coloring-consumption');
                 createGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', solar, 'solar', 'weekend-coloring-solar');
                 createGraph('graph-saved', '<%= __("Energy Saved")%>', '<%= __("Energy Saved")%>', saved, 'saved', 'weekend-coloring-saved');
                 createGraph('graph-introduced', '<%= __("Energy Introduced")%>', '<%= __("Energy Introduced")%>', introduced, 'introduced', 'weekend-coloring-introduced');
+                createGraph('graph-total', '<%= __("Total energy used")%>', '<%= __("Total energy used")%>', totalEnergyUsed, 'total', 'weekend-coloring-total');
                 
                 // Show all sections and hide loader
                 document.getElementById('loader').style.display = 'none';
@@ -369,6 +393,7 @@
                 document.getElementById('solar-section').style.display = 'block';
                 document.getElementById('saved-section').style.display = 'block';
                 document.getElementById('introduced-section').style.display = 'block';
+                document.getElementById('total-energy-section').style.display = 'block';
             });
         }
         window.addEventListener('load', loadData);

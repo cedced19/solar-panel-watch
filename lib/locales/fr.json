@@ -87,5 +87,6 @@
 	"Period after target": "Plage de temps sur laquelle on vérifie la cible",
 	"Target reached over period": "Cible atteinte sur la plage de temps",
 	"Power": "Puissance",
-	"Stop": "Arrêter"
+	"Stop": "Arrêter",
+	"Total energy used": "Energie totale utilisée"
 }
