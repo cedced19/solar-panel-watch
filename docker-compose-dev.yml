@@ -2,7 +2,9 @@ version: '3'
 services:
   node: 
     image: node:16
-    network_mode: host
+    network_mode: service:influxdb
+    depends_on:
+      - influxdb
     command: node main.js
     restart: always
     working_dir: /app
@@ -16,7 +18,6 @@ services:
       - PORT=8889
   influxdb:
     image: influxdb:2.6-alpine
-    network_mode: host
     environment: 
       - TZ=Europe/Paris
       - DOCKER_INFLUXDB_INIT_MODE=setup
@@ -29,6 +30,8 @@ services:
       - data:/var/lib/influxdb2
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8889:8889"
       
 volumes:
   data:
