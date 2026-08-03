@@ -8,68 +8,7 @@
   <title>Solar Panel Watch<% if(error){ %> | <%= __('Shelly unavailable')%><% } %></title>
   <link rel=manifest href=/assets/manifest.json>
   <% if(error){ %>
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body.unavailable-page {
-      min-height: 100vh;
-      margin: 0;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      padding: 24px;
-      color: #f8fafc;
-      font-family: Arial, Helvetica, sans-serif;
-      background: radial-gradient(circle at 20% 15%, #1e3a5f 0, transparent 35%), radial-gradient(circle at 80% 85%, #7c2d12 0, transparent 34%), #081321;
-    }
-    body.unavailable-page::before,
-    body.unavailable-page::after {
-      position: fixed;
-      content: '';
-      width: 340px;
-      height: 340px;
-      border-radius: 50%;
-      opacity: .18;
-      filter: blur(10px);
-      pointer-events: none;
-    }
-    body.unavailable-page::before { top: -150px; right: -100px; background: #38bdf8; }
-    body.unavailable-page::after { bottom: -180px; left: -90px; background: #fb923c; }
-    .failure-card {
-      position: relative;
-      z-index: 1;
-      width: min(100%, 610px);
-      padding: clamp(28px, 6vw, 52px);
-      border: 1px solid rgba(255, 255, 255, .14);
-      border-radius: 28px;
-      background: rgba(15, 23, 42, .76);
-      box-shadow: 0 24px 70px rgba(0, 0, 0, .38);
-      backdrop-filter: blur(18px);
-    }
-    .brand { margin: 0 0 42px; color: #cbd5e1; font-size: .82rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-    .failure-icon {
-      display: grid;
-      width: 68px;
-      height: 68px;
-      place-items: center;
-      margin-bottom: 24px;
-      color: #fed7aa;
-      border: 1px solid rgba(251, 146, 60, .45);
-      border-radius: 20px;
-      background: linear-gradient(135deg, rgba(249, 115, 22, .38), rgba(239, 68, 68, .18));
-    }
-    .failure-icon svg { width: 34px; height: 34px; }
-    .status-badge { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; color: #fed7aa; font-size: .86rem; font-weight: 700; }
-    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #fb923c; box-shadow: 0 0 0 5px rgba(251, 146, 60, .13); }
-    .failure-card h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.04em; }
-    .failure-description { max-width: 500px; margin: 16px 0 28px; color: #cbd5e1; font-size: 1.05rem; line-height: 1.65; }
-    .failure-checks { display: grid; gap: 12px; margin: 0 0 30px; padding: 20px; list-style: none; border-radius: 16px; background: rgba(148, 163, 184, .10); }
-    .failure-checks li { display: flex; gap: 11px; color: #e2e8f0; font-size: .95rem; line-height: 1.4; }
-    .failure-checks li::before { content: '•'; color: #fb923c; font-size: 1.3rem; line-height: .85; }
-    .retry-button { display: inline-flex; align-items: center; gap: 9px; padding: 13px 19px; color: #172033; font-weight: 700; text-decoration: none; border-radius: 12px; background: #f8fafc; transition: transform .16s ease, box-shadow .16s ease; }
-    .retry-button:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(248, 250, 252, .2); }
-    .safety-note { margin: 25px 0 0; color: #94a3b8; font-size: .86rem; line-height: 1.45; }
-  </style>
+  <link rel="stylesheet" href="/assets/error_page.css">
   <% } else { %>
   <style>
     * {
