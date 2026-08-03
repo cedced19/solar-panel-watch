@@ -25,6 +25,16 @@ const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json',200);
 
+// Keep the default state safe until a valid Shelly reading has been received.
+let powerDataAvailable = false;
+
+function requestPowerData(cb) {
+    getInformations.req(function (err, data) {
+        powerDataAvailable = !err;
+        cb(err, data);
+    });
+}
+
 const reload_files_dir = './reload_files/'; // reload files
 
 if (!fs.existsSync(reload_files_dir)){
@@ -230,8 +240,8 @@ app.use(express.urlencoded({
 app.use('/assets/', express.static('assets'));
 
 app.get('/', function(req, res) {
-    getInformations.req(function (err, data) {
-        if (err) return res.render('index', {error: true});
+    requestPowerData(function (err, data) {
+        if (err) return res.status(503).render('index', {error: true});
         res.render('index', {
             error: false,
             power1: data.emeters[0].power,
@@ -305,8 +315,10 @@ app.get('/activation-hist/', function(req, res) {
 });
 
 app.get('/api/data', function(req, res) {
-    getInformations.req(function (err, data) {
-        if (err) return next(err);
+    requestPowerData(function (err, data) {
+        if (err) {
+            return res.status(503).json({error: 'Shelly data is unavailable.'});
+        }
         res.json({
             power1: data.emeters[0].power,
             power2: data.emeters[1].power,
@@ -400,6 +412,9 @@ function normalDecision(device, power) {
 }
 
 function normalDecisionReq(device, req, res) {
+    if (!powerDataAvailable) {
+        return res.json({toggle: false, time_limit: device.time_limit});
+    }
     // make sure that device state exists
     init_device(device, 'normal', req);
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
@@ -428,6 +443,9 @@ function advancedDecision(device, power) {
 }
 
 function advancedDecisionReq(device, req, res) {
+    if (!powerDataAvailable) {
+        return res.json({alpha: 128, time_limit: device.time_limit});
+    }
     // make sure that device state exists
     init_device(device, 'advanced', req);
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
@@ -574,8 +592,10 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
             res.status(503);
             return next(err);
         }
-        getInformations.req(function (err, save) {
-            if (err) return next(err);
+        requestPowerData(function (err, save) {
+            if (err) {
+                return res.status(503).json({error: 'Shelly data is unavailable.'});
+            }
             let power = save.emeters[0].power;
             res.json({
                 ids: device.ids, 
@@ -784,10 +804,7 @@ app.use(function (err, req, res, next) {
 });
 
 
-app.listen(port, () => {
-    console.log(require('server-welcome')(port, 'Solar panel watch'));
-});
-
+function startBackgroundTasks() {
 // Write data to influx
 setInterval(function () {
     influxLib.daemon(app.get('env') === 'development', config.save_network_data);
@@ -834,7 +851,7 @@ setInterval(function () {
 
 // Get data updated
 setInterval(function () {
-    getInformations.req(function (err, save) {
+    requestPowerData(function (err, save) {
             if (err) {
                 return console.error("Error while requesting data.");
             }
@@ -900,4 +917,25 @@ setInterval(function () {
             }
     });
 },config.shelly_req_threshold);
+
+}
+
+function start() {
+    const server = app.listen(port, () => {
+        console.log(require('server-welcome')(port, 'Solar panel watch'));
+    });
+    startBackgroundTasks();
+    return server;
+}
+
+if (require.main === module) {
+    start();
+}
+
+module.exports = {
+    app,
+    start,
+    startBackgroundTasks,
+    isPowerDataAvailable: () => powerDataAvailable
+};
 

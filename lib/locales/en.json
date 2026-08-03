@@ -4,6 +4,8 @@
     "Total Power": "Total power",
 	"Total Power activated": "Puissance des appareils connectés",
     "Error first page": "An error occured during the loading of the page.",
+    "Shelly unavailable": "Shelly is unavailable",
+    "Shelly configuration error": "Unable to read data from the Shelly. Please check its configuration and connection.",
 	"Power over time": "Power over time (W)",
     "Graph": "Graph",
 	"Raw data 1d": "Raw data on a day",

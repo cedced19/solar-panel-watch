@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
-    "dev": "nodemon main.js"
+    "dev": "nodemon main.js",
+    "test": "node --test test/main.test.js"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
