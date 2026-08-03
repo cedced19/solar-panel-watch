@@ -221,6 +221,12 @@ body.dashboard-page {
   border-bottom: 0;
 }
 
+.device-power {
+  flex-shrink: 0;
+  color: #111827;
+  white-space: nowrap;
+}
+
 .device-list a,
 .dashboard-links a {
   color: #2563eb;

@@ -87,7 +87,7 @@
           <h2 class="card-heading"><%= __('Connected Devices')%></h2>
           <ul class="device-list">
             <% for(var i=0; i < list_devices.length; i++) { %>
-              <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a> (<span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W)</li>
+              <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a><span class="device-power"><span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W</span></li>
             <% } %>
           </ul>
       </section>
