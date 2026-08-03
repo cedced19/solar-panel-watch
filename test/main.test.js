@@ -42,8 +42,9 @@ test('Shelly failures disable device decisions and show a translated configurati
 
     const unavailablePage = await request(server, '/', {'accept-language': 'fr'});
     assert.equal(unavailablePage.status, 503);
-    assert.match(unavailablePage.body, /La Shelly est indisponible/);
+    assert.match(unavailablePage.body, /Le Shelly est indisponible/);
     assert.match(unavailablePage.body, /Impossible de lire les données de la Shelly/);
+    assert.match(unavailablePage.body, /Données de puissance indisponibles/);
     assert.equal(main.isPowerDataAvailable(), false);
 
     const dataResponse = await request(server, '/api/data');
