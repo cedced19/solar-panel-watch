@@ -107,6 +107,15 @@
     .card ul {
       list-style-type: none;
     }
+    .recovery-warning {
+      max-width: 900px;
+      margin: 12px auto 28px;
+      padding: 12px 16px;
+      color: #7c2d12;
+      border-left: 4px solid #f59e0b;
+      border-radius: 6px;
+      background: #fffbeb;
+    }
   </style>
   <% } %>
 </head>
@@ -120,6 +129,9 @@
       <div class="status-badge"><span class="status-dot"></span><%= __('Shelly connection status')%></div>
       <h1><%= __('Shelly unavailable')%></h1>
       <p class="failure-description"><%= __('Shelly configuration error')%></p>
+      <% if(recovery && recovery.enabled && recovery.notFound){ %>
+        <p class="failure-description"><%= __('Shelly MAC not found')%> <code><%= recovery.macAddress %></code></p>
+      <% } %>
       <ul class="failure-checks">
         <li><%= __('Check Shelly configuration')%></li>
         <li><%= __('Check network connection')%></li>
@@ -195,6 +207,9 @@
       </div>
     </div>
   </div>
+  <% if(recovered_shelly_ip){ %>
+    <p class="recovery-warning"><strong><%= __('Recovered Shelly warning')%></strong> <code><%= recovered_shelly_ip %></code></p>
+  <% } %>
   <% } %>
   <% if(!error){ %>
   <script>

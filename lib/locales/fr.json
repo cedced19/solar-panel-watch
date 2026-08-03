@@ -11,6 +11,8 @@
 	"Check network connection": "Vérifiez que le serveur peut joindre la Shelly.",
 	"Retry": "Réessayer",
 	"Safety mode": "Le mode sécurité est actif. Aucun appareil ne sera activé.",
+	"Shelly MAC not found": "Aucune Shelly correspondant à cette adresse MAC n'a été trouvée sur le réseau local :",
+	"Recovered Shelly warning": "Le Shelly a été retrouvée temporairement à l'adresse IP",
 	"Power over time": "Puissance au cours du temps (W)",
 	"Graph": "Graphique",
 	"Raw data 1d": "Données brutes journée",

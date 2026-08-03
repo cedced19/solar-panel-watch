@@ -35,6 +35,10 @@ function requestPowerData(cb) {
     });
 }
 
+function getShellyRecoveryState() {
+    return getInformations.getRecoveryState ? getInformations.getRecoveryState() : {};
+}
+
 const reload_files_dir = './reload_files/'; // reload files
 
 if (!fs.existsSync(reload_files_dir)){
@@ -241,7 +245,8 @@ app.use('/assets/', express.static('assets'));
 
 app.get('/', function(req, res) {
     requestPowerData(function (err, data) {
-        if (err) return res.status(503).render('index', {error: true});
+        const recovery = getShellyRecoveryState();
+        if (err) return res.status(503).render('index', {error: true, recovery: recovery});
         res.render('index', {
             error: false,
             power1: data.emeters[0].power,
@@ -249,7 +254,8 @@ app.get('/', function(req, res) {
             power_activated_device: get_power_from_activated_devices(),
             list_devices: Object.keys(devices_to_activate_state),
             device_states: devices_to_activate_state,
-            pretty_name: pretty_name
+            pretty_name: pretty_name,
+            recovered_shelly_ip: recovery.recoveredIp
         });
     });
 });

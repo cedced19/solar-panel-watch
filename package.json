@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node main.js",
     "dev": "nodemon main.js",
-    "test": "node --test test/main.test.js"
+    "test": "node --test test/main.test.js test/shelly-recovery.test.js"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

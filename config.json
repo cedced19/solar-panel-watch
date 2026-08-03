@@ -1,5 +1,7 @@
 {
     "ip_adress_shelly": "192.168.0.92",
+    "shelly_mac_address": "34:94:54:70:F8:E2",
+    "recover_shelly_through_mac_address": true,
     "influx_tocken": "joWbkcAOqD8hPtRRyEz7U64PLqOrPO",
     "influx_org": "solar_panel_org",
     "influx_bucket": "solar_panel",

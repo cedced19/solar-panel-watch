@@ -32,17 +32,26 @@ test('Shelly failures disable device decisions and show a translated configurati
         const listeningServer = main.app.listen(0, '127.0.0.1', () => resolve(listeningServer));
     });
     const originalRequest = getInformations.req;
+    const originalRecoveryState = getInformations.getRecoveryState;
+    let recoveryState = {
+        enabled: true,
+        notFound: true,
+        macAddress: '34:94:54:70:F8:E2'
+    };
 
     t.after(() => {
         getInformations.req = originalRequest;
+        getInformations.getRecoveryState = originalRecoveryState;
         server.close();
     });
 
     getInformations.req = (callback) => callback(new Error('Shelly is unreachable'));
+    getInformations.getRecoveryState = () => recoveryState;
 
     const unavailablePage = await request(server, '/', {'accept-language': 'fr'});
     assert.equal(unavailablePage.status, 503);
     assert.match(unavailablePage.body, /Le Shelly est indisponible/);
+    assert.match(unavailablePage.body, /34:94:54:70:F8:E2/);
     assert.match(unavailablePage.body, /Impossible de lire les données de la Shelly/);
     assert.match(unavailablePage.body, /Données de puissance indisponibles/);
     assert.equal(main.isPowerDataAvailable(), false);
@@ -70,10 +79,12 @@ test('Shelly failures disable device decisions and show a translated configurati
     getInformations.req = (callback) => callback(null, {
         emeters: [{power: -500}, {power: 100}]
     });
+    recoveryState = {recoveredIp: '192.168.0.37'};
 
     const availablePage = await request(server, '/');
     assert.equal(availablePage.status, 200);
     assert.match(availablePage.body, /-500/);
+    assert.match(availablePage.body, /192.168.0.37/);
     assert.equal(main.isPowerDataAvailable(), true);
 
     getInformations.req = (callback) => callback(new Error('Shelly is unreachable again'));
