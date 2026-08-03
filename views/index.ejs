@@ -10,55 +10,10 @@
   <% if(error){ %>
   <link rel="stylesheet" href="/assets/error_page.css">
   <% } else { %>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 10px;
-    }
-    .column {
-      float: left;
-      width: 50%;
-      padding: 0 10px;
-      margin-bottom: 15px;
-    }
-    .row {margin: 0 -5px;}
-    .row:after {
-      content: "";
-      display: table;
-      clear: both;
-    }
-    @media screen and (max-width: 600px) {
-      .column {
-        width: 100%;
-        display: block;
-        margin-bottom: 20px;
-      }
-    }
-    .card {
-      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-      padding: 16px;
-      text-align: center;
-      background-color: #f1f1f1;
-    }
-    .card ul {
-      list-style-type: none;
-    }
-    .recovery-warning {
-      max-width: 900px;
-      margin: 12px auto 28px;
-      padding: 12px 16px;
-      color: #7c2d12;
-      border-left: 4px solid #f59e0b;
-      border-radius: 6px;
-      background: #fffbeb;
-    }
-  </style>
+  <link rel="stylesheet" href="/assets/main_page.css">
   <% } %>
 </head>
-<body<% if(error){ %> class="unavailable-page"<% } %>>
+<body<% if(error){ %> class="unavailable-page"<% } else { %> class="dashboard-page"<% } %>>
   <% if(error){ %>
     <main class="failure-card" role="alert">
       <p class="brand">Solar Panel Watch</p>
@@ -79,76 +34,89 @@
       <p class="safety-note"><%= __('Safety mode')%></p>
     </main>
   <% } else{ %>
-  <h2>Solar Panel Watch</h2>
-  <div class="row">
-    <div class="column">
-      <div class="card" id="house-consumption-card" style="background-color:#<% if(power1<0){ %>badc58<% } else { %>fab1a0<% } %>;">
-        <h3><span id="house-consumption"><%= Math.ceil(power1*100)/100 %></span> W</h3>
-        <p><%= __('House consumption')%></p>
+  <main class="dashboard-shell">
+    <header class="dashboard-header">
+      <div>
+        <h1>Solar Panel Watch</h1>
       </div>
-    </div>
-  
-    <div class="column">
-      <div class="card">
-        <h3><span id="solar-panel-production"><%= Math.ceil(power2*100)/100 %></span> W</h3>
-        <p><%= __('Solar panel production')%></p>
-      </div>
-    </div>
-    
-    <div class="column">
-      <div class="card">
-        <h3><span id="total-production"><%= Math.ceil((power1 + power2)*100)/100 %></span> W</h3>
-        <p><%= __('Total Power')%></p>
-      </div>
-    </div>
+      <span class="dashboard-status">Live</span>
+    </header>
+    <div class="dashboard-grid">
+      <section class="card available-power-card<% if((power_activated_device  + ((power1<0) ? -power1 : 0))<=0){ %> is-empty<% } %>" id="available-power-card">
+        <div class="power-value"><span id="available-power"><%= Math.ceil((power_activated_device  + ((power1<0) ? -power1 : 0))*100)/100 %></span><span class="power-unit">W</span></div>
+        <p class="card-label"><%= __('Available Power')%></p>
+      </section>
 
-    <div class="column">
-      <div class="card">
-        <h3><span id="activated-devices-power"><%= Math.ceil(power_activated_device*100)/100 %></span> W</h3>
-        <p><%= __('Activated devices Power')%></p>
-      </div>
-    </div>
+      <section class="card stat-card house-consumption-card<% if(power1<0){ %> is-producing<% } %>" id="house-consumption-card">
+        <div class="power-value"><span id="house-consumption"><%= Math.ceil(power1*100)/100 %></span><span class="power-unit">W</span></div>
+        <p class="card-label"><%= __('House consumption')%></p>
+      </section>
 
-    <div class="column">
-      <div class="card" id="available-power-card" style="background-color:#<% if((power_activated_device  + ((power1<0) ? -power1 : 0))>0){ %>badc58<% } else { %>f1f1f1<% } %>;">
-        <h3><span id="available-power"><%= Math.ceil((power_activated_device  + ((power1<0) ? -power1 : 0))*100)/100 %></span> W</h3>
-        <p><%= __('Available Power')%></p>
-      </div>
-    </div>
+      <section class="card stat-card">
+        <div class="power-value"><span id="solar-panel-production"><%= Math.ceil(power2*100)/100 %></span><span class="power-unit">W</span></div>
+        <p class="card-label"><%= __('Solar panel production')%></p>
+      </section>
+
+      <section class="card stat-card">
+        <div class="power-value"><span id="total-production"><%= Math.ceil((power1 + power2)*100)/100 %></span><span class="power-unit">W</span></div>
+        <p class="card-label"><%= __('Total Power')%></p>
+      </section>
+
+      <section class="card stat-card">
+        <div class="power-value"><span id="activated-devices-power"><%= Math.ceil(power_activated_device*100)/100 %></span><span class="power-unit">W</span></div>
+        <p class="card-label"><%= __('Activated devices Power')%></p>
+      </section>
+
+      <nav class="featured-actions" aria-label="Featured actions">
+        <a class="action-button" href="/device/list/graph/2h">
+          <span class="action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 3-4 3 2 5-6"/></svg>
+          </span>
+          <span><%= __('Graph power from devices 2h')%></span>
+        </a>
+        <a class="action-button" href="/force/">
+          <span class="action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
+          </span>
+          <span><%= __('Force devices')%></span>
+        </a>
+        <a class="action-button" href="/energy/3d">
+          <span class="action-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V9"/><path d="M12 19V5"/><path d="M19 19v-7"/><path d="M3 19h18"/></svg>
+          </span>
+          <span><%= __('Energy summary')%></span>
+        </a>
+      </nav>
+
     <% if(list_devices.length){ %>
-      <div class="column">
-        <div class="card">
-          <p><%= __('Connected Devices')%></p>
-          <ul>
+      <section class="card device-card">
+          <h2 class="card-heading"><%= __('Connected Devices')%></h2>
+          <ul class="device-list">
             <% for(var i=0; i < list_devices.length; i++) { %>
               <li><a href="/device/<%= list_devices[i] %>"><%= pretty_name(list_devices[i]) %></a> (<span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W)</li>
             <% } %>
           </ul>
-        </div>
-      </div>
+      </section>
     <% } %>
-    <div class="column">
-      <div class="card">
-        <ul>
+      <nav class="card links-card" aria-label="Dashboard links">
+        <h2 class="card-heading"><%= __('Other')%></h2>
+        <ul class="dashboard-links">
           <li><a href="/graph/power/2h/"><%= __('Raw data 2h')%></a></li>
           <li><a href="/graph/power/1d/"><%= __('Raw data 1d')%></a></li>
           <li><a  href="/graph/power/1d/group-by/5m"><%= __('Mean data 1d')%></a></li>
           <li><a  href="/graph/power/1w/group-by/15m"><%= __('Mean data 1w')%></a></li>
-          <li><a  href="/energy/3d"><%= __('Energy')%></a></li>
           <li><a  href="/energy-hist/"><%= __('Energy request history')%></a></li>
           <li><a  href="/energy-graph/"><%= __('Energy graph')%></a></li>
           <li><a  href="/activation-hist/"><%= __('Activation history')%></a></li>
           <li><a  href="/graph/power/1d/activation-hist-plot/"><%= __('Activation history plot')%></a></li>
           <li><a  href="/device/list/graph/24h"><%= __('Graph power from devices')%> (24h)</a></li>
-          <li><a  href="/device/list/graph/2h"><%= __('Graph power from devices')%> (2h)</a></li>
-          <li><a  href="/force/"><%= __('Force devices')%></a></li>
         </ul>
-      </div>
+      </nav>
     </div>
-  </div>
   <% if(recovered_shelly_ip){ %>
     <p class="recovery-warning"><strong><%= __('Recovered Shelly warning')%></strong> <code><%= recovered_shelly_ip %></code></p>
   <% } %>
+  </main>
   <% } %>
   <% if(!error){ %>
   <script>
@@ -180,14 +148,14 @@
         }
         availablePowerEl.textContent = Math.ceil(availablePower*100)/100;
         if (data.power1 < 0) {
-            houseConsumptionCard.style.background = "#badc58";
+            houseConsumptionCard.classList.add('is-producing');
         } else {
-            houseConsumptionCard.style.background = "#fab1a0";
+            houseConsumptionCard.classList.remove('is-producing');
         }
         if (availablePower > 0) {
-          availablePowerCard.style.background = "#badc58";
+          availablePowerCard.classList.remove('is-empty');
         } else {
-          availablePowerCard.style.background = "#f1f1f1";
+          availablePowerCard.classList.add('is-empty');
         }
         Object.keys(data.device_states).forEach(function (el) {
           let device = data.device_states[el];

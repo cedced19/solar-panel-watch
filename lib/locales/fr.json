@@ -28,7 +28,7 @@
 	"Energy Introduced": "Energie totale introduite",
 	"Energy Saved": "Energie économisée",
 	"Energy request history": "Historique des requêtes sur l'énergie",
-	"Energy graph": "Graphique de l'énergie",
+	"Energy graph": "Graphique recapitulatif",
 	"Max consumption on network": "Consommation maximale sur le réseau",
 	"Energy consumption over time": "Consommation d'énergie au cours du temps",
 	"Consumption on network": "Consommation sur le réseau",
@@ -40,7 +40,7 @@
 	"Weather data": "Données météorologiques",
 	"Sunshine duration": "Durée d'ensoleillement",
 	"Max temperature": "Température maximale",
-	"Show sunshine duration": "Show sunshine duration",
+	"Show sunshine duration": "Afficher la durée d'ensoleillement",
 	"Aggregation": "Agrégation",
 	"Day": "Jour",
 	"Week": "Semaine",
@@ -109,7 +109,8 @@
 	"Target reached over period": "Cible atteinte sur la plage de temps",
 	"Power": "Puissance",
 	"Stop": "Arrêter",
-	"Show sunshine duration": "Afficher la durée d'ensoleillement",
 	"hours": "heures",
-	"Energy graph": "Graphique recapitulatif"
+	"Other": "Autre",
+	"Graph power from devices 2h": "Graphique sur 2h",
+	"Energy summary": "Bilan énergétique"
 }
