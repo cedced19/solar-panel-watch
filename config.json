@@ -14,6 +14,8 @@
     "target_req_threshold": 240000,
     "force_mode_pass": "jifgLBHnUV",
     "save_network_data": false,
+    "energy_method": "integral",
+    "graph_downsampling": "auto",
     "latitude": "48.766944",
     "longitude": "7.259167"
 }

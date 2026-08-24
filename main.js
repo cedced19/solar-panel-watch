@@ -343,7 +343,13 @@ app.get('/api/data-force', function(req, res) {
 
 
 app.get('/api/data/power/:tag/:period', validatePeriod, (req, res, next) => {
-    influxLib.requestPowerOverPeriod(req.params.period, req.params.tag).then(function (data) {
+    // downsampled by default for graphs; ?raw=true (or config.graph_downsampling
+    // = "none") returns the raw interval instead
+    const raw = req.query.raw === 'true' || config.graph_downsampling === 'none';
+    const promise = raw
+        ? influxLib.requestPowerOverPeriod(req.params.period, req.params.tag)
+        : influxLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag);
+    promise.then(function (data) {
         res.json(data);
     }, function (error) {
         error.status = 500;
@@ -363,10 +369,10 @@ app.get('/api/data/var/:tag/:period', validatePeriod, (req, res, next) => {
 });
 
 app.get('/api/data/energy/:period', validatePeriod, (req, res, next) => {
-    const promises = [influxLib.requestPowerOverPeriod(req.params.period, 'power1'), influxLib.requestPowerOverPeriod(req.params.period, 'power2')];
-    Promise.all(promises).then(function (data) {
+    // single InfluxDB query returning both power1 and power2
+    influxLib.requestPowerOverPeriodMulti(req.params.period, ['power1', 'power2']).then(function (data) {
         try {
-            let energy_data = computeEnergy(data[0],data[1]);
+            let energy_data = computeEnergy(data.power1, data.power2);
             res.json(energy_data);
             db_energy.post({date: new Date(), period: req.params.period, result: energy_data}, function (error) {
                 if (error) return console.error(error)
@@ -673,6 +679,25 @@ app.get('/api/device/:name/debug/energy/:period/', validatePeriod, (req, res, ne
         res.status(404);
         next(err);
     }
+});
+
+// Compare both energy computation methods (InfluxDB integral vs client stream)
+// for the same device and period, to validate that they agree.
+app.get('/api/device/:name/debug/energy-compare/:period/', validatePeriod, (req, res, next) => {
+    const integral = getDeviceEnergy.computeDeviceEnergyIntegral(req.params.period, req.params.name);
+    const stream = new Promise(function (resolve, reject) {
+        getDeviceEnergy.computeDeviceEnergyStream(req.params.period, req.params.name, function (err, value) {
+            if (err) return reject(err);
+            resolve(value);
+        });
+    });
+    Promise.all([integral, stream]).then(function (values) {
+        res.json({ integral: values[0], stream: values[1], unit: 'Wh' });
+    }, function (error) {
+        error.status = 500;
+        res.status(500);
+        next(error);
+    });
 });
 
 
