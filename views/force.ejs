@@ -4,83 +4,52 @@
   <meta charset="utf-8"/>
   <meta name=viewport content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/main_page.css">
+  <link rel="stylesheet" href="/assets/pages.css">
   <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
-  <title>Solar Panel Watch</title>
   <link rel=manifest href=/assets/manifest.json>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 10px;
-    }
-    .column {
-      float: left;
-      width: 50%;
-      padding: 0 10px;
-      margin-bottom: 15px;
-    }
-    .row {margin: 0 -5px;}
-    .row:after {
-      content: "";
-      display: table;
-      clear: both;
-    }
-    @media screen and (max-width: 600px) {
-      .column {
-        width: 100%;
-        display: block;
-        margin-bottom: 20px;
-      }
-    }
-    .card {
-      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-      padding: 16px;
-      text-align: center;
-      background-color: #f1f1f1;
-    }
-    .card ul {
-      list-style-type: none;
-    }
-    .res {
-      color: #636e72;
-    }
-  </style>
+  <title>Solar Panel Watch</title>
 </head>
-<body>
-  <h2>Solar Panel Watch</h2>
-  <div class="row">
+<body class="dashboard-page subpage">
+  <main class="dashboard-shell">
+    <header class="dashboard-header">
+      <div>
+        <h1><a href="/" style="color:inherit;text-decoration:none;">Solar Panel Watch</a></h1>
+      </div>
+      <span class="dashboard-status">Live</span>
+    </header>
+  <div class="dashboard-grid">
     <% if(list_devices.length){ %>
-      <div class="column">
-        <div class="card">
-          <h2><%= __('Settings')%></h2>
+      <section class="card force-card settings-card">
+          <h2 class="card-heading"><%= __('Settings')%></h2>
           <p>
             <label for="password"><%= __('Password')%></label>
             <input type="password" id="password" name="password">
             <label for="percent"><%= __('Percent')%></label>
             <input type="number" id="percent" name="percent" min="0" max="1" step="0.01">
           </p>
-        </div>
-      </div>
+      </section>
       <% for(var i=0; i < list_devices.length; i++) { %>
-      <div class="column">
-        <div class="card">
-          <h2><%= pretty_name(list_devices[i]) %></h2>
-          <span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled forcing')%><% } else { %><%= __('disabled forcing')%><% } %></span>, <span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %, <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W
+      <section class="card force-card">
+          <h2 class="card-heading"><%= pretty_name(list_devices[i]) %></h2>
+          <p class="force-meta">
+            <span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled forcing')%><% } else { %><%= __('disabled forcing')%><% } %></span>,
+            <span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %,
+            <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W
+          </p>
           <ul>
               <li><a id="<%= list_devices[i] %>-btn-enable" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
               <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable force device')%></a></li>
               <li><a id="<%= list_devices[i] %>-btn-stop" href="#"><%= __('Stop')%></a></li>
           </ul>
           <p class="res" id="<%= list_devices[i] %>-res"></p>
-        </div>
-      </div>
+      </section>
       <% } %>
     <% } else { %>
       <p><%= __('No devices')%></p>
     <% } %>
   </div>
+  </main>
   <script>
     const enableLabel = "<%= __('enabled forcing')%>";
     const disableLabel = "<%= __('disabled forcing')%>";

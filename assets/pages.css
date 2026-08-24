@@ -1,0 +1,242 @@
+/*
+ * Shared styles for Solar Panel Watch sub-pages (graphs, tables, forms).
+ * Used together with main_page.css to match the dashboard look.
+ */
+
+/* ---- Graph pages ------------------------------------------------------ */
+
+.graph-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.graph-card {
+  padding: 14px 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .05);
+}
+
+#graphs-container {
+  width: 100%;
+  height: 74vh;
+  min-height: 360px;
+}
+
+#downsample-select {
+  margin-left: 6px;
+  padding: 4px 10px;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: inherit;
+}
+
+/* ---- Loader ----------------------------------------------------------- */
+
+.loader {
+  margin: 48px auto;
+  border: 6px solid #f1f5f9;
+  border-top: 6px solid #2563eb;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ---- Tables ----------------------------------------------------------- */
+
+#table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+#table h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 1.1rem;
+  white-space: nowrap;
+}
+
+#table table {
+  width: 100%;
+  min-width: 680px;
+  margin-bottom: 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .05);
+  overflow: hidden;
+}
+
+#table table:last-child {
+  margin-bottom: 0;
+}
+
+#table thead th {
+  padding: 12px 14px;
+  color: #475569;
+  font-size: .72rem;
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+#table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+
+#table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+#table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* ---- Lists (device-info) ---------------------------------------------- */
+
+.info-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.info-list li {
+  min-width: 0;
+  padding: 10px 12px;
+  overflow-wrap: break-word;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.info-list li b {
+  color: #111827;
+}
+
+/* ---- Force page --------------------------------------------------------- */
+
+.force-card .card-heading {
+  margin-bottom: 14px;
+}
+
+.force-card .force-meta {
+  color: #475569;
+  font-size: .95rem;
+}
+
+.force-card ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.force-card ul a {
+  display: inline-block;
+  padding: 8px 12px;
+  color: #2563eb;
+  font-weight: 700;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.force-card ul a:hover {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  text-decoration: none;
+}
+
+.force-card .res {
+  margin: 10px 0 0;
+  color: #64748b;
+}
+
+/* ---- Sub-pages: full available width ---------------------------------- */
+
+/* Outside the dashboard, drop the 1080px cap and side page padding. */
+body.subpage {
+  padding: 0;
+}
+
+body.subpage .dashboard-shell {
+  width: 100%;
+  max-width: none;
+  padding: 24px;
+}
+
+/* Graph pages: full-bleed, no side margins, edge to edge. */
+body.graph-page {
+  padding: 0;
+}
+
+body.graph-page .dashboard-shell {
+  width: 100%;
+  max-width: none;
+  padding: 0 0 24px;
+}
+
+body.graph-page .dashboard-header {
+  margin-bottom: 8px;
+  padding: 24px 24px 12px;
+}
+
+body.graph-page .graph-shell {
+  gap: 0;
+}
+
+body.graph-page .graph-card {
+  padding: 6px 0 0;
+  border-width: 1px 0 0;
+  border-color: #e5e7eb;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ---- Mobile ------------------------------------------------------------- */
+
+@media screen and (max-width: 600px) {
+
+  body.subpage .dashboard-shell {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  body.graph-page .dashboard-shell {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  body.graph-page .dashboard-header {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .info-list {
+    grid-template-columns: 1fr;
+  }
+
+}
