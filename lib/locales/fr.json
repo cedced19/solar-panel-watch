@@ -114,5 +114,9 @@
 	"Graph power from devices 2h": "Graphique sur 2h",
 	"Energy summary": "Bilan énergétique",
 	"Home": "Accueil",
-	"Back": "Retour"
+	"Back": "Retour",
+	"Energy calendar": "Calendrier énergétique",
+	"Calendar hint": "Calendar hint",
+	"Energy data available": "Energy data available",
+	"No energy data": "No energy data"
 }

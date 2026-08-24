@@ -330,3 +330,135 @@ body.graph-page .graph-card {
   }
 
 }
+
+/* ---- Energy calendar ---------------------------------------------------- */
+
+.calendar-hint {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: .92rem;
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.calendar-month {
+  min-width: 180px;
+  color: #111827;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  color: #475569;
+  font-size: .85rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.legend-dot.has-data {
+  background: #dcfce7;
+  border: 1px solid #22c55e;
+}
+
+.legend-dot.no-data {
+  background: #fee2e2;
+  border: 1px solid #ef4444;
+}
+
+.calendar {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 560px;
+}
+
+.calendar-weekday {
+  padding: 6px 4px;
+  color: #475569;
+  font-size: .78rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.calendar-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 6px;
+  font-weight: 700;
+  font-size: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.calendar-day.empty {
+  border: 0;
+}
+
+.calendar-day.has-data {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.calendar-day.no-data {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.calendar-day.loading {
+  opacity: .5;
+  cursor: progress;
+}
+
+.calendar-empty-result {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+}
+
+#day-result {
+  margin-top: 18px;
+}
+
+#day-result h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 1.1rem;
+}

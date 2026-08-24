@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name=viewport content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="/assets/styles.css">
+    <link rel="stylesheet" href="/assets/main_page.css">
+    <link rel="stylesheet" href="/assets/pages.css">
+    <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
+    <title>Solar panel watch | <%= __('Energy calendar')%></title>
+  </head>
+  <body class="dashboard-page subpage">
+    <main class="dashboard-shell">
+      <header class="dashboard-header">
+        <div class="header-title">
+          <h1><a href="/" style="color:inherit;text-decoration:none;">Solar Panel Watch</a></h1>
+          <nav class="header-nav" aria-label="Navigation">
+            <a class="nav-btn" href="/" title="<%= __('Home')%>">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span class="nav-label"><%= __('Home')%></span>
+          </a>
+            <button class="nav-btn" id="nav-back" type="button" hidden title="<%= __('Back')%>">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            <span class="nav-label"><%= __('Back')%></span>
+          </button>
+          </nav>
+        </div>
+      </header>
+      <section class="card">
+        <h2 class="card-heading"><%= __('Energy calendar')%></h2>
+        <p class="calendar-hint"><%= __('Calendar hint')%></p>
+        <div class="calendar-toolbar">
+          <button id="prev-month" class="nav-btn" type="button">&#8249;</button>
+          <span id="month-label" class="calendar-month"></span>
+          <button id="next-month" class="nav-btn" type="button">&#8250;</button>
+        </div>
+        <div class="calendar-legend">
+          <span class="legend-item"><span class="legend-dot has-data"></span><%= __('Energy data available')%></span>
+          <span class="legend-item"><span class="legend-dot no-data"></span><%= __('No energy data')%></span>
+        </div>
+        <div id="calendar" class="calendar"></div>
+        <div id="loader" class="loader"></div>
+        <div id="day-result"></div>
+      </section>
+    </main>
+    <script>
+        const coveredDays = new Set();
+        let viewYear, viewMonth;
+
+        const monthFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long' });
+        const weekdayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+
+        const loadCovered = () =>
+            fetch('/api/data/energy-calendar/')
+                .then(response => response.json())
+                .then(days => {
+                    days.forEach(d => coveredDays.add(d));
+                    document.getElementById('loader').style.display = 'none';
+                    renderCalendar();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('loader').style.display = 'none';
+                });
+
+        const isoDate = (year, month, day) =>
+            year + '-' + ((month + 1 < 10) ? '0' : '') + (month + 1) + '-' + ((day < 10) ? '0' : '') + day;
+
+        const renderCalendar = () => {
+            const first = new Date(viewYear, viewMonth, 1);
+            const startOffset = first.getDay(); // 0 = Sunday
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+            document.getElementById('month-label').textContent =
+                monthFmt.format(new Date(viewYear, viewMonth, 1));
+
+            let html = '<div class="calendar-grid">';
+            for (let w = 0; w < 7; w++) {
+                const d = new Date(2026, 0, 4 + w); // any week with all weekdays
+                html += '<div class="calendar-weekday">' + weekdayFmt.format(d) + '</div>';
+            }
+            for (let i = 0; i < startOffset; i++) {
+                html += '<div class="calendar-day empty"></div>';
+            }
+            for (let day = 1; day <= daysInMonth; day++) {
+                const key = isoDate(viewYear, viewMonth, day);
+                const has = coveredDays.has(key);
+                html += '<div class="calendar-day' + (has ? ' has-data' : ' no-data') + '" data-date="' + key + '">' + day + '</div>';
+            }
+            html += '</div>';
+            document.getElementById('calendar').innerHTML = html;
+        };
+
+        const prettyDate = (date) => {
+            date = new Date(date);
+            return ((date.getDate() < 10) ? '0' : '') + date.getDate() + '/' + ((date.getMonth()+1 < 10) ? '0' : '') + (date.getMonth()+1) + '/' + date.getFullYear() + ' ' + ((date.getHours() < 10) ? '0' : '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0' : '') + date.getMinutes();
+        };
+
+        const renderDay = (dateKey, value) => {
+            const container = document.getElementById('day-result');
+            container.innerHTML = '';
+
+            if (!value || value.length === 0) {
+                const p = document.createElement('p');
+                p.className = 'calendar-empty-result';
+                p.textContent = '<%= __("No energy data")%> (' + dateKey + ')';
+                container.appendChild(p);
+                return;
+            }
+
+            const h3 = document.createElement('h3');
+            h3.textContent = dateKey;
+            container.appendChild(h3);
+
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const hr = document.createElement('tr');
+            ['<%= __("Date Begin")%>', '<%= __("Date End")%>', '<%= __("House consumption energy")%> (kWh)', '<%= __("Solar panel production energy")%> (kWh)', '<%= __("Total Power energy")%> (kWh)', '<%= __("Energy Introduced")%> (kWh)', '<%= __("Energy Saved")%> (kWh)'].forEach(text => {
+                const th = document.createElement('th');
+                th.textContent = text;
+                hr.appendChild(th);
+            });
+            thead.appendChild(hr);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            value.forEach(r => {
+                const tr = document.createElement('tr');
+                const energySaved = Math.floor((r.house_consumption - r.consumption_on_network) * 1000) / 1000;
+                const cells = [prettyDate(r.start_date), prettyDate(r.end_date), r.consumption_on_network, r.solar_panel, r.house_consumption, r.introduced_on_network, energySaved];
+                cells.forEach(text => {
+                    const td = document.createElement('td');
+                    td.textContent = text;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            container.appendChild(table);
+        };
+
+        const computeDay = (cell) => {
+            const dateKey = cell.getAttribute('data-date');
+            cell.classList.add('loading');
+            fetch('/api/data/energy/day/' + dateKey)
+                .then(response => response.json())
+                .then(data => {
+                    cell.classList.remove('loading');
+                    coveredDays.add(dateKey);
+                    cell.classList.add('has-data');
+                    cell.classList.remove('no-data');
+                    renderDay(dateKey, data);
+                })
+                .catch(error => {
+                    cell.classList.remove('loading');
+                    console.error('Error:', error);
+                });
+        };
+
+        document.getElementById('calendar').addEventListener('click', (event) => {
+            const cell = event.target.closest('.calendar-day');
+            if (cell && cell.hasAttribute('data-date')) {
+                computeDay(cell);
+            }
+        });
+
+        document.getElementById('prev-month').addEventListener('click', () => {
+            viewMonth -= 1;
+            if (viewMonth < 0) { viewMonth = 11; viewYear -= 1; }
+            renderCalendar();
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            viewMonth += 1;
+            if (viewMonth > 11) { viewMonth = 0; viewYear += 1; }
+            renderCalendar();
+        });
+
+        const now = new Date();
+        viewYear = now.getFullYear();
+        viewMonth = now.getMonth();
+        window.addEventListener('load', loadCovered);
+    </script>
+      <script src="/assets/nav.js"></script>
+</body>
+</html>
