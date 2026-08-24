@@ -68,7 +68,7 @@
             wrap.appendChild(label);
             const graphs = document.getElementById('graphs-container');
             const parent = graphs ? graphs.parentNode : document.body;
-            parent.insertBefore(wrap, graphs);
+            parent.appendChild(wrap);
         }
         sel.value = window.currentDownsample;
         sel.onchange = function () {
@@ -78,6 +78,48 @@
             if (typeof reloadFn === 'function') reloadFn();
         };
     }
+
+    // Responsive plot style: on narrow screens put the legend below the plot and
+    // shrink the plot margins so the graph uses the available width, otherwise
+    // keep the legend on the right with default spacing. Applied to every plot
+    // on the graph pages that does not set its own legend/margin, and re-applied
+    // live as the window is resized.
+    function responsiveLegend() {
+        if (window.innerWidth < 700) {
+            return { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.35 };
+        }
+        return { orientation: 'v', x: 1, xanchor: 'right' };
+    }
+
+    function responsiveMargins() {
+        if (window.innerWidth < 700) {
+            // Reserve bottom space for the horizontal legend, slim sides/top.
+            return { l: 24, r: 16, t: 24, b: 150 };
+        }
+        return { l: 70, r: 70, t: 50, b: 80 };
+    }
+
+    const originalNewPlot = Plotly.newPlot;
+    Plotly.newPlot = function (target, data, layout, config) {
+        if (layout) {
+            if (!layout.legend) layout.legend = responsiveLegend();
+            if (!layout.margin) layout.margin = responsiveMargins();
+        }
+        return originalNewPlot.call(this, target, data, layout, config);
+    };
+
+    function applyResponsiveStyle() {
+        const plots = document.querySelectorAll('.js-plotly-plot');
+        plots.forEach(function (el) {
+            Plotly.relayout(el, { legend: responsiveLegend(), margin: responsiveMargins() });
+        });
+    }
+
+    let resizeTimer = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(applyResponsiveStyle, 150);
+    });
 
     window.parsePointsCSV = parsePointsCSV;
     window.fetchPointsCSV = fetchPointsCSV;

@@ -235,6 +235,14 @@ body.graph-page .graph-card {
     padding-right: 16px;
   }
 
+  body.graph-page .graph-card {
+    padding: 2px 0 0;
+  }
+
+  .loader {
+    margin: 24px auto;
+  }
+
   .info-list {
     grid-template-columns: 1fr;
   }
