@@ -94,7 +94,7 @@
     function responsiveMargins() {
         if (window.innerWidth < 700) {
             // Reserve bottom space for the horizontal legend, slim sides/top.
-            return { l: 24, r: 16, t: 24, b: 150 };
+            return { l: 50, r: 6, t: 24, b: 150 };
         }
         return { l: 70, r: 70, t: 50, b: 80 };
     }
