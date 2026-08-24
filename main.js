@@ -13,6 +13,7 @@ const getAlpha = require('./lib/get-alpha.js');
 const influxLib = require('./lib/influx-lib.js');
 const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const computeEnergy = require('./lib/compute-energy.js');
+const { validatePeriod, validateGroup } = require('./lib/validate-params.js');
 
 
 const JSONStore = require('json-store-list');
@@ -268,14 +269,14 @@ app.get('/force/', function(req, res) {
     });
 });
 
-app.get('/graph/power/:period', function(req, res) {
+app.get('/graph/power/:period', validatePeriod, function(req, res) {
     res.render('graph-power', {
         period: req.params.period,
         timezone: config.timezone
     });
 });
 
-app.get('/graph/power/:period/group-by/:group/', function(req, res) {
+app.get('/graph/power/:period/group-by/:group/', validatePeriod, validateGroup, function(req, res) {
     res.render('graph-power-group', {
         period: req.params.period,
         group: req.params.group,
@@ -283,14 +284,14 @@ app.get('/graph/power/:period/group-by/:group/', function(req, res) {
     });
 });
 
-app.get('/graph/power/:period/activation-hist-plot/', function(req, res) {
+app.get('/graph/power/:period/activation-hist-plot/', validatePeriod, function(req, res) {
     res.render('graph-power-activation-hist', {
         period: req.params.period,
         timezone: config.timezone
     });
 });
 
-app.get('/energy/:period', function(req, res) {
+app.get('/energy/:period', validatePeriod, function(req, res) {
     res.render('energy', {
         period: req.params.period,
         timezone: config.timezone
@@ -341,7 +342,7 @@ app.get('/api/data-force', function(req, res) {
 });
 
 
-app.get('/api/data/power/:tag/:period', (req, res, next) => {
+app.get('/api/data/power/:tag/:period', validatePeriod, (req, res, next) => {
     influxLib.requestPowerOverPeriod(req.params.period, req.params.tag).then(function (data) {
         res.json(data);
     }, function (error) {
@@ -351,7 +352,7 @@ app.get('/api/data/power/:tag/:period', (req, res, next) => {
     });
 });
 
-app.get('/api/data/var/:tag/:period', (req, res, next) => {
+app.get('/api/data/var/:tag/:period', validatePeriod, (req, res, next) => {
     influxLib.requestVarOverPeriod(req.params.period, req.params.tag).then(function (data) {
         res.json(data);
     }, function (error) {
@@ -361,7 +362,7 @@ app.get('/api/data/var/:tag/:period', (req, res, next) => {
     });
 });
 
-app.get('/api/data/energy/:period', (req, res, next) => {
+app.get('/api/data/energy/:period', validatePeriod, (req, res, next) => {
     const promises = [influxLib.requestPowerOverPeriod(req.params.period, 'power1'), influxLib.requestPowerOverPeriod(req.params.period, 'power2')];
     Promise.all(promises).then(function (data) {
         try {
@@ -389,7 +390,7 @@ app.get('/api/data/energy-request-hist/', (req, res) => {
 });
 
 
-app.get('/api/data/power/:tag/:period/group-by/:group/', (req, res, next) => {
+app.get('/api/data/power/:tag/:period/group-by/:group/', validatePeriod, validateGroup, (req, res, next) => {
     influxLib.requestPowerOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
         res.json(data);
     }, function (error) {
@@ -641,7 +642,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
     }
 });
 
-app.get('/api/device/:name/debug/energy/:period/', (req, res, next) => {
+app.get('/api/device/:name/debug/energy/:period/', validatePeriod, (req, res, next) => {
     let element = devices_to_activate.filter(value => {
         return value.uri == req.params.name;
     });
@@ -714,7 +715,7 @@ app.get('/device/:device_name', (req, res, next) => {
     });
 });
 
-app.get('/device/list/graph/:period', (req, res, next) => {
+app.get('/device/list/graph/:period', validatePeriod, (req, res, next) => {
     res.render('device-list-graph-power', {
         timezone: config.timezone,
         list_devices: Object.keys(devices_to_activate_state),
@@ -722,7 +723,7 @@ app.get('/device/list/graph/:period', (req, res, next) => {
     });
 });
 
-app.get('/device/:device_name/control-variable/graph/:period', (req, res, next) => {
+app.get('/device/:device_name/control-variable/graph/:period', validatePeriod, (req, res, next) => {
     let element = devices_to_activate.filter(value => {
         return value.uri == req.params.device_name;
     });
@@ -742,7 +743,7 @@ app.get('/device/:device_name/control-variable/graph/:period', (req, res, next) 
     }
 });
 
-app.get('/device/:device_name/control-variable-power/graph/:period', (req, res, next) => {
+app.get('/device/:device_name/control-variable-power/graph/:period', validatePeriod, (req, res, next) => {
     let element = devices_to_activate.filter(value => {
         return value.uri == req.params.device_name;
     });
@@ -762,7 +763,7 @@ app.get('/device/:device_name/control-variable-power/graph/:period', (req, res, 
     }
 });
 
-app.get('/device/:device_name/graph/:period', (req, res, next) => {
+app.get('/device/:device_name/graph/:period', validatePeriod, (req, res, next) => {
     res.render('device-graph-power', {
         timezone: config.timezone,
         device_name: req.params.device_name,
