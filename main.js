@@ -350,6 +350,10 @@ app.get('/api/data/power/:tag/:period', validatePeriod, (req, res, next) => {
         ? influxLib.requestPowerOverPeriod(req.params.period, req.params.tag)
         : influxLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag);
     promise.then(function (data) {
+        if (req.query.format === 'csv') {
+            res.set('Content-Type', 'text/csv');
+            return res.send(influxLib.pointsToCSV(data));
+        }
         res.json(data);
     }, function (error) {
         error.status = 500;
@@ -360,6 +364,10 @@ app.get('/api/data/power/:tag/:period', validatePeriod, (req, res, next) => {
 
 app.get('/api/data/var/:tag/:period', validatePeriod, (req, res, next) => {
     influxLib.requestVarOverPeriod(req.params.period, req.params.tag).then(function (data) {
+        if (req.query.format === 'csv') {
+            res.set('Content-Type', 'text/csv');
+            return res.send(influxLib.pointsToCSV(data));
+        }
         res.json(data);
     }, function (error) {
         error.status = 500;
@@ -398,6 +406,10 @@ app.get('/api/data/energy-request-hist/', (req, res) => {
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', validatePeriod, validateGroup, (req, res, next) => {
     influxLib.requestPowerOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
+        if (req.query.format === 'csv') {
+            res.set('Content-Type', 'text/csv');
+            return res.send(influxLib.pointsToCSV(data));
+        }
         res.json(data);
     }, function (error) {
         error.status = 500;

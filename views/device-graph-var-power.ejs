@@ -73,6 +73,7 @@
       <div id="graphs-container"></div>
     </main>
     <script src="/assets/plotly.js"></script>
+    <script src="/assets/influx-csv.js"></script>
     <script>
         const loadData = () => {
             let firstTrace;
@@ -115,8 +116,7 @@
             }
 
             const fetchData = () =>{
-                firstTrace = fetch('/api/data/var/<%= device_name %>/<%= period%>')
-                .then(response => response.json())
+                firstTrace = fetchPointsCSV('/api/data/var/<%= device_name %>/<%= period%>')
                 .then(data => {
                     
                     const traceData = {
@@ -131,8 +131,7 @@
                 }).catch((error) => {
                     console.error('Error:', error);
                 });
-                secondTrace = fetch('/api/data/power/<%= device_name %>/<%= period%>')
-                .then(response => response.json())
+                secondTrace = fetchPointsCSV('/api/data/power/<%= device_name %>/<%= period%>')
                 .then(data => {
                     const traceData = {
                         type: 'scatter',

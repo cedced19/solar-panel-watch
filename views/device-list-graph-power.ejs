@@ -73,6 +73,7 @@
       <div id="graphs-container"></div>
     </main>
     <script src="/assets/plotly.js"></script>
+    <script src="/assets/influx-csv.js"></script>
     <script>
         const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
         const color_list = ['#3d3d3d',  '#ff9f1a', '#cd84f1', '#01a3a4', '#e66767', '#546de5'];
@@ -110,8 +111,7 @@
 
             const fetchData = () => {
 
-                firstTrace = fetch('/api/data/power/power1/<%= period%>')
-                .then(response => response.json())
+                firstTrace = fetchPointsCSV('/api/data/power/power1/<%= period%>')
                 .then(data => {
                     
                     const traceData = {
@@ -127,8 +127,7 @@
                     console.error('Error:', error);
                 });
 
-                secondTrace = fetch('/api/data/power/power2/<%= period%>')
-                .then(response => response.json())
+                secondTrace = fetchPointsCSV('/api/data/power/power2/<%= period%>')
                 .then(data => {
                     const traceData = {
                     type: 'scatter',
@@ -146,8 +145,7 @@
                 traces = [firstTrace, secondTrace];
                 
                 for (let el in list_devices) {
-                    let tempTraces = fetch('/api/data/power/' + list_devices[el] + '/<%= period%>')
-                    .then(response => response.json())
+                    let tempTraces = fetchPointsCSV('/api/data/power/' + list_devices[el] + '/<%= period%>')
                     .then(data => {
                         const traceData = {
                         type: 'scatter',
