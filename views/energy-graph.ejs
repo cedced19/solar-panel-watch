@@ -181,6 +181,19 @@
             <div id="graph-stacked" class="graph-container"></div>
         </div>
 
+        <!-- Energy Breakdown Table -->
+        <div class="graph-section" id="breakdown-table-section" style="display: none;">
+            <h3><%= __("Energy breakdown table")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <span><%= __("Year")%>:</span>
+                    <select id="breakdown-year-select"></select>
+                </label>
+            </div>
+            <div id="breakdown-table"></div>
+        </div>
+
+
         <!-- Weather Data Graph -->
         <div class="graph-section" id="weather-section" style="display: none;">
             <h3><%= __("Weather data")%></h3>
@@ -786,6 +799,94 @@
             });
         };
         
+        const breakdownMetrics = [
+            { key: 'consumption_on_network', label: '<%= __("Consumption on network")%>' },
+            { key: 'solar_panel', label: '<%= __("Solar panel production energy")%>' },
+            { key: 'introduced_on_network', label: '<%= __("Energy Introduced")%>' }
+        ];
+
+        const localYear = (date) => date.getFullYear();
+        const localMonthKey = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+        const fmtSum = (v) => Math.floor(v * 1000) / 1000;
+
+        const renderBreakdownTable = () => {
+            const select = document.getElementById('breakdown-year-select');
+            const selectedYear = select.value ? parseInt(select.value, 10) : null;
+            const container = document.getElementById('breakdown-table');
+            container.innerHTML = '';
+
+            if (!rawFlattenedData || rawFlattenedData.length === 0) return;
+
+            const grouped = {};
+            rawFlattenedData.forEach(entry => {
+                const dateObj = new Date(entry.start_date);
+                if (selectedYear && localYear(dateObj) !== selectedYear) return;
+                const key = selectedYear ? localMonthKey(dateObj) : String(localYear(dateObj));
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(entry);
+            });
+
+            const sortedKeys = Object.keys(grouped).sort();
+
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const hr = document.createElement('tr');
+            const th0 = document.createElement('th');
+            th0.textContent = selectedYear ? '<%= __("Month")%>' : '<%= __("Year")%>';
+            hr.appendChild(th0);
+            breakdownMetrics.forEach(m => {
+                const th = document.createElement('th');
+                th.textContent = m.label + ' (kWh)';
+                hr.appendChild(th);
+            });
+            thead.appendChild(hr);
+            table.appendChild(thead);
+
+            const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
+            const tbody = document.createElement('tbody');
+            sortedKeys.forEach(key => {
+                const tr = document.createElement('tr');
+                const labelCell = document.createElement('td');
+                if (selectedYear) {
+                    const parts = key.split('-');
+                    labelCell.textContent = monthFmt.format(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1));
+                } else {
+                    labelCell.textContent = key;
+                }
+                tr.appendChild(labelCell);
+                breakdownMetrics.forEach(m => {
+                    const sum = grouped[key].reduce((acc, e) => acc + (e[m.key] || 0), 0);
+                    const td = document.createElement('td');
+                    td.textContent = fmtSum(sum);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            container.appendChild(table);
+        };
+
+        const setupBreakdownTable = () => {
+            const select = document.getElementById('breakdown-year-select');
+            const years = new Set();
+            rawFlattenedData.forEach(entry => years.add(localYear(new Date(entry.start_date))));
+
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = '-- <%= __("All years")%> --';
+            select.appendChild(empty);
+            Array.from(years).sort().forEach(year => {
+                const opt = document.createElement('option');
+                opt.value = year;
+                opt.textContent = year;
+                select.appendChild(opt);
+            });
+            select.addEventListener('change', renderBreakdownTable);
+
+            document.getElementById('breakdown-table-section').style.display = 'block';
+            renderBreakdownTable();
+        };
+
         const loadData = () => {
             const fetchData = fetch('/api/data/energy-request-hist/')
                 .then(response => response.json())
@@ -834,6 +935,8 @@
                 document.getElementById('introduced-section').style.display = 'block';
                 document.getElementById('total-energy-section').style.display = 'block';
                 document.getElementById('stacked-section').style.display = 'block';
+
+                setupBreakdownTable();
                 
                 // Add event listener for aggregation change
                 document.getElementById('aggregation-select').addEventListener('change', function(e) {

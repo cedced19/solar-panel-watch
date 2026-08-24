@@ -116,7 +116,9 @@
 	"Home": "Accueil",
 	"Back": "Retour",
 	"Energy calendar": "Calendrier énergétique",
-	"Calendar hint": "Calendar hint",
-	"Energy data available": "Energy data available",
-	"No energy data": "No energy data"
+	"Calendar hint": "Calendrier énergétique",
+	"Energy data available": "Données énergétiques disponibles",
+	"No energy data": "Aucune donnée énergétique disponible",
+	"Energy breakdown table": "Répartition de l'énergie",
+	"All years": "Toutes les années"
 }
