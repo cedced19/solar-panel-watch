@@ -81,16 +81,13 @@
         };
     }
 
-    // Responsive plot style: on narrow screens put the legend below the plot and
-    // shrink the plot margins so the graph uses the available width, otherwise
-    // keep the legend on the right with default spacing. Applied to every plot
-    // on the graph pages that does not set its own legend/margin, and re-applied
-    // live as the window is resized.
+    // Responsive plot style: the legend is always placed below the plot. Only
+    // the margins adapt to the viewport so the graph uses the available width
+    // (slim sides/top on narrow screens). Applied to every plot on the graph
+    // pages that does not set its own legend/margin, and re-applied live as the
+    // window is resized.
     function responsiveLegend() {
-        if (window.innerWidth < 700) {
-            return { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.35 };
-        }
-        return { orientation: 'v', x: 1, xanchor: 'right' };
+        return { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.35 };
     }
 
     function responsiveMargins() {
@@ -98,7 +95,7 @@
             // Reserve bottom space for the horizontal legend, slim sides/top.
             return { l: 50, r: 6, t: 24, b: 150 };
         }
-        return { l: 70, r: 70, t: 50, b: 80 };
+        return { l: 70, r: 70, t: 50, b: 150 };
     }
 
     const originalNewPlot = Plotly.newPlot;
