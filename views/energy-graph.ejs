@@ -805,6 +805,8 @@
             { key: 'introduced_on_network', label: '<%= __("Energy Introduced")%>' }
         ];
 
+        const months = ['<%= __("January")%>', '<%= __("February")%>', '<%= __("March")%>', '<%= __("April")%>', '<%= __("May")%>', '<%= __("June")%>', '<%= __("July")%>', '<%= __("August")%>', '<%= __("September")%>', '<%= __("October")%>', '<%= __("November")%>', '<%= __("December")%>'];
+
         const localYear = (date) => date.getFullYear();
         const localMonthKey = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
         const fmtSum = (v) => Math.floor(v * 1000) / 1000;
@@ -842,14 +844,13 @@
             thead.appendChild(hr);
             table.appendChild(thead);
 
-            const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
             const tbody = document.createElement('tbody');
             sortedKeys.forEach(key => {
                 const tr = document.createElement('tr');
                 const labelCell = document.createElement('td');
                 if (selectedYear) {
                     const parts = key.split('-');
-                    labelCell.textContent = monthFmt.format(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1));
+                    labelCell.textContent = months[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[0], 10);
                 } else {
                     labelCell.textContent = key;
                 }
