@@ -22,7 +22,9 @@
 
     // Current downsampling scale, e.g. 'auto' | '1m' | '5m' | '15m' | '30m' |
     // '1h' | 'raw'. Appended to power graph requests by fetchPointsCSV.
-    window.currentDownsample = 'auto';
+    // Default is a 1 minute resolution; pages can override (e.g. raw for the
+    // device debug plots) by setting window.currentDownsample before mounting.
+    window.currentDownsample = '1m';
 
     function downsampleParams() {
         const v = window.currentDownsample || 'auto';
