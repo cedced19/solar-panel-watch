@@ -13,7 +13,7 @@ const getAlpha = require('./lib/get-alpha.js');
 const influxLib = require('./lib/influx-lib.js');
 const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const computeEnergy = require('./lib/compute-energy.js');
-const { validatePeriod, validateGroup } = require('./lib/validate-params.js');
+const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate-params.js');
 
 
 const JSONStore = require('json-store-list');
@@ -343,12 +343,20 @@ app.get('/api/data-force', function(req, res) {
 
 
 app.get('/api/data/power/:tag/:period', validatePeriod, (req, res, next) => {
-    // downsampled by default for graphs; ?raw=true (or config.graph_downsampling
-    // = "none") returns the raw interval instead
-    const raw = req.query.raw === 'true' || config.graph_downsampling === 'none';
-    const promise = raw
-        ? influxLib.requestPowerOverPeriod(req.params.period, req.params.tag)
-        : influxLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag);
+    // Response scale (most specific wins):
+    //   ?raw=true          -> raw interval (no aggregation)
+    //   ?every=<duration>  -> explicit aggregation window (e.g. 5m, 30m, 1h)
+    //   otherwise          -> automatic window by period, or none if
+    //                         config.graph_downsampling = "none"
+    let promise;
+    if (req.query.raw === 'true' || config.graph_downsampling === 'none') {
+        promise = influxLib.requestPowerOverPeriod(req.params.period, req.params.tag);
+    } else if (req.query.every && isValidPeriod(req.query.every)) {
+        promise = influxLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag, req.query.every);
+    } else {
+        promise = influxLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag);
+    }
+
     promise.then(function (data) {
         if (req.query.format === 'csv') {
             res.set('Content-Type', 'text/csv');
