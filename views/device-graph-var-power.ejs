@@ -12,8 +12,12 @@
   <body class="dashboard-page subpage graph-page">
     <main class="dashboard-shell">
       <header class="dashboard-header">
-        <div>
+        <div class="header-title">
           <h1><a href="/" style="color:inherit;text-decoration:none;">Solar Panel Watch</a></h1>
+          <nav class="header-nav" aria-label="Navigation">
+            <a class="nav-btn" href="/"><%= __('Home')%></a>
+            <button class="nav-btn" id="nav-back" type="button" hidden><%= __('Back')%></button>
+          </nav>
         </div>
       </header>
       <div class="graph-shell">
@@ -110,5 +114,6 @@
         window.currentDownsample = 'raw'; // device debug plots stay at full resolution
         attachDownsampleSelector(loadData);
     </script>
-  </body>
+      <script src="/assets/nav.js"></script>
+</body>
 </html>

@@ -216,6 +216,59 @@ body.graph-page .graph-card {
   box-shadow: none;
 }
 
+/* ---- Header navigation (Home / Back) ----------------------------------- */
+
+.header-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.header-title h1 {
+  margin: 0;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 14px;
+  color: #2563eb;
+  font-family: inherit;
+  font-size: .9rem;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.nav-btn[hidden] {
+  display: none;
+}
+
+.nav-btn:hover {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  text-decoration: none;
+}
+
 /* ---- Mobile ------------------------------------------------------------- */
 
 @media screen and (max-width: 600px) {
@@ -237,6 +290,25 @@ body.graph-page .graph-card {
 
   body.graph-page .graph-card {
     padding: 2px 0 0;
+  }
+
+  .dashboard-header {
+    align-items: flex-start;
+  }
+
+  .header-title {
+    gap: 10px;
+  }
+
+  .header-title h1 {
+    font-size: 1.6rem;
+  }
+
+  /* Touch-friendly hit targets on phones */
+  .nav-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 1rem;
   }
 
   .loader {
