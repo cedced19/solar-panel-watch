@@ -269,6 +269,11 @@ body.graph-page .graph-card {
   text-decoration: none;
 }
 
+.nav-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
 /* ---- Mobile ------------------------------------------------------------- */
 
 @media screen and (max-width: 600px) {
@@ -307,8 +312,13 @@ body.graph-page .graph-card {
   /* Touch-friendly hit targets on phones */
   .nav-btn {
     min-height: 44px;
-    padding: 10px 14px;
+    padding: 10px;
     font-size: 1rem;
+  }
+
+  /* On small widths show only the icons (logo), hide the labels */
+  .nav-label {
+    display: none;
   }
 
   .loader {
