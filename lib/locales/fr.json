@@ -51,6 +51,8 @@
 	"Date": "Date",
 	"Device": "Appareil",
 	"Status": "Status",
+	"Status (tout-ou-rien)": "Status (tout-ou-rien)",
+	"Status (advanced)": "Status (avancé)",
 	"Activated": "Activé",
 	"Activations": "Activations",
 	"Activated (advanced)": "Activé (avancé)",

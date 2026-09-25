@@ -80,6 +80,8 @@
 	"Date": "Date",
 	"Device": "Device",
 	"Status": "Status",
+	"Status (all-or-nothing)": "Status (all-or-nothing)",
+	"Status (advanced)": "Status (advanced)",
 	"Activated": "Activated",
 	"Activations": "Activations",
 	"Activated (advanced)": "Activated (advanced)",
