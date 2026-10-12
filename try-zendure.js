@@ -24,8 +24,8 @@ const DEFAULTS = {
     cloud: false
 };
 
-function parseArgs(args) {
-    const options = {...DEFAULTS};
+function parseArgs(args, defaults = DEFAULTS) {
+    const options = {...defaults};
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
         if (arg === '--help' || arg === '-h') return {...options, help: true};

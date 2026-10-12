@@ -131,6 +131,52 @@ observed at this IP, but support on other firmware versions is unconfirmed.
 
 Run the probe's focused tests with `node --test test/zendure-probe.test.js`.
 
+## Standalone Zendure battery probe
+
+Read the SolarFlow 3000 MIX AC+ charge level from a computer on its LAN, using
+Node.js 18 or newer:
+
+```bash
+node try-zendure-battery.js
+node try-zendure-battery.js --host 192.168.0.40 --timeout 3000
+node try-zendure-battery.js --help
+```
+
+Defaults identify the device at `192.168.0.40`, serial `ANACVCDLP283458`,
+identity `492766`, MAC `90:64:9B:10:9A:14`, and the built-in battery (Akku 1)
+with serial `BEAAVCDLA283460`. The probe shares the meter's network, MAC recovery,
+credential redaction and optional cloud lookup helpers. It uses only Node.js
+built-in modules and does not load the application configuration.
+
+The script reads `/properties/report` and MQTT status, then displays:
+
+* Current charge percentage from the exact matching battery's `packData.socLevel`.
+* Device average charge from `properties.electricLevel`, used as a fallback when
+  the expected pack's charge percentage is unavailable.
+* Battery charging power (`outputPackPower`) and discharging power
+  (`packInputPower`) in watts, plus the matching pack's own `power` reading.
+* Battery state: standby, charging or discharging, with device and pack serial
+  verification reported separately.
+
+These fields follow [Zendure's SolarFlow property reference](https://github.com/Zendure/zenSDK/blob/main/docs/en_properties.md).
+The supplied MIX AC+ returned both serials and these fields during a local check.
+Pack power and device charging power are distinct measurements and are shown
+separately. A different device serial or `dataReady: 0` prevents the response from
+being used as a current charge reading. If the expected pack is absent, any
+available charge percentage is explicitly labelled as the device average.
+No charging commands or configuration changes are sent.
+
+The battery probe supports `--battery-serial`, `--mac`, `--no-mac-fallback`,
+`--serial`, `--id`, `--ports`, `--timeout`, and `--cloud` with the same
+`ZENDURE_KEY` setup described above. Cloud mode only lists matching devices;
+it does not supply a live charge percentage. Exit code 0 means a usable LAN charge
+reading was received, 1 means none was received (even if a TCP service opened),
+and 2 means invalid options or a failed optional cloud lookup.
+
+```bash
+node --test test/zendure-battery-probe.test.js
+```
+
 ## TODO
 
 * Add documentation on config files
