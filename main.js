@@ -20,6 +20,11 @@ const JSONStore = require('json-store-list');
 
 const config = require('./config.json');
 
+const batteryMinSoc = config.zendure_battery_min_soc === undefined ? 80 : config.zendure_battery_min_soc;
+if (!Number.isFinite(batteryMinSoc) || batteryMinSoc < 0 || batteryMinSoc > 100) {
+    throw new Error('zendure_battery_min_soc must be a number between 0 and 100.');
+}
+
 const db_energy = JSONStore('./energy-query-save.json');
 
 const devices_to_activate = require('./devices-to-activate.json');
@@ -28,10 +33,52 @@ const db_devices_activation = JSONStore('./devices-activation.json',200);
 
 // Keep devices inactive until the configured house meter supplies valid power.
 let powerDataAvailable = false;
+let batteryData = null;
+let batteryReceivedAt = 0;
+const batteryRequestTimeout = Number.isFinite(config.zendure_request_timeout) && config.zendure_request_timeout > 0 ? config.zendure_request_timeout : 3000;
+
+function getDeviceChargingStatus() {
+    const soc = batteryData && batteryData.socPercent;
+    const readingAge = Date.now() - batteryReceivedAt;
+    const socAvailable = Number.isFinite(soc) && soc >= 0 && soc <= 100 &&
+        readingAge >= 0 && readingAge <= getPowerData.batteryRequestThreshold + batteryRequestTimeout;
+    let reason = 'battery-unavailable';
+    if (socAvailable) {
+        reason = !powerDataAvailable ? 'power-unavailable' :
+            soc > batteryMinSoc ? 'soc-above-threshold' : 'soc-at-or-below-threshold';
+    }
+    return {
+        enabled: reason === 'soc-above-threshold',
+        reason,
+        minSocPercent: batteryMinSoc,
+        socPercent: socAvailable ? soc : null
+    };
+}
+
+function disableDeviceCharging(state) {
+    state.requested_toggle = false;
+    state.requested_alpha = 128;
+    state.requested_power = 0;
+}
+
+function disableRequestedDevices() {
+    Object.values(devices_to_activate_state).forEach(disableDeviceCharging);
+}
+
+function requestBatteryData(cb) {
+    getPowerData.reqBattery(function (err, data) {
+        batteryData = err ? null : data;
+        // Cached responses retain the original reading time; they must not extend its validity.
+        batteryReceivedAt = !err && data && Number.isFinite(data.time) ? Math.min(Date.now(), data.time * 1000) : Date.now();
+        if (!getDeviceChargingStatus().enabled) disableRequestedDevices();
+        cb(err, data);
+    });
+}
 
 function requestPowerData(cb) {
     getPowerData.req(function (err, data) {
         powerDataAvailable = !err;
+        if (!getDeviceChargingStatus().enabled) disableRequestedDevices();
         cb(err, data);
     });
 }
@@ -248,7 +295,7 @@ app.use('/assets/', express.static('assets'));
 
 app.get('/', function(req, res) {
     const batteryResult = new Promise((resolve) => {
-        getPowerData.reqBattery((err, battery) => resolve(err ? null : battery));
+        requestBatteryData((err, battery) => resolve(err ? null : battery));
     });
     requestPowerData(function (err, data) {
         const recovery = getPowerData.getHouseRecoveryState();
@@ -267,6 +314,7 @@ app.get('/', function(req, res) {
                 device_states: devices_to_activate_state,
                 pretty_name: pretty_name,
                 battery,
+                device_charging: getDeviceChargingStatus(),
                 zendure_battery_req_threshold: getPowerData.batteryRequestThreshold,
                 recovered_shelly_ip: getPowerData.getShellyRecoveryState().recoveredIp,
                 recovered_zendure_ip: source === 'zendure' ? recovery.recoveredIp : null
@@ -344,12 +392,13 @@ app.get('/activation-hist/', function(req, res) {
 app.get('/api/data', function(req, res) {
     requestPowerData(function (err, data) {
         if (err) {
-            return res.status(503).json({error: powerUnavailableMessage()});
+            return res.status(503).json({error: powerUnavailableMessage(), device_charging: getDeviceChargingStatus()});
         }
         res.json({
             power1: data.emeters[0].power,
             power2: data.emeters[1].power,
             house_power_source: getPowerData.getHousePowerSource(),
+            device_charging: getDeviceChargingStatus(),
             power_activated_device: get_power_from_activated_devices(),
             device_states: keep_properties(devices_to_activate_state, ['last_power'])
         });
@@ -357,11 +406,11 @@ app.get('/api/data', function(req, res) {
 });
 
 app.get('/api/battery', function(req, res) {
-    getPowerData.reqBattery(function (err, battery) {
+    requestBatteryData(function (err, battery) {
         if (err) {
-            return res.status(503).json({error: 'Zendure battery data is unavailable.'});
+            return res.status(503).json({error: 'Zendure battery data is unavailable.', device_charging: getDeviceChargingStatus()});
         }
-        res.json(battery);
+        res.json({...battery, device_charging: getDeviceChargingStatus()});
     });
 });
 
@@ -541,9 +590,10 @@ function normalDecisionReq(device, req, res) {
     }
     // make sure that device state exists
     init_device(device, 'normal', req);
+    if (!getDeviceChargingStatus().enabled) disableDeviceCharging(devices_to_activate_state[device.uri]);
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
     res.json({toggle: to_activate, time_limit: device.time_limit});
-    devices_to_activate_state[device.uri].last_power = devices_to_activate_state[device.uri].requested_power;
+    devices_to_activate_state[device.uri].last_power = to_activate ? devices_to_activate_state[device.uri].requested_power : 0;
     devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
     if (to_activate!= devices_to_activate_state[device.uri].activated) {
         db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devices_to_activate_state[device.uri].last_call}, function() {});
@@ -572,10 +622,11 @@ function advancedDecisionReq(device, req, res) {
     }
     // make sure that device state exists
     init_device(device, 'advanced', req);
+    if (!getDeviceChargingStatus().enabled) disableDeviceCharging(devices_to_activate_state[device.uri]);
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
     res.json({alpha: alpha, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
-    devices_to_activate_state[device.uri].last_power = devices_to_activate_state[device.uri].requested_power;
+    devices_to_activate_state[device.uri].last_power = alpha < 128 ? devices_to_activate_state[device.uri].requested_power : 0;
     if ((alpha < 128) != devices_to_activate_state[device.uri].activated_advanced) {
         db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 2 : 0, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
     }
@@ -949,10 +1000,10 @@ app.use(function (err, req, res, next) {
 
 function startBackgroundTasks() {
 
-// Battery status has its own slower cadence and never gates device decisions.
-getPowerData.reqBattery(function () {});
+// Battery charge gates device decisions while retaining its own slower cadence.
+requestBatteryData(function () {});
 setInterval(function () {
-    getPowerData.reqBattery(function () {});
+    requestBatteryData(function () {});
 }, getPowerData.batteryRequestThreshold);
 // Write data to influx
 setInterval(function () {
@@ -1024,7 +1075,7 @@ setInterval(function () {
                     return value.uri == devices_to_consider[i];
                 })[0];
                 // Check for connection
-                if (is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
+                if (getDeviceChargingStatus().enabled && is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
                     // Normal mode
                     if (devices_to_activate_state[device.uri].type == 'normal') {
                         let to_activate = normalDecision(device, power);
@@ -1055,9 +1106,8 @@ setInterval(function () {
                         //print("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (" + percentage*100 + "%)")
                     }
                 } else {
-                    // If no connection requested power to 0
-                    devices_to_activate_state[device.uri].requested_alpha = 128;
-                    devices_to_activate_state[device.uri].requested_power = 0;
+                    // Block charging when the battery gate is closed or the device is disconnected.
+                    disableDeviceCharging(devices_to_activate_state[device.uri]);
                 }
                 if (devices_to_activate_state[device.uri].force_mode == false) { // Prevent from considering forced power as available power
                     power += devices_to_activate_state[device.uri].requested_power; 
@@ -1085,6 +1135,7 @@ module.exports = {
     app,
     start,
     startBackgroundTasks,
+    getDeviceChargingStatus,
     isPowerDataAvailable: () => powerDataAvailable
 };
 

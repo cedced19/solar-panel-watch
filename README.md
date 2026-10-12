@@ -112,6 +112,7 @@ Configure these settings in `config.json` and restart the application:
 | `zendure_meter.power_field` | Field to read from `/properties/report`; default `total_power`. |
 | `zendure_meter.power_scale` | Multiply the raw field to obtain signed watts; default `1`. Positive means grid import, negative means export. Set a negative scale if the CT orientation reverses the sign. |
 | `zendure_battery_req_threshold` | Independent battery polling/cache interval; configured as `20000` ms. |
+| `zendure_battery_min_soc` | Minimum battery charge percentage for device charging; default `80`. Devices are allowed only when SOC is strictly greater than this value (a number from `0` to `100`). |
 | `zendure_battery` | SolarFlow `host`, device `serial`, expected `battery_serial`, `mac_address`, and `recover_by_mac`. |
 
 The supplied device addresses and identities match the standalone probes below.
@@ -123,13 +124,23 @@ address in memory.
 
 The battery card shows the matching pack's charge percentage and state. If pack
 charge is unavailable, it uses `electricLevel` and labels it as the device average.
-Battery failures show an unavailable state without blocking house power. The
+Battery failures show an unavailable state without blocking house power readings. The
 server and visible dashboard refresh battery status on its independent interval;
 concurrent requests share the same cached reading or in-flight request.
+
+Device charging (normal, advanced and forced modes) requires a valid battery SOC
+strictly above `zendure_battery_min_soc`, as well as available house power.
+At or below the threshold, or while battery status is unavailable or stale, devices receive
+off commands even when surplus power is available. Above the threshold, the
+existing surplus, priority, energy and temperature limits still apply. A small
+status below the battery percentage explains whether charging is allowed and why.
+Readings expire after the battery polling interval plus the Zendure request timeout.
 
 `GET /api/data` retains `power1` (house) and `power2` (solar) and includes
 `house_power_source`. Unavailable solar power is `null`, never a fabricated zero.
 `GET /api/battery` returns charge/status data or HTTP 503 when unavailable.
+Both power and battery responses include `device_charging` with the current
+permission, reason, minimum SOC and measured SOC.
 InfluxDB history uses the selected house source and omits missing solar fields
 and network measurements that Zendure does not provide.
 

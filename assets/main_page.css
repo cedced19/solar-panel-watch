@@ -196,6 +196,27 @@ body.dashboard-page {
   background: #2563eb;
 }
 
+.device-charging-status {
+  margin: 12px 0 0;
+  color: #92400e;
+  font-size: .85rem;
+  line-height: 1.45;
+}
+
+.device-charging-status::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  content: '';
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.device-charging-status.is-enabled {
+  color: #166534;
+}
+
 .battery-state {
   margin: 12px 0 0;
   color: #1d4ed8;

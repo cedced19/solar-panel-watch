@@ -5,6 +5,14 @@ const vm = require('node:vm');
 
 const main = require('../main');
 const getPowerData = require('../lib/get-power-data');
+const config = require('../config.json');
+const minSocPercent = config.zendure_battery_min_soc ?? 80;
+const healthyBatteryDecision = {
+    enabled: 86 > minSocPercent,
+    reason: 86 > minSocPercent ? 'soc-above-threshold' : 'soc-at-or-below-threshold',
+    minSocPercent,
+    socPercent: 86
+};
 
 function request(server, path, headers = {}) {
     return new Promise((resolve, reject) => {
@@ -28,7 +36,7 @@ function request(server, path, headers = {}) {
     });
 }
 
-test('Zendure house power drives the dashboard and safety mode independently of Shelly and battery', async (t) => {
+test('the dashboard reports Zendure house power and battery availability independently', async (t) => {
     const server = await new Promise((resolve) => {
         const listeningServer = main.app.listen(0, '127.0.0.1', () => resolve(listeningServer));
     });
@@ -62,7 +70,12 @@ test('Zendure house power drives the dashboard and safety mode independently of 
 
     const dataResponse = await request(server, '/api/data');
     assert.equal(dataResponse.status, 503);
-    assert.deepEqual(JSON.parse(dataResponse.body), {error: 'Zendure house power data is unavailable.'});
+    assert.deepEqual(JSON.parse(dataResponse.body), {
+        error: 'Zendure house power data is unavailable.',
+        device_charging: {
+            enabled: false, reason: 'power-unavailable', minSocPercent, socPercent: 86
+        }
+    });
 
     const normalById = await request(server, '/api/device/id/QQqR9/');
     assert.equal(normalById.status, 200);
@@ -97,7 +110,9 @@ test('Zendure house power drives the dashboard and safety mode independently of 
     const powerResponse = await request(server, '/api/data');
     assert.deepEqual(JSON.parse(powerResponse.body), {
         power1: -500, power2: null, house_power_source: 'zendure',
-        power_activated_device: 0, device_states: {}
+        power_activated_device: 0,
+        device_charging: healthyBatteryDecision,
+        device_states: {}
     });
     const batteryResponse = await request(server, '/api/battery');
     assert.equal(batteryResponse.status, 200);
@@ -111,7 +126,12 @@ test('Zendure house power drives the dashboard and safety mode independently of 
     getPowerData.reqBattery = (callback) => callback(new Error('Battery is unreachable'));
     const unavailableBattery = await request(server, '/api/battery');
     assert.equal(unavailableBattery.status, 503);
-    assert.deepEqual(JSON.parse(unavailableBattery.body), {error: 'Zendure battery data is unavailable.'});
+    assert.deepEqual(JSON.parse(unavailableBattery.body), {
+        error: 'Zendure battery data is unavailable.',
+        device_charging: {
+            enabled: false, reason: 'battery-unavailable', minSocPercent, socPercent: null
+        }
+    });
     const pageWithoutBattery = await request(server, '/');
     assert.equal(pageWithoutBattery.status, 200);
     assert.match(pageWithoutBattery.body, /Unavailable/);
