@@ -74,6 +74,48 @@ to remove volume:
 sudo docker volume rm solar-panel-watch_data
 ```
 
+## Standalone Zendure Smart Meter probe
+
+Run the read-only probe from a computer on the meter's LAN, using Node.js 18 or newer.
+It uses only built-in modules and does not load the application configuration:
+
+```bash
+node try-zendure.js
+node try-zendure.js --host 192.168.0.48 --timeout 3000
+node try-zendure.js --help
+```
+
+The defaults identify the Smart Meter 1CT-S at `192.168.0.48`, serial
+`TEE1NJP7P341978`, identity `492848`. The script tests TCP ports and reads
+`/properties/report` and MQTT status over HTTP. It handles both nested zenSDK
+properties and the flat 1CT-S response (`total_power`, `a_aprt_power`,
+`b_aprt_power`, `c_aprt_power`). It prints raw values without assuming units or
+scaling. A response without a serial number cannot confirm the meter's identity.
+Exit code 0 means a tested LAN TCP service opened, 1 means none opened, and 2
+means invalid options or a failed optional cloud lookup.
+
+The supplied authorization key belongs to the cloud API. To also check whether
+the meter appears in that API, enter the key without storing it in source or
+shell history:
+
+```bash
+read -r -s -p 'Zendure key: ' ZENDURE_KEY
+echo
+export ZENDURE_KEY
+node try-zendure.js --cloud
+unset ZENDURE_KEY
+```
+
+Cloud mode lists matching devices and never prints MQTT credentials. A cloud
+match does not establish LAN reachability or provide live readings. Credentials
+are accepted only for Zendure's documented HTTPS API host. The local endpoint
+is described in [Zendure's zenSDK documentation](https://github.com/Zendure/zenSDK);
+cloud authentication follows the [official Home Assistant integration](https://github.com/Zendure/Zendure-HA/blob/master/custom_components/zendure_ha/api.py).
+The zenSDK support list names SmartMeter3CT; local 1CT-S readings have been
+observed at this IP, but support on other firmware versions is unconfirmed.
+
+Run the probe's focused tests with `node --test test/zendure-probe.test.js`.
+
 ## TODO
 
 * Add documentation on config files
