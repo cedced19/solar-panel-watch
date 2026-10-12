@@ -8,10 +8,16 @@ const net = require('node:net');
 const http = require('node:http');
 const https = require('node:https');
 const {createHash, randomInt} = require('node:crypto');
+const {execFile} = require('node:child_process');
+const {readFile} = require('node:fs/promises');
+const {promisify} = require('node:util');
+const runFile = promisify(execFile);
 
 const DEFAULTS = {
     host: '192.168.0.48',
-    serial: 'TEE1NJP7P341978',E0:72:A1:85:24:48
+    serial: 'TEE1NJP7P341978',
+    mac: 'E0:72:A1:85:24:48',
+    macFallback: true,
     id: '492848',
     timeout: 3000,
     ports: [80, 443, 8000, 8080, 1883, 8883, 502],
@@ -27,7 +33,11 @@ function parseArgs(args) {
             options.cloud = true;
             continue;
         }
-        if (!['--host', '--serial', '--id', '--timeout', '--ports'].includes(arg)) {
+        if (arg === '--no-mac-fallback') {
+            options.macFallback = false;
+            continue;
+        }
+        if (!['--host', '--serial', '--mac', '--id', '--timeout', '--ports'].includes(arg)) {
             throw new Error(`Unknown option: ${arg}. Use --help.`);
         }
         const value = args[++i];
@@ -35,6 +45,8 @@ function parseArgs(args) {
         options[arg.slice(2)] = value;
     }
     if (net.isIP(options.host) !== 4) throw new Error('--host must be an IPv4 address.');
+    options.mac = normalizeMac(options.mac);
+    if (!options.mac) throw new Error('--mac must be a six-byte MAC address.');
     options.timeout = Number(options.timeout);
     if (!Number.isInteger(options.timeout) || options.timeout < 1 || options.timeout > 60000) {
         throw new Error('--timeout must be between 1 and 60000 milliseconds.');
@@ -45,6 +57,64 @@ function parseArgs(args) {
     }
     options.ports = [...new Set(options.ports)];
     return options;
+}
+
+function normalizeMac(value) {
+    const address = String(value || '').trim();
+    if (!/^(?:[a-f\d]{12}|(?:[a-f\d]{2}:){5}[a-f\d]{2}|(?:[a-f\d]{2}-){5}[a-f\d]{2})$/i.test(address)) return null;
+    return address.replace(/[:-]/g, '').toUpperCase().match(/.{2}/g).join(':');
+}
+
+function findIpInNeighbors(table, mac, subnetHost) {
+    const expected = normalizeMac(mac);
+    if (!expected || net.isIP(subnetHost) !== 4) return null;
+    const prefix = subnetHost.split('.').slice(0, 3).join('.') + '.';
+    for (const line of String(table).split('\n')) {
+        if (/\b(?:FAILED|INCOMPLETE)\b/i.test(line)) continue;
+        const address = line.match(/\b(?:[a-f\d]{2}[:-]){5}[a-f\d]{2}\b/i)?.[0];
+        const ip = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/)?.[0];
+        if (normalizeMac(address) === expected && net.isIP(ip || '') === 4 && ip.startsWith(prefix) &&
+            ip !== subnetHost && !['0', '255'].includes(ip.split('.')[3])) return ip;
+    }
+    return null;
+}
+
+async function readNeighborTable() {
+    const command = process.platform === 'linux' ? ['ip', ['-4', 'neigh', 'show']] :
+        ['arp', process.platform === 'win32' ? ['-a'] : ['-an']];
+    try {
+        const result = await runFile(command[0], command[1], {timeout: 1000, maxBuffer: 65536});
+        return result.stdout;
+    } catch {
+        // Linux's proc table also works when the ip utility is unavailable.
+        if (process.platform === 'linux') {
+            try { return await readFile('/proc/net/arp', 'utf8'); } catch { /* Report unavailable discovery. */ }
+        }
+        return null;
+    }
+}
+
+async function findZendureIpByMac(options, dependencies = {}) {
+    const readNeighbors = dependencies.readNeighbors || readNeighborTable;
+    const connect = dependencies.probeTcp || probeTcp;
+    let table = await readNeighbors();
+    if (table === null) return {host: null, unavailable: true};
+    let host = findIpInNeighbors(table, options.mac, options.host);
+    if (host) return {host};
+    const prefix = options.host.split('.').slice(0, 3).join('.');
+    const hosts = Array.from({length: 254}, (_, index) => `${prefix}.${index + 1}`).filter(ip => ip !== options.host);
+    const port = options.ports.find(port => ![1883, 8883, 502].includes(port)) || 80;
+    // Short TCP attempts populate ARP even when the selected port is closed.
+    // Limit recovery to this /24 and 16 simultaneous connections.
+    for (let i = 0; i < hosts.length; i += 16) {
+        const results = await Promise.all(hosts.slice(i, i + 16).map(ip => connect(ip, port, Math.min(options.timeout, 250))));
+        if (results.every(result => ['EPERM', 'EACCES'].includes(result.error))) return {host: null, unavailable: true};
+        table = await readNeighbors();
+        if (table === null) return {host: null, unavailable: true};
+        host = findIpInNeighbors(table, options.mac, options.host);
+        if (host) return {host};
+    }
+    return {host: null};
 }
 
 function probeTcp(host, port, timeout) {
@@ -178,31 +248,8 @@ async function lookupCloud(options, token, requestFn = requestJson) {
     };
 }
 
-async function main(args = process.argv.slice(2)) {
-    const options = parseArgs(args);
-    if (options.help) {
-        console.log(`Usage: node try-zendure.js [options]
-
-  --host IP         Meter IPv4 address (default: ${DEFAULTS.host})
-  --serial SERIAL   Expected serial (default: ${DEFAULTS.serial})
-  --id ID           Expected cloud identity (default: ${DEFAULTS.id})
-  --timeout MS      Deadline per connection/request (default: ${DEFAULTS.timeout})
-  --ports LIST      TCP ports (default: ${DEFAULTS.ports.join(',')})
-  --cloud           Also look up the meter using the ZENDURE_KEY environment variable
-  --help            Show this help
-
-Local requests only read status. --cloud lists devices; it sends no control commands.
-Exit codes: 0 = a tested LAN TCP port opened; 1 = none opened;
-            2 = invalid options or failed cloud lookup.
-A cloud result does not establish LAN reachability or provide live meter readings.`);
-        return 0;
-    }
-    const token = process.env.ZENDURE_KEY?.trim();
-    // Validate before sending any requests if cloud mode was explicitly requested.
-    if (options.cloud) decodeCloudKey(token);
-    const sensitiveValues = token ? [token, decodeCloudKeySafe(token)] : [];
-    console.log(`Zendure Smart Meter 1CT-S: ${options.host}\nExpected serial: ${options.serial}; identity: ${options.id}`);
-    console.log('\nTesting TCP ports...');
+async function probeHost(options, sensitiveValues = []) {
+    console.log(`\nTesting TCP ports at ${options.host}...`);
     const ports = await Promise.all(options.ports.map(port => probeTcp(options.host, port, options.timeout)));
     for (const result of ports) console.log(`  ${result.port}: ${result.open ? 'OPEN' : result.error}`);
     let reportFound = false;
@@ -241,7 +288,54 @@ A cloud result does not establish LAN reachability or provide live meter reading
             }
         }
     }
-    const reachable = ports.some(result => result.open);
+    return {ports, reportFound, serialConfirmed};
+}
+
+async function main(args = process.argv.slice(2), dependencies = {}) {
+    const options = parseArgs(args);
+    if (options.help) {
+        console.log(`Usage: node try-zendure.js [options]
+
+  --host IP         Meter IPv4 address (default: ${DEFAULTS.host})
+  --serial SERIAL   Expected serial (default: ${DEFAULTS.serial})
+  --mac MAC         Fallback MAC address (default: ${DEFAULTS.mac})
+  --no-mac-fallback Disable MAC discovery if no meter report is received
+  --id ID           Expected cloud identity (default: ${DEFAULTS.id})
+  --timeout MS      Deadline per connection/request (default: ${DEFAULTS.timeout})
+  --ports LIST      TCP ports (default: ${DEFAULTS.ports.join(',')})
+  --cloud           Also look up the meter using the ZENDURE_KEY environment variable
+  --help            Show this help
+
+MAC recovery checks the ARP/neighbor table, then probes this host's /24 subnet.
+It requires the meter to be on the same LAN; no network settings are changed.
+Local requests only read status. --cloud lists devices; it sends no control commands.
+Exit codes: 0 = a tested LAN TCP port opened; 1 = none opened;
+            2 = invalid options or failed cloud lookup.
+A cloud result does not establish LAN reachability or provide live meter readings.`);
+        return 0;
+    }
+    const token = process.env.ZENDURE_KEY?.trim();
+    // Validate before sending any requests if cloud mode was explicitly requested.
+    if (options.cloud) decodeCloudKey(token);
+    const sensitiveValues = token ? [token, decodeCloudKeySafe(token)] : [];
+    console.log(`Zendure Smart Meter 1CT-S: ${options.host}\nExpected serial: ${options.serial}; identity: ${options.id}; fallback MAC: ${options.mac}`);
+    const probe = dependencies.probeHost || probeHost;
+    let result = await probe(options, sensitiveValues);
+    if (!result.reportFound && options.macFallback && !result.ports.some(port => ['EPERM', 'EACCES'].includes(port.error))) {
+        console.log(`\nTrying MAC fallback for ${options.mac} in ${options.host.split('.').slice(0, 3).join('.')}.0/24...`);
+        const recover = dependencies.findZendureIpByMac || findZendureIpByMac;
+        const recovered = await recover(options);
+        if (recovered.host) {
+            console.log(`MAC ${options.mac} found at ${recovered.host}; retrying the meter probe.`);
+            options.host = recovered.host;
+            result = await probe(options, sensitiveValues);
+        } else {
+            console.log(recovered.unavailable ? 'MAC discovery unavailable: cannot read the neighbor table or open LAN sockets.' :
+                'No other IP found for this MAC in the configured /24 subnet.');
+        }
+    }
+    const {ports, reportFound, serialConfirmed} = result;
+    const reachable = ports.some(port => port.open);
     console.log(`\nLAN result: ${reachable ? 'at least one TCP service is reachable' : 'no tested TCP service could be opened'}.`);
     if (reportFound) {
         console.log(`Local meter report received. Serial identity ${serialConfirmed ? 'confirmed' : 'not verified by the response'}.`);
@@ -274,4 +368,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = {parseArgs, probeTcp, requestJson, redact, inspectReport, decodeCloudKey, cloudRequest, lookupCloud, main};
+module.exports = {parseArgs, normalizeMac, findIpInNeighbors, readNeighborTable, findZendureIpByMac, probeHost, probeTcp, requestJson, redact, inspectReport, decodeCloudKey, cloudRequest, lookupCloud, main};

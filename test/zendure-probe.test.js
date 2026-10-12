@@ -6,9 +6,10 @@ const http = require('node:http');
 const {spawn} = require('node:child_process');
 const path = require('node:path');
 const {once} = require('node:events');
-const {parseArgs, probeTcp, requestJson, redact, inspectReport, decodeCloudKey, cloudRequest, lookupCloud} = require('../try-zendure');
+const {parseArgs, normalizeMac, findIpInNeighbors, findZendureIpByMac, main, probeTcp, requestJson, redact, inspectReport, decodeCloudKey, cloudRequest, lookupCloud} = require('../try-zendure');
 
 const serial = 'TEE1NJP7P341978';
+const mac = 'E0:72:A1:85:24:48';
 const token = Buffer.from('https://app.zendure.tech/eu.fixtureAppKey').toString('base64');
 // Shape observed from the actual 1CT-S, including a zero-valued phase.
 const flatReport = {timestamp: 1791828793, messageId: 133, deviceId: 'fixtureDevice', a_aprt_power: 0, b_aprt_power: 0, c_aprt_power: 1503, total_power: 1503};
@@ -26,7 +27,7 @@ async function fixture(t, handler) {
 }
 
 async function runCli(args) {
-    const child = spawn(process.execPath, [path.join(__dirname, '../try-zendure.js'), ...args], {
+    const child = spawn(process.execPath, [path.join(__dirname, '../try-zendure.js'), '--no-mac-fallback', ...args], {
         env: {...process.env, ZENDURE_KEY: ''}
     });
     let stdout = '';
@@ -39,9 +40,145 @@ async function runCli(args) {
 
 test('options reject missing values, invalid addresses, deadlines and ports', () => {
     assert.deepEqual(parseArgs(['--ports', '80,80,8080']).ports, [80, 8080]);
-    for (const args of [['--host'], ['--host', 'example.com'], ['--timeout', '0'], ['--timeout', 'Infinity'], ['--ports', '80,'], ['--ports', '65536'], ['--unknown']]) {
+    assert.equal(parseArgs([]).mac, mac);
+    assert.equal(parseArgs([]).macFallback, true);
+    assert.equal(parseArgs(['--no-mac-fallback']).macFallback, false);
+    assert.equal(parseArgs(['--mac', 'e0-72-a1-85-24-48']).mac, mac);
+    for (const args of [['--host'], ['--host', 'example.com'], ['--mac'], ['--mac', 'E0:72:A1'], ['--timeout', '0'], ['--timeout', 'Infinity'], ['--ports', '80,'], ['--ports', '65536'], ['--unknown']]) {
         assert.throws(() => parseArgs(args));
     }
+});
+
+test('MAC normalization accepts common formats and rejects malformed addresses', () => {
+    for (const address of [mac, 'e0:72:a1:85:24:48', 'e0-72-a1-85-24-48', 'e072a1852448']) {
+        assert.equal(normalizeMac(address), mac);
+    }
+    for (const address of ['', 'garbage E0:72:A1:85:24:48', 'E0:72:A1:85:24', 'ZZ:72:A1:85:24:48']) {
+        assert.equal(normalizeMac(address), null);
+    }
+});
+
+test('neighbor parsing matches the exact MAC across Linux, macOS and Windows formats', () => {
+    for (const table of [
+        '192.168.0.37 dev eth0 lladdr e0:72:a1:85:24:48 REACHABLE',
+        '192.168.0.37 0x1 0x2 e0:72:a1:85:24:48 * eth0',
+        '? (192.168.0.37) at e0:72:a1:85:24:48 on en0 ifscope [ethernet]',
+        '  192.168.0.37     e0-72-a1-85-24-48    dynamic'
+    ]) {
+        assert.equal(findIpInNeighbors(table, mac, '192.168.0.48'), '192.168.0.37');
+    }
+    for (const table of [
+        '192.168.0.37 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE',
+        '192.168.0.37 dev eth0 lladdr e0:72:a1:85:24:48 FAILED',
+        '192.168.0.37 dev eth0 lladdr e0:72:a1:85:24:48 INCOMPLETE',
+        '192.168.1.37 dev eth0 lladdr e0:72:a1:85:24:48 REACHABLE',
+        '192.168.0.48 dev eth0 lladdr e0:72:a1:85:24:48 REACHABLE',
+        '192.168.0.255 dev eth0 lladdr e0:72:a1:85:24:48 REACHABLE'
+    ]) {
+        assert.equal(findIpInNeighbors(table, mac, '192.168.0.48'), null);
+    }
+});
+
+test('MAC recovery uses a cached match without scanning the subnet', async () => {
+    const result = await findZendureIpByMac(parseArgs([]), {
+        readNeighbors: async () => '192.168.0.37 dev eth0 lladdr e0:72:a1:85:24:48 STALE',
+        probeTcp: async () => { throw new Error('Unexpected subnet scan.'); }
+    });
+    assert.deepEqual(result, {host: '192.168.0.37'});
+});
+
+test('MAC recovery populates neighbors with bounded probes and stops at an exact match', async () => {
+    const calls = [];
+    let table = '';
+    let active = 0;
+    let maximum = 0;
+    const result = await findZendureIpByMac(parseArgs([]), {
+        readNeighbors: async () => table,
+        probeTcp: async (host, port, timeout) => {
+            calls.push({host, port, timeout});
+            maximum = Math.max(maximum, ++active);
+            await Promise.resolve();
+            if (host === '192.168.0.37') table = `${host} dev eth0 lladdr e0:72:a1:85:24:48 REACHABLE`;
+            active--;
+            return {port, open: false, error: 'ECONNREFUSED'};
+        }
+    });
+    assert.equal(result.host, '192.168.0.37');
+    assert.equal(maximum, 16);
+    assert.equal(calls.length, 48);
+    assert.ok(calls.every(call => call.host.startsWith('192.168.0.') && call.host !== '192.168.0.48' && call.port === 80 && call.timeout <= 250));
+});
+
+test('MAC recovery does not select responding hosts without a matching MAC', async () => {
+    let count = 0;
+    const result = await findZendureIpByMac(parseArgs([]), {
+        readNeighbors: async () => '192.168.0.37 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE',
+        probeTcp: async () => { count++; return {open: true}; }
+    });
+    assert.deepEqual(result, {host: null});
+    assert.equal(count, 253);
+});
+
+test('MAC recovery reports unavailable tables or denied sockets', async () => {
+    assert.deepEqual(await findZendureIpByMac(parseArgs([]), {
+        readNeighbors: async () => null,
+        probeTcp: async () => { throw new Error('Unexpected subnet scan.'); }
+    }), {host: null, unavailable: true});
+    let count = 0;
+    assert.deepEqual(await findZendureIpByMac(parseArgs([]), {
+        readNeighbors: async () => '',
+        probeTcp: async () => { count++; return {open: false, error: 'EPERM'}; }
+    }), {host: null, unavailable: true});
+    assert.equal(count, 16);
+});
+
+async function captureMain(args, dependencies) {
+    const lines = [];
+    const original = console.log;
+    console.log = line => lines.push(line);
+    try { return {code: await main(args, dependencies), output: lines.join('\n')}; }
+    finally { console.log = original; }
+}
+
+test('main retries the recovered address when the configured IP has no meter report', async () => {
+    const hosts = [];
+    const result = await captureMain([], {
+        probeHost: async options => {
+            hosts.push(options.host);
+            return {ports: [{port: 80, open: true}], reportFound: options.host === '192.168.0.37', serialConfirmed: false};
+        },
+        findZendureIpByMac: async options => {
+            assert.equal(options.mac, mac);
+            return {host: '192.168.0.37'};
+        }
+    });
+    assert.equal(result.code, 0);
+    assert.deepEqual(hosts, ['192.168.0.48', '192.168.0.37']);
+    assert.match(result.output, /MAC E0:72:A1:85:24:48 found at 192.168.0.37/);
+    assert.match(result.output, /Local meter report received/);
+});
+
+test('main skips discovery for a valid report, disabled fallback or denied sockets', async () => {
+    for (const scenario of [
+        {args: [], reportFound: true, ports: [{open: true}]},
+        {args: ['--no-mac-fallback'], reportFound: false, ports: [{open: false}]},
+        {args: [], reportFound: false, ports: [{open: false, error: 'EPERM'}]}
+    ]) {
+        const result = await captureMain(scenario.args, {
+            probeHost: async () => ({...scenario, serialConfirmed: false}),
+            findZendureIpByMac: async () => { throw new Error('Unexpected MAC recovery.'); }
+        });
+        assert.equal(result.code, scenario.reportFound ? 0 : 1);
+    }
+});
+
+test('main reports a failed MAC lookup and keeps its LAN failure exit code', async () => {
+    const result = await captureMain([], {
+        probeHost: async () => ({ports: [{open: false}], reportFound: false, serialConfirmed: false}),
+        findZendureIpByMac: async () => ({host: null})
+    });
+    assert.equal(result.code, 1);
+    assert.match(result.output, /No other IP found for this MAC/);
 });
 
 test('flat 1CT-S report preserves zero and does not claim a serial match', () => {

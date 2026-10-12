@@ -86,13 +86,28 @@ node try-zendure.js --help
 ```
 
 The defaults identify the Smart Meter 1CT-S at `192.168.0.48`, serial
-`TEE1NJP7P341978`, identity `492848`. The script tests TCP ports and reads
+`TEE1NJP7P341978`, identity `492848`, fallback MAC `E0:72:A1:85:24:48`.
+The script tests TCP ports and reads
 `/properties/report` and MQTT status over HTTP. It handles both nested zenSDK
 properties and the flat 1CT-S response (`total_power`, `a_aprt_power`,
 `b_aprt_power`, `c_aprt_power`). It prints raw values without assuming units or
 scaling. A response without a serial number cannot confirm the meter's identity.
 Exit code 0 means a tested LAN TCP service opened, 1 means none opened, and 2
 means invalid options or a failed optional cloud lookup.
+
+If the configured IP returns no meter report (or returns a different serial),
+the script finds the fallback MAC in the system ARP/neighbor table and retries
+at that IP. If the address is not cached, it makes short TCP connection attempts
+within the configured IP's `/24` subnet to populate the table, with at most 16
+connections at once. Only an exact MAC match is used for recovery; the configured
+IP is not changed on disk. MAC discovery requires the computer and meter to be
+on the same LAN and uses `ip neigh` (or `/proc/net/arp`) on Linux and `arp` on
+macOS/Windows. It reports when those facilities are unavailable.
+
+```bash
+node try-zendure.js --mac E0:72:A1:85:24:48
+node try-zendure.js --no-mac-fallback
+```
 
 The supplied authorization key belongs to the cloud API. To also check whether
 the meter appears in that API, enter the key without storing it in source or
