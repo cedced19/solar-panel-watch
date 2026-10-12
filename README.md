@@ -157,6 +157,11 @@ home. For example, `/api/data/battery/24h` returns the last day, and
 `[]`; invalid periods return HTTP 400, and database query failures return HTTP 500.
 History starts collecting after the application restarts with this version.
 
+`GET /graph/battery/:period` opens the battery SOC graph with percentage values
+from `0` to `100` and time displayed in the configured timezone. The dashboard
+links to `/graph/battery/24h`; the page also offers two-hour and seven-day views,
+a CSV download, and messages for empty history or a failed request.
+
 InfluxDB history uses the selected house source and omits missing solar fields
 and network measurements that Zendure does not provide.
 

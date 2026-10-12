@@ -386,3 +386,22 @@ test('dashboard and battery HTTP requests do not duplicate background battery hi
     assert.equal((await app.request('/')).status, 503);
     assert.equal(app.batteryHistory.writes.length, 1);
 });
+
+test('battery history graph routes render the requested period and dashboard entry point', async (t) => {
+    const app = await createServer(t);
+    for (const period of ['24h', '7d']) {
+        const page = await app.request(`/graph/battery/${period}`);
+        assert.equal(page.status, 200);
+        assert.match(page.contentType, /^text\/html/);
+        assert.match(page.body, /\/assets\/battery-graph\.js/);
+        assert.match(page.body, new RegExp(`data-period="${period}"`));
+        assert.equal(page.body.match(/data-timezone="([^"]*)"/)?.[1],
+            requireFromMain('./config.json').timezone);
+    }
+    const invalid = await app.request('/graph/battery/not-a-period');
+    assert.equal(invalid.status, 400);
+    assert.match(invalid.body, /Invalid.*period.*parameter/);
+    const dashboard = await app.request('/');
+    assert.equal(dashboard.status, 200);
+    assert.match(dashboard.body, /href="\/graph\/battery\/24h"/);
+});

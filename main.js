@@ -338,6 +338,14 @@ app.get('/graph/power/:period', validatePeriod, function(req, res) {
     });
 });
 
+app.get('/graph/battery/:period', validatePeriod, function(req, res) {
+    res.render('graph-battery', {
+        period: req.params.period,
+        timezone: config.timezone,
+        battery_poll_interval: getPowerData.batteryRequestThreshold
+    });
+});
+
 app.get('/graph/power/:period/group-by/:group/', validatePeriod, validateGroup, function(req, res) {
     res.render('graph-power-group', {
         period: req.params.period,

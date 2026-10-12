@@ -35,6 +35,60 @@
   font-family: inherit;
 }
 
+/* ---- Battery history -------------------------------------------------- */
+
+.battery-graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px 20px;
+}
+
+.battery-graph-title {
+  margin: 0;
+  color: #111827;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.battery-graph-title span {
+  color: #64748b;
+  font-size: .9rem;
+  font-weight: 400;
+}
+
+.battery-period-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.battery-period-nav [aria-current="page"] {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.battery-graph-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 24px;
+  color: #64748b;
+  text-align: center;
+}
+
+.battery-graph-status p {
+  margin: 0;
+}
+
+.battery-graph-page [hidden] {
+  display: none;
+}
+
 /* ---- Loader ----------------------------------------------------------- */
 
 .loader {
@@ -295,6 +349,11 @@ body.graph-page .graph-card {
 
   body.graph-page .graph-card {
     padding: 2px 0 0;
+  }
+
+  .battery-graph-toolbar {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .dashboard-header {
