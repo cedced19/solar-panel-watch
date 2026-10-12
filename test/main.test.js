@@ -57,7 +57,7 @@ test('the dashboard reports Zendure house power and battery availability indepen
     getPowerData.getHouseRecoveryState = () => recoveryState;
     getPowerData.getShellyRecoveryState = () => ({});
     getPowerData.reqBattery = (callback) => callback(null, {
-        socPercent: 86, state: 'charging', socSource: 'packData.socLevel'
+        socPercent: 86, state: 'charging', socSource: 'packData.socLevel', chargingPowerW: 345
     });
 
     const unavailablePage = await request(server, '/', {'accept-language': 'fr'});
@@ -104,6 +104,8 @@ test('the dashboard reports Zendure house power and battery availability indepen
     assert.match(availablePage.body, /192.168.0.37/);
     assert.match(availablePage.body, /id="battery-level"/);
     assert.match(availablePage.body, /86/);
+    assert.match(availablePage.body, /Battery charging power/);
+    assert.match(availablePage.body, /id="battery-charging-power">345<\/span>/);
     assert.match(availablePage.body, /Unavailable/);
     assert.equal(main.isPowerDataAvailable(), true);
 
@@ -117,11 +119,21 @@ test('the dashboard reports Zendure house power and battery availability indepen
     const batteryResponse = await request(server, '/api/battery');
     assert.equal(batteryResponse.status, 200);
     assert.equal(JSON.parse(batteryResponse.body).socPercent, 86);
+    assert.equal(JSON.parse(batteryResponse.body).chargingPowerW, 345);
 
     // Rendered polling scripts must compile, including translated labels.
     for (const script of availablePage.body.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
         new vm.Script(script[1]);
     }
+
+    getPowerData.reqBattery = (callback) => callback(null, {
+        socPercent: 86, state: 'standby', chargingPowerW: 0
+    });
+    const zeroChargePowerPage = await request(server, '/');
+    assert.match(zeroChargePowerPage.body, /id="battery-charging-power">0<\/span>/);
+    getPowerData.reqBattery = (callback) => callback(null, {socPercent: 86, state: 'standby'});
+    const missingChargePowerPage = await request(server, '/');
+    assert.match(missingChargePowerPage.body, /id="battery-charging-power">Unavailable<\/span>/);
 
     getPowerData.reqBattery = (callback) => callback(new Error('Battery is unreachable'));
     const unavailableBattery = await request(server, '/api/battery');

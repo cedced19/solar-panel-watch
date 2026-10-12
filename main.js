@@ -414,6 +414,21 @@ app.get('/api/battery', function(req, res) {
     });
 });
 
+app.get('/api/data/battery/:period', validatePeriod, (req, res, next) => {
+    influxLib.requestBatteryLevelOverPeriod(req.params.period).then(function (data) {
+        if (req.query.format === 'csv') {
+            res.set('Content-Type', 'text/csv');
+            return res.send(influxLib.pointsToCSV(data));
+        }
+        res.json(data);
+    }, function (error) {
+        error.status = 500;
+        next(error);
+    });
+}, function (error, req, res, next) {
+    res.status(error.status || 500).json({error: error.message});
+});
+
 app.get('/api/data-force', function(req, res) {
     res.json({
         device_states: keep_properties(devices_to_activate_state, ['last_power', 'force_mode_percent', 'force_mode'])
@@ -1001,10 +1016,16 @@ app.use(function (err, req, res, next) {
 function startBackgroundTasks() {
 
 // Battery charge gates device decisions while retaining its own slower cadence.
-requestBatteryData(function () {});
-setInterval(function () {
-    requestBatteryData(function () {});
-}, getPowerData.batteryRequestThreshold);
+// Save its history independently of house power availability and device activation.
+function pollBattery() {
+    requestBatteryData(function (err, battery) {
+        if (!err && getDeviceChargingStatus().socPercent !== null) {
+            influxLib.writeBatteryLevel(app.get('env') === 'development', battery);
+        }
+    });
+}
+pollBattery();
+setInterval(pollBattery, getPowerData.batteryRequestThreshold);
 // Write data to influx
 setInterval(function () {
     influxLib.daemon(app.get('env') === 'development', config.save_network_data);

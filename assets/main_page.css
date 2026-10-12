@@ -227,6 +227,27 @@ body.dashboard-page {
   display: none;
 }
 
+.battery-charging-power {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  color: #64748b;
+  font-size: .9rem;
+  border-top: 1px solid #bfdbfe;
+}
+
+.battery-charging-power-value {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.battery-charging-power.is-unavailable .battery-charging-power-value {
+  color: #64748b;
+}
+
 .battery-source {
   margin: 8px 0 0;
   color: #64748b;

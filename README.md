@@ -122,7 +122,9 @@ present; a serial-less meter response remains unverified. MAC recovery uses an
 exact match within the configured host's `/24` subnet and keeps the recovered
 address in memory.
 
-The battery card shows the matching pack's charge percentage and state. If pack
+The battery card shows the matching pack's charge percentage, state and charging
+power in watts (`chargingPowerW`, from Zendure's `outputPackPower`). A missing
+charging power reading is shown as unavailable; a reported zero remains `0 W`. If pack
 charge is unavailable, it uses `electricLevel` and labels it as the device average.
 Battery failures show an unavailable state without blocking house power readings. The
 server and visible dashboard refresh battery status on its independent interval;
@@ -141,6 +143,20 @@ Readings expire after the battery polling interval plus the Zendure request time
 `GET /api/battery` returns charge/status data or HTTP 503 when unavailable.
 Both power and battery responses include `device_charging` with the current
 permission, reason, minimum SOC and measured SOC.
+Battery level is saved at startup and on each successful background battery poll,
+using the `zendure_battery_req_threshold` interval (configured as `20000` ms).
+The InfluxDB `battery` measurement contains a `socPercent` field and the configured
+`home` tag, with each point timestamped at the original battery reading time.
+Unavailable or stale readings leave gaps in history. Recording continues even
+when house power is unavailable or device charging is blocked.
+
+`GET /api/data/battery/:period` returns battery level history as chronological
+`[{"_time": "<ISO timestamp>", "_value": <SOC percent>}]` points for the configured
+home. For example, `/api/data/battery/24h` returns the last day, and
+`/api/data/battery/7d?format=csv` exports the last week. An empty history returns
+`[]`; invalid periods return HTTP 400, and database query failures return HTTP 500.
+History starts collecting after the application restarts with this version.
+
 InfluxDB history uses the selected house source and omits missing solar fields
 and network measurements that Zendure does not provide.
 

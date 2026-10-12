@@ -47,10 +47,23 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
         save(callback) { callback?.(); },
         getAll: () => []
     };
+    const batteryHistory = {points: [], queries: [], writes: [], csvCalls: []};
     const influx = {
         daemon() {}, writePower() {}, writePowerRaw() {}, writeNetworkData() {},
         writeVar() {}, requestLastVar: async () => [], requestVarOverPeriod: async () => [],
-        getMaxValueOverData: () => 0
+        getMaxValueOverData: () => 0,
+        writeBatteryLevel(debug, battery) {
+            batteryHistory.writes.push({debug, battery: {...battery}});
+        },
+        requestBatteryLevelOverPeriod(period) {
+            batteryHistory.queries.push(period);
+            return batteryHistory.error ? Promise.reject(batteryHistory.error) :
+                Promise.resolve(batteryHistory.points);
+        },
+        pointsToCSV(points) {
+            batteryHistory.csvCalls.push(points);
+            return '_time,_value\n' + points.map((point) => `${point._time},${point._value}`).join('\n');
+        }
     };
     const module = {exports: {}};
     const sandbox = {
@@ -86,6 +99,7 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
                 res.setEncoding('utf8');
                 res.on('data', (chunk) => { body += chunk; });
                 res.on('end', () => resolve({status: res.statusCode, body,
+                    contentType: res.headers['content-type'],
                     json: res.headers['content-type']?.includes('application/json') ? JSON.parse(body) : null}));
             });
             req.on('error', reject);
@@ -99,6 +113,11 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
         const control = intervals.find(({delay}) => delay === powerData.powerRequestThreshold);
         assert.ok(control, 'power control interval is registered');
         control.callback();
+    }
+    function batteryTick() {
+        const battery = intervals.find(({delay}) => delay === powerData.batteryRequestThreshold);
+        assert.ok(battery, 'battery polling interval is registered');
+        battery.callback();
     }
     async function initializeDevices() {
         await request('/api/data');
@@ -123,7 +142,7 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
             assert.equal(debug.requested_alpha, 128);
         }
     }
-    return {main, readings, request, startBackgroundTasks, controlTick,
+    return {main, readings, batteryHistory, request, startBackgroundTasks, controlTick, batteryTick,
         initializeDevices, assertDevicesOff, assertRequestedPowerOff};
 }
 
@@ -277,4 +296,93 @@ test('invalid battery thresholds fail startup with a configuration error', async
         await assert.rejects(createServer(t, {minSoc}),
             /zendure_battery_min_soc must be a number between 0 and 100/);
     }
+});
+
+test('battery history API serves queried SOC points and supports CSV export', async (t) => {
+    const app = await createServer(t);
+    const points = [
+        {_time: '2026-10-12T09:00:00.000Z', _value: 79.5},
+        {_time: '2026-10-12T09:01:00.000Z', _value: 81}
+    ];
+    app.batteryHistory.points = points;
+    const history = await app.request('/api/data/battery/24h');
+    assert.equal(history.status, 200);
+    assert.deepEqual(history.json, points);
+    assert.deepEqual(app.batteryHistory.queries, ['24h']);
+
+    const csv = await app.request('/api/data/battery/7d?format=csv');
+    assert.equal(csv.status, 200);
+    assert.match(csv.contentType, /^text\/csv/);
+    assert.equal(csv.body,
+        '_time,_value\n2026-10-12T09:00:00.000Z,79.5\n2026-10-12T09:01:00.000Z,81');
+    assert.deepEqual(app.batteryHistory.queries, ['24h', '7d']);
+    assert.deepEqual(app.batteryHistory.csvCalls, [points]);
+});
+
+test('battery history rejects invalid periods before querying InfluxDB and reports query errors', async (t) => {
+    const app = await createServer(t);
+    for (const period of ['invalid', '-1h', '1.5h', '10000h']) {
+        const history = await app.request(`/api/data/battery/${period}`);
+        assert.equal(history.status, 400);
+        assert.match(history.contentType, /^application\/json/);
+        assert.match(history.json.error, /Invalid.*period.*parameter/);
+    }
+    assert.deepEqual(app.batteryHistory.queries, []);
+    app.batteryHistory.error = new Error('Battery history query failed');
+    const failed = await app.request('/api/data/battery/1h');
+    assert.equal(failed.status, 500);
+    assert.match(failed.contentType, /^application\/json/);
+    assert.deepEqual(failed.json, {error: 'Battery history query failed'});
+    assert.deepEqual(app.batteryHistory.queries, ['1h']);
+});
+
+test('background battery polling records successful readings independently of house power and device gating', async (t) => {
+    const app = await createServer(t, {minSoc: 100});
+    app.readings.powerError = new Error('house meter offline');
+    const firstBattery = {...app.readings.battery, time: Math.floor(Date.now() / 1000)};
+    app.readings.battery = firstBattery;
+    app.startBackgroundTasks();
+    assert.equal(app.main.getDeviceChargingStatus().enabled, false);
+    assert.deepEqual(app.batteryHistory.writes.map(({battery}) => battery), [firstBattery]);
+
+    app.controlTick();
+    const secondBattery = {socPercent: 82, state: 'charging', time: firstBattery.time + 20};
+    app.readings.battery = secondBattery;
+    app.batteryTick();
+    assert.deepEqual(app.batteryHistory.writes.map(({battery}) => battery), [firstBattery, secondBattery]);
+
+    app.readings.batteryError = new Error('battery offline');
+    app.batteryTick();
+    assert.equal(app.batteryHistory.writes.length, 2);
+
+    app.readings.batteryError = null;
+    for (const battery of [
+        {socPercent: NaN, time: firstBattery.time},
+        {socPercent: 101, time: firstBattery.time},
+        {socPercent: '82', time: firstBattery.time},
+        {socPercent: 82, time: firstBattery.time - 60}
+    ]) {
+        app.readings.battery = battery;
+        app.batteryTick();
+        assert.equal(app.batteryHistory.writes.length, 2);
+    }
+    app.readings.battery = {socPercent: 0, state: 'standby', time: secondBattery.time + 20};
+    app.batteryTick();
+    assert.equal(app.batteryHistory.writes.length, 3);
+    assert.equal(app.batteryHistory.writes[2].battery.socPercent, 0);
+});
+
+test('dashboard and battery HTTP requests do not duplicate background battery history', async (t) => {
+    const app = await createServer(t);
+    await app.request('/api/battery');
+    assert.equal((await app.request('/')).status, 200);
+    assert.deepEqual(app.batteryHistory.writes, []);
+
+    app.startBackgroundTasks();
+    assert.equal(app.batteryHistory.writes.length, 1);
+    await app.request('/api/battery');
+    await app.request('/');
+    app.readings.powerError = new Error('house meter offline');
+    assert.equal((await app.request('/')).status, 503);
+    assert.equal(app.batteryHistory.writes.length, 1);
 });
