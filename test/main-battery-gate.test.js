@@ -47,7 +47,7 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
         save(callback) { callback?.(); },
         getAll: () => []
     };
-    const batteryHistory = {points: [], queries: [], writes: [], csvCalls: []};
+    const batteryHistory = {points: [], queries: [], writes: [], csvCalls: [], csvColumns: []};
     const influx = {
         daemon() {}, writePower() {}, writePowerRaw() {}, writeNetworkData() {},
         writeVar() {}, requestLastVar: async () => [], requestVarOverPeriod: async () => [],
@@ -60,9 +60,11 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
             return batteryHistory.error ? Promise.reject(batteryHistory.error) :
                 Promise.resolve(batteryHistory.points);
         },
-        pointsToCSV(points) {
+        pointsToCSV(points, columns = ['_time', '_value']) {
             batteryHistory.csvCalls.push(points);
-            return '_time,_value\n' + points.map((point) => `${point._time},${point._value}`).join('\n');
+            batteryHistory.csvColumns.push(columns);
+            return columns.join(',') + '\n' + points.map((point) =>
+                columns.map((column) => point[column] ?? '').join(',')).join('\n');
         }
     };
     const module = {exports: {}};
@@ -298,10 +300,11 @@ test('invalid battery thresholds fail startup with a configuration error', async
     }
 });
 
-test('battery history API serves queried SOC points and supports CSV export', async (t) => {
+test('battery history API serves SOC and power readings together and exports missing fields as blank CSV cells', async (t) => {
     const app = await createServer(t);
     const points = [
-        {_time: '2026-10-12T09:00:00.000Z', _value: 79.5},
+        {_time: '2026-10-12T09:00:00.000Z', _value: 79.5,
+            outputHomePower: 600, gridInputPower: 0, outputPackPower: 0, packInputPower: 550},
         {_time: '2026-10-12T09:01:00.000Z', _value: 81}
     ];
     app.batteryHistory.points = points;
@@ -314,9 +317,13 @@ test('battery history API serves queried SOC points and supports CSV export', as
     assert.equal(csv.status, 200);
     assert.match(csv.contentType, /^text\/csv/);
     assert.equal(csv.body,
-        '_time,_value\n2026-10-12T09:00:00.000Z,79.5\n2026-10-12T09:01:00.000Z,81');
+        '_time,_value,outputHomePower,gridInputPower,outputPackPower,packInputPower\n' +
+        '2026-10-12T09:00:00.000Z,79.5,600,0,0,550\n2026-10-12T09:01:00.000Z,81,,,,');
     assert.deepEqual(app.batteryHistory.queries, ['24h', '7d']);
     assert.deepEqual(app.batteryHistory.csvCalls, [points]);
+    assert.deepEqual(app.batteryHistory.csvColumns.map((columns) => Array.from(columns)), [[
+        '_time', '_value', 'outputHomePower', 'gridInputPower', 'outputPackPower', 'packInputPower'
+    ]]);
 });
 
 test('battery history rejects invalid periods before querying InfluxDB and reports query errors', async (t) => {
@@ -339,7 +346,8 @@ test('battery history rejects invalid periods before querying InfluxDB and repor
 test('background battery polling records successful readings independently of house power and device gating', async (t) => {
     const app = await createServer(t, {minSoc: 100});
     app.readings.powerError = new Error('house meter offline');
-    const firstBattery = {...app.readings.battery, time: Math.floor(Date.now() / 1000)};
+    const firstBattery = {...app.readings.battery, time: Math.floor(Date.now() / 1000),
+        outputHomePowerW: 600, gridInputPowerW: 0, chargingPowerW: 0, dischargingPowerW: 550};
     app.readings.battery = firstBattery;
     app.startBackgroundTasks();
     assert.equal(app.main.getDeviceChargingStatus().enabled, false);

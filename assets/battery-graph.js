@@ -6,7 +6,29 @@
     const status = document.getElementById('battery-graph-status');
     const message = document.getElementById('battery-graph-message');
     const retry = document.getElementById('battery-graph-retry');
+    const powerSeries = [
+        {field: 'outputHomePower', label: page.dataset.homePowerLabel, color: '#16a34a', dash: 'solid'},
+        {field: 'gridInputPower', label: page.dataset.gridPowerLabel, color: '#9333ea', dash: 'dash'},
+        {field: 'outputPackPower', label: page.dataset.chargingPowerLabel, color: '#d97706', dash: 'dot'},
+        {field: 'packInputPower', label: page.dataset.dischargingPowerLabel, color: '#dc2626', dash: 'dashdot'}
+    ];
     let requestPending = false;
+
+    function validSoc(value) {
+        return Number.isFinite(value) && value >= 0 && value <= 100;
+    }
+
+    function validPower(value) {
+        return Number.isFinite(value) && value >= 0;
+    }
+
+    function traceMode(values) {
+        // Keep isolated readings visible when unavailable samples split a line.
+        return values.some(function (value, index) {
+            return value !== null && (index === 0 || values[index - 1] === null) &&
+                (index === values.length - 1 || values[index + 1] === null);
+        }) ? 'lines+markers' : 'lines';
+    }
 
     function showStatus(label) {
         message.textContent = label;
@@ -46,7 +68,9 @@
             }
             const points = data.filter(function (point) {
                 return point && typeof point._time === 'string' && Number.isFinite(Date.parse(point._time)) &&
-                    Number.isFinite(point._value) && point._value >= 0 && point._value <= 100;
+                    (validSoc(point._value) || powerSeries.some(function (series) {
+                        return validPower(point[series.field]);
+                    }));
             }).sort(function (first, second) {
                 return Date.parse(first._time) - Date.parse(second._time);
             });
@@ -57,27 +81,56 @@
                 year: 'numeric', month: '2-digit', day: '2-digit',
                 hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
             });
-            const trace = {
+            const timestamps = points.map(function (point) { return plotTime(Date.parse(point._time), formatter); });
+            const socValues = points.map(function (point) { return validSoc(point._value) ? point._value : null; });
+            const traces = [{
                 type: 'scatter',
-                mode: points.length === 1 ? 'lines+markers' : 'lines',
+                mode: traceMode(socValues),
                 name: page.dataset.socLabel,
-                x: points.map(function (point) { return plotTime(Date.parse(point._time), formatter); }),
-                y: points.map(function (point) { return point._value; }),
-                line: {color: '#2563eb'},
+                x: timestamps,
+                y: socValues,
+                line: {color: '#2563eb', width: 3},
                 connectgaps: false,
-                hovertemplate: '%{x|%Y-%m-%d %H:%M:%S}<br>%{y:.1f}%<extra></extra>'
-            };
+                hovertemplate: '%{x|%Y-%m-%d %H:%M:%S}<br>%{y:.1f}%<extra>%{fullData.name}</extra>'
+            }];
+            powerSeries.forEach(function (series) {
+                const values = points.map(function (point) {
+                    return validPower(point[series.field]) ? point[series.field] : null;
+                });
+                const readingCount = values.filter(function (value) { return value !== null; }).length;
+                // Old history and unsupported properties have no power samples.
+                if (readingCount === 0) return;
+                traces.push({
+                    type: 'scatter',
+                    mode: traceMode(values),
+                    name: series.label,
+                    x: timestamps,
+                    y: values,
+                    yaxis: 'y2',
+                    line: {color: series.color, dash: series.dash},
+                    connectgaps: false,
+                    hovertemplate: '%{x|%Y-%m-%d %H:%M:%S}<br>%{y:.1f} W<extra>%{fullData.name}</extra>'
+                });
+            });
+            const hasPower = traces.length > 1;
             const layout = {
                 title: page.dataset.title,
                 autosize: true,
                 height: Math.max(window.innerHeight * 0.7, 420),
-                margin: {l: 70, r: 20, t: 60, b: 70},
-                showlegend: false,
+                margin: {l: 70, r: hasPower ? 80 : 20, t: 60, b: hasPower ? 140 : 70},
+                showlegend: hasPower,
+                legend: {orientation: 'h', x: 0, y: -0.25, yanchor: 'top'},
                 xaxis: {type: 'date', title: page.dataset.timeLabel + ' (' + page.dataset.timezone + ')'},
                 yaxis: {title: page.dataset.socLabel, range: [0, 100], autorange: false, ticksuffix: '%'}
             };
+            if (hasPower) {
+                layout.yaxis2 = {
+                    title: page.dataset.powerLabel, overlaying: 'y', side: 'right',
+                    rangemode: 'tozero', ticksuffix: ' W', showgrid: false
+                };
+            }
             graphCard.hidden = false;
-            await Plotly.newPlot(graph, [trace], layout, {responsive: true, displaylogo: false});
+            await Plotly.newPlot(graph, traces, layout, {responsive: true, displaylogo: false});
         } catch (error) {
             showStatus(page.dataset.errorLabel);
         } finally {

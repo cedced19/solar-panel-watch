@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const {createFluxTableColumn, createFluxTableMetaData} = require('@influxdata/influxdb-client');
 const {createBatteryHistory} = require('../lib/influx-lib');
 
 const config = {
@@ -34,9 +35,10 @@ function writer(options = {}) {
     return {api, points, destinations, logs, errors};
 }
 
-test('battery history preserves the reading timestamp, percentage, and configured home', async () => {
+test('battery history stores SOC and all four powers in one point with the reading timestamp and home', async () => {
     const {api, points, destinations, logs} = writer();
-    const reading = {socPercent: 83.5, time: 1770000123, chargingPowerW: 220};
+    const reading = {socPercent: 83.5, time: 1770000123, outputHomePowerW: 330,
+        gridInputPowerW: 10, chargingPowerW: 220, dischargingPowerW: 40};
     await api.writeBatteryLevel(true, reading);
     // A cached poll writes the same point instead of inventing a new reading time.
     await api.writeBatteryLevel(false, reading);
@@ -46,10 +48,27 @@ test('battery history preserves the reading timestamp, percentage, and configure
     ]);
     const lines = points.map((point, index) => point.toLineProtocol({defaultTags: destinations[index].tags}));
     assert.deepEqual(lines, [
-        'battery,home=test-home socPercent=83.5 1770000123000000000',
-        'battery,home=test-home socPercent=83.5 1770000123000000000'
+        'battery,home=test-home gridInputPower=10,outputHomePower=330,outputPackPower=220,packInputPower=40,socPercent=83.5 1770000123000000000',
+        'battery,home=test-home gridInputPower=10,outputHomePower=330,outputPackPower=220,packInputPower=40,socPercent=83.5 1770000123000000000'
     ]);
     assert.deepEqual(logs, ['Battery level updated in InfluxDB.']);
+});
+
+test('battery power history preserves zero and omits missing or invalid optional readings', async () => {
+    const {api, points} = writer();
+    await api.writeBatteryLevel(false, {socPercent: 50, time: 1770000123, outputHomePowerW: 0,
+        gridInputPowerW: 0, chargingPowerW: 0, dischargingPowerW: 0});
+    assert.equal(points[0].toLineProtocol(),
+        'battery gridInputPower=0,outputHomePower=0,outputPackPower=0,packInputPower=0,socPercent=50 1770000123000000000');
+
+    const invalidValues = [undefined, null, '100', false, NaN, Infinity, -Infinity, -1];
+    for (const invalid of invalidValues) {
+        await api.writeBatteryLevel(false, {socPercent: 50, time: 1770000123, outputHomePowerW: invalid,
+            gridInputPowerW: invalid, chargingPowerW: invalid, dischargingPowerW: invalid});
+    }
+    assert.equal(points.length, invalidValues.length + 1);
+    assert.ok(points.slice(1).every((point) => point.toLineProtocol() ===
+        'battery socPercent=50 1770000123000000000'));
 });
 
 test('zero percent is a valid reading, and absent timestamps alone use the local time', async () => {
@@ -90,9 +109,10 @@ const tableMeta = {
     }
 };
 
-test('battery query selects only this home and SOC, combines tables, and sorts history by time', async () => {
+test('battery query selects this home and all five fields in one query, pivots, and sorts history', async () => {
     let query;
     let queriedOrg;
+    let queryCount = 0;
     const history = createBatteryHistory({
         config,
         client: {
@@ -100,10 +120,14 @@ test('battery query selects only this home and SOC, combines tables, and sorts h
                 queriedOrg = org;
                 return {
                     queryRows(text, observer) {
+                        queryCount++;
                         query = text;
                         queueMicrotask(() => {
-                            observer.next({_time: '2026-10-12T10:00:00Z', _value: 0, home: 'test-home'}, tableMeta);
-                            observer.next({_time: '2026-10-12T10:00:20Z', _value: 1}, tableMeta);
+                            observer.next({_time: '2026-10-12T10:00:00Z', socPercent: 0, home: 'test-home'}, tableMeta);
+                            observer.next({_time: '2026-10-12T10:00:20Z', socPercent: 1, outputHomePower: 250,
+                                gridInputPower: 0, outputPackPower: 80, packInputPower: 0}, tableMeta);
+                            observer.next({_time: '2026-10-12T10:00:40Z', socPercent: null,
+                                outputHomePower: 100, gridInputPower: null}, tableMeta);
                             observer.complete();
                         });
                     }
@@ -113,15 +137,21 @@ test('battery query selects only this home and SOC, combines tables, and sorts h
     });
     const points = await history.requestBatteryLevelOverPeriod('24h');
     assert.equal(queriedOrg, 'test-org');
+    assert.equal(queryCount, 1);
     assert.match(query, /from\(bucket: "test-bucket"\)/);
     assert.match(query, /range\(start: -24h\)/);
     assert.match(query, /r\["_measurement"\] == "battery"/);
     assert.match(query, /r\["_field"\] == "socPercent"/);
+    for (const field of ['outputHomePower', 'gridInputPower', 'outputPackPower', 'packInputPower']) {
+        assert.ok(query.includes(`r["_field"] == "${field}"`));
+    }
     assert.match(query, /r\["home"\] == "test-home"/);
-    assert.match(query, /keep\(columns: \["_time", "_value"\]\)[\s\S]*group\(\)[\s\S]*sort\(columns: \["_time"\], desc: false\)/);
+    assert.match(query, /keep\(columns: \["_time", "_field", "_value"\]\)[\s\S]*group\(\)[\s\S]*pivot\(rowKey: \["_time"\], columnKey: \["_field"\], valueColumn: "_value"\)[\s\S]*sort\(columns: \["_time"\], desc: false\)/);
     assert.deepEqual(points, [
         {_time: '2026-10-12T10:00:00Z', _value: 0},
-        {_time: '2026-10-12T10:00:20Z', _value: 1}
+        {_time: '2026-10-12T10:00:20Z', _value: 1, outputHomePower: 250,
+            gridInputPower: 0, outputPackPower: 80, packInputPower: 0},
+        {_time: '2026-10-12T10:00:40Z', _value: null, outputHomePower: 100}
     ]);
 });
 
@@ -141,6 +171,27 @@ test('battery query escapes configured bucket and home string literals', async (
     assert.ok(query.includes(String.raw`r["home"] == "home\\name"`));
 });
 
+test('battery history remains compatible with SOC-only tables without any power columns', async () => {
+    const oldTable = createFluxTableMetaData([
+        createFluxTableColumn({label: '_time', dataType: 'dateTime:RFC3339', index: 0}),
+        createFluxTableColumn({label: 'socPercent', dataType: 'double', index: 1})
+    ]);
+    const history = createBatteryHistory({
+        config,
+        queryApi: {
+            queryRows(query, observer) {
+                observer.next(['2026-10-12T10:00:00Z', '80'], oldTable);
+                observer.next(['2026-10-12T10:00:20Z', '0'], oldTable);
+                observer.complete();
+            }
+        }
+    });
+    assert.deepEqual(await history.requestBatteryLevelOverPeriod('1h'), [
+        {_time: '2026-10-12T10:00:00Z', _value: 80},
+        {_time: '2026-10-12T10:00:20Z', _value: 0}
+    ]);
+});
+
 test('battery query rejects real Influx observer errors instead of returning partial history', async () => {
     const failure = new Error('Influx query failed');
     const history = createBatteryHistory({
@@ -148,7 +199,7 @@ test('battery query rejects real Influx observer errors instead of returning par
         queryApi: {
             queryRows(query, observer) {
                 queueMicrotask(() => {
-                    observer.next({_time: '2026-10-12T10:00:00Z', _value: 80}, tableMeta);
+                    observer.next({_time: '2026-10-12T10:00:00Z', socPercent: 80}, tableMeta);
                     observer.error(failure);
                 });
             }

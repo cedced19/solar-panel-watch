@@ -13,7 +13,7 @@ const batterySerial = 'BEAAVCDLA283460';
 const macAddress = 'E0:72:A1:85:24:48';
 const batteryReport = {
     sn: deviceSerial,
-    properties: {electricLevel: 86, outputPackPower: 900, packInputPower: 0, packState: 1, dataReady: 1},
+    properties: {electricLevel: 86, outputHomePower: 200, gridInputPower: 0, outputPackPower: 900, packInputPower: 0, packState: 1, dataReady: 1},
     packData: [{sn: batterySerial, socLevel: 86, state: 1, power: 829}]
 };
 
@@ -60,6 +60,8 @@ test('battery validation selects the configured pack exactly, and falls back to 
     assert.equal(reading.aggregateSocPercent, 86);
     assert.equal(reading.state, 'standby');
     assert.equal(reading.battery.powerW, 0);
+    assert.equal(reading.outputHomePowerW, 200);
+    assert.equal(reading.gridInputPowerW, 0);
     assert.equal(reading.chargingPowerW, 900);
     assert.equal(reading.dischargingPowerW, 0);
     assert.equal(reading.serialMatches, true);
@@ -92,6 +94,25 @@ test('invalid pack SOC uses a valid aggregate but never another pack or a charge
     assert.equal(invalidOptionalFields.dischargingPowerW, null);
 });
 
+test('battery power fields support flat and nested reports, preserve zero and reject invalid values', () => {
+    const properties = {electricLevel: 80, outputHomePower: 750, gridInputPower: 0,
+        outputPackPower: 0, packInputPower: 700};
+    for (const report of [properties, {properties}]) {
+        const reading = validateBatteryReport(report);
+        assert.equal(reading.outputHomePowerW, 750);
+        assert.equal(reading.gridInputPowerW, 0);
+        assert.equal(reading.chargingPowerW, 0);
+        assert.equal(reading.dischargingPowerW, 700);
+    }
+    for (const value of [undefined, null, '700', false, -1, NaN, Infinity]) {
+        const reading = validateBatteryReport({electricLevel: 80, outputHomePower: value,
+            gridInputPower: value, outputPackPower: value, packInputPower: value});
+        for (const field of ['outputHomePowerW', 'gridInputPowerW', 'chargingPowerW', 'dischargingPowerW']) {
+            assert.equal(reading[field], null);
+        }
+    }
+});
+
 test('client shares concurrent requests, preserves receipt time and polls at the threshold', async () => {
     let calls = 0;
     let currentTime = 1700000000000;
@@ -103,7 +124,8 @@ test('client shares concurrent requests, preserves receipt time and polls at the
             assert.equal(url, 'http://192.168.0.48/properties/report');
             assert.equal(timeout, 3000);
             if (calls === 1) await new Promise(resolve => { release = resolve; });
-            return response({total_power: 0, electricLevel: 0, timestamp: 1});
+            return response({total_power: 0, electricLevel: 0, timestamp: 1,
+                outputHomePower: 600, gridInputPower: 0, outputPackPower: 0, packInputPower: 550});
         }
     });
     const first = client.getPower();
@@ -114,6 +136,11 @@ test('client shares concurrent requests, preserves receipt time and polls at the
     const readings = await Promise.all([first, second, battery]);
     assert.equal(readings[0].power, 0);
     assert.equal(readings[2].socPercent, 0);
+    assert.equal(readings[2].outputHomePowerW, 600);
+    assert.equal(readings[2].gridInputPowerW, 0);
+    assert.equal(readings[2].chargingPowerW, 0);
+    assert.equal(readings[2].dischargingPowerW, 550);
+    assert.equal(calls, 1, 'SOC and all four power fields share one HTTP request');
     assert.equal(readings[0].time, 1700000000);
     currentTime += 19999;
     assert.equal((await client.getPower()).time, 1700000000);

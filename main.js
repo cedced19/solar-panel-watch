@@ -426,7 +426,9 @@ app.get('/api/data/battery/:period', validatePeriod, (req, res, next) => {
     influxLib.requestBatteryLevelOverPeriod(req.params.period).then(function (data) {
         if (req.query.format === 'csv') {
             res.set('Content-Type', 'text/csv');
-            return res.send(influxLib.pointsToCSV(data));
+            return res.send(influxLib.pointsToCSV(data, [
+                '_time', '_value', 'outputHomePower', 'gridInputPower', 'outputPackPower', 'packInputPower'
+            ]));
         }
         res.json(data);
     }, function (error) {
@@ -1024,7 +1026,8 @@ app.use(function (err, req, res, next) {
 function startBackgroundTasks() {
 
 // Battery charge gates device decisions while retaining its own slower cadence.
-// Save its history independently of house power availability and device activation.
+// Save SOC and all available power fields from the same battery report,
+// independently of house power availability and device activation.
 function pollBattery() {
     requestBatteryData(function (err, battery) {
         if (!err && getDeviceChargingStatus().socPercent !== null) {

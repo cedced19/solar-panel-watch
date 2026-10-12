@@ -145,20 +145,30 @@ Both power and battery responses include `device_charging` with the current
 permission, reason, minimum SOC and measured SOC.
 Battery level is saved at startup and on each successful background battery poll,
 using the `zendure_battery_req_threshold` interval (configured as `20000` ms).
-The InfluxDB `battery` measurement contains a `socPercent` field and the configured
-`home` tag, with each point timestamped at the original battery reading time.
+The InfluxDB `battery` measurement contains `socPercent` and, when the device
+reports them, `outputHomePower`, `gridInputPower`, `outputPackPower` (charging)
+and `packInputPower` (discharging), all in watts. These values come from the same
+`/properties/report` request used for battery level, with no extra Zendure call.
+Each poll writes one point with the configured `home` tag and the original
+battery reading time. Missing or invalid power fields are omitted; zero is saved.
 Unavailable or stale readings leave gaps in history. Recording continues even
 when house power is unavailable or device charging is blocked.
 
 `GET /api/data/battery/:period` returns battery level history as chronological
-`[{"_time": "<ISO timestamp>", "_value": <SOC percent>}]` points for the configured
-home. For example, `/api/data/battery/24h` returns the last day, and
-`/api/data/battery/7d?format=csv` exports the last week. An empty history returns
+`[{"_time": "<ISO timestamp>", "_value": <SOC percent>, "outputHomePower": <watts>,
+"gridInputPower": <watts>, "outputPackPower": <watts>, "packInputPower": <watts>}]`
+points for the configured home. Power fields are present when recorded; earlier
+SOC-only points remain available. For example, `/api/data/battery/24h` returns
+the last day, and `/api/data/battery/7d?format=csv` exports all five readings for
+the last week, leaving missing values blank. An empty history returns
 `[]`; invalid periods return HTTP 400, and database query failures return HTTP 500.
 History starts collecting after the application restarts with this version.
 
-`GET /graph/battery/:period` opens the battery SOC graph with percentage values
-from `0` to `100` and time displayed in the configured timezone. The dashboard
+`GET /graph/battery/:period` opens the battery history graph with SOC from `0`
+to `100` on the percentage axis and the four power series on a separate watts
+axis, with time displayed in the configured timezone. Missing power readings
+leave gaps in the graph; the new power history begins after restarting with
+this version. The dashboard
 links to `/graph/battery/24h`; the page also offers two-hour and seven-day views,
 a CSV download, and messages for empty history or a failed request.
 

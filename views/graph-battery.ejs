@@ -7,10 +7,10 @@
     <link rel="stylesheet" href="/assets/main_page.css">
     <link rel="stylesheet" href="/assets/pages.css">
     <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon">
-    <title>Solar Panel Watch | <%= __('Battery SOC history') %></title>
+    <title>Solar Panel Watch | <%= __('Battery history') %></title>
   </head>
   <body class="dashboard-page subpage graph-page battery-graph-page">
-    <main class="dashboard-shell" id="battery-history-page" aria-busy="true" data-period="<%= period %>" data-timezone="<%= timezone %>" data-title="<%= __('Battery SOC over time') %>" data-soc-label="<%= __('Battery SOC (%)') %>" data-time-label="<%= __('Time') %>" data-empty-label="<%= __('No battery history') %>" data-error-label="<%= __('Battery history unavailable') %>">
+    <main class="dashboard-shell" id="battery-history-page" aria-busy="true" data-period="<%= period %>" data-timezone="<%= timezone %>" data-title="<%= __('Battery SOC and power over time') %>" data-soc-label="<%= __('Battery SOC (%)') %>" data-power-label="<%= __('Power (W)') %>" data-home-power-label="<%= __('Output to home') %>" data-grid-power-label="<%= __('Grid input') %>" data-charging-power-label="<%= __('Battery charging power') %>" data-discharging-power-label="<%= __('Battery discharging power') %>" data-time-label="<%= __('Time') %>" data-empty-label="<%= __('No battery history') %>" data-error-label="<%= __('Battery history unavailable') %>">
       <header class="dashboard-header">
         <div class="header-title">
           <h1><a href="/" style="color:inherit;text-decoration:none;">Solar Panel Watch</a></h1>
@@ -28,8 +28,8 @@
       </header>
       <div class="graph-shell">
         <div class="battery-graph-toolbar">
-          <h2 class="battery-graph-title"><%= __('Battery SOC history') %> <span>(<%= period %>)</span></h2>
-          <nav class="battery-period-nav" aria-label="<%= __('Battery SOC history') %>">
+          <h2 class="battery-graph-title"><%= __('Battery history') %> <span>(<%= period %>)</span></h2>
+          <nav class="battery-period-nav" aria-label="<%= __('Battery history') %>">
             <% for (const option of [{period: '2h', label: 'Last 2 hours'}, {period: '24h', label: 'Last 24 hours'}, {period: '7d', label: 'Last 7 days'}]) { %>
               <a class="nav-btn" href="/graph/battery/<%= option.period %>"<% if (period === option.period) { %> aria-current="page"<% } %>><%= __(option.label) %></a>
             <% } %>
