@@ -8,7 +8,7 @@ const compress = require('compression');
 const minifyTemplate = require('express-beautify').minify;
 const requestIp = require('request-ip');
 
-const getInformations = require('./lib/get-informations.js');
+const getPowerData = require('./lib/get-power-data.js');
 const getAlpha = require('./lib/get-alpha.js');
 const influxLib = require('./lib/influx-lib.js');
 const getDeviceEnergy = require('./lib/compute-energy-device.js');
@@ -26,18 +26,20 @@ const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json',200);
 
-// Keep the default state safe until a valid Shelly reading has been received.
+// Keep devices inactive until the configured house meter supplies valid power.
 let powerDataAvailable = false;
 
 function requestPowerData(cb) {
-    getInformations.req(function (err, data) {
+    getPowerData.req(function (err, data) {
         powerDataAvailable = !err;
         cb(err, data);
     });
 }
 
-function getShellyRecoveryState() {
-    return getInformations.getRecoveryState ? getInformations.getRecoveryState() : {};
+function powerUnavailableMessage() {
+    return getPowerData.getHousePowerSource() === 'zendure'
+        ? 'Zendure house power data is unavailable.'
+        : 'Shelly data is unavailable.';
 }
 
 const reload_files_dir = './reload_files/'; // reload files
@@ -245,18 +247,30 @@ app.use(express.urlencoded({
 app.use('/assets/', express.static('assets'));
 
 app.get('/', function(req, res) {
+    const batteryResult = new Promise((resolve) => {
+        getPowerData.reqBattery((err, battery) => resolve(err ? null : battery));
+    });
     requestPowerData(function (err, data) {
-        const recovery = getShellyRecoveryState();
-        if (err) return res.status(503).render('index', {error: true, recovery: recovery});
-        res.render('index', {
-            error: false,
-            power1: data.emeters[0].power,
-            power2: data.emeters[1].power,
-            power_activated_device: get_power_from_activated_devices(),
-            list_devices: Object.keys(devices_to_activate_state),
-            device_states: devices_to_activate_state,
-            pretty_name: pretty_name,
-            recovered_shelly_ip: recovery.recoveredIp
+        const recovery = getPowerData.getHouseRecoveryState();
+        const source = getPowerData.getHousePowerSource();
+        if (err) return res.status(503).render('index', {
+            error: true, recovery, power_source: source
+        });
+        batteryResult.then(function (battery) {
+            res.render('index', {
+                error: false,
+                power_source: source,
+                power1: data.emeters[0].power,
+                power2: data.emeters[1].power,
+                power_activated_device: get_power_from_activated_devices(),
+                list_devices: Object.keys(devices_to_activate_state),
+                device_states: devices_to_activate_state,
+                pretty_name: pretty_name,
+                battery,
+                zendure_battery_req_threshold: getPowerData.batteryRequestThreshold,
+                recovered_shelly_ip: getPowerData.getShellyRecoveryState().recoveredIp,
+                recovered_zendure_ip: source === 'zendure' ? recovery.recoveredIp : null
+            });
         });
     });
 });
@@ -330,14 +344,24 @@ app.get('/activation-hist/', function(req, res) {
 app.get('/api/data', function(req, res) {
     requestPowerData(function (err, data) {
         if (err) {
-            return res.status(503).json({error: 'Shelly data is unavailable.'});
+            return res.status(503).json({error: powerUnavailableMessage()});
         }
         res.json({
             power1: data.emeters[0].power,
             power2: data.emeters[1].power,
+            house_power_source: getPowerData.getHousePowerSource(),
             power_activated_device: get_power_from_activated_devices(),
             device_states: keep_properties(devices_to_activate_state, ['last_power'])
         });
+    });
+});
+
+app.get('/api/battery', function(req, res) {
+    getPowerData.reqBattery(function (err, battery) {
+        if (err) {
+            return res.status(503).json({error: 'Zendure battery data is unavailable.'});
+        }
+        res.json(battery);
     });
 });
 
@@ -694,7 +718,7 @@ app.get('/api/device/:name/debug/', (req, res, next) => {
         }
         requestPowerData(function (err, save) {
             if (err) {
-                return res.status(503).json({error: 'Shelly data is unavailable.'});
+                return res.status(503).json({error: powerUnavailableMessage()});
             }
             let power = save.emeters[0].power;
             res.json({
@@ -924,6 +948,12 @@ app.use(function (err, req, res, next) {
 
 
 function startBackgroundTasks() {
+
+// Battery status has its own slower cadence and never gates device decisions.
+getPowerData.reqBattery(function () {});
+setInterval(function () {
+    getPowerData.reqBattery(function () {});
+}, getPowerData.batteryRequestThreshold);
 // Write data to influx
 setInterval(function () {
     influxLib.daemon(app.get('env') === 'development', config.save_network_data);
@@ -1035,7 +1065,7 @@ setInterval(function () {
                 //print("Power to consider after '" + device.uri + "' : " + power);
             }
     });
-},config.shelly_req_threshold);
+},getPowerData.powerRequestThreshold);
 
 }
 

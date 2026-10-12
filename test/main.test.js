@@ -1,9 +1,10 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const main = require('../main');
-const getInformations = require('../lib/get-informations');
+const getPowerData = require('../lib/get-power-data');
 
 function request(server, path, headers = {}) {
     return new Promise((resolve, reject) => {
@@ -27,38 +28,41 @@ function request(server, path, headers = {}) {
     });
 }
 
-test('Shelly failures disable device decisions and show a translated configuration page', async (t) => {
+test('Zendure house power drives the dashboard and safety mode independently of Shelly and battery', async (t) => {
     const server = await new Promise((resolve) => {
         const listeningServer = main.app.listen(0, '127.0.0.1', () => resolve(listeningServer));
     });
-    const originalRequest = getInformations.req;
-    const originalRecoveryState = getInformations.getRecoveryState;
+    const originals = {...getPowerData};
     let recoveryState = {
         enabled: true,
         notFound: true,
-        macAddress: '34:94:54:70:F8:E2'
+        macAddress: 'E0:72:A1:85:24:48'
     };
 
     t.after(() => {
-        getInformations.req = originalRequest;
-        getInformations.getRecoveryState = originalRecoveryState;
+        Object.assign(getPowerData, originals);
         server.close();
     });
 
-    getInformations.req = (callback) => callback(new Error('Shelly is unreachable'));
-    getInformations.getRecoveryState = () => recoveryState;
+    getPowerData.req = (callback) => callback(new Error('Zendure is unreachable'));
+    getPowerData.getHousePowerSource = () => 'zendure';
+    getPowerData.getHouseRecoveryState = () => recoveryState;
+    getPowerData.getShellyRecoveryState = () => ({});
+    getPowerData.reqBattery = (callback) => callback(null, {
+        socPercent: 86, state: 'charging', socSource: 'packData.socLevel'
+    });
 
     const unavailablePage = await request(server, '/', {'accept-language': 'fr'});
     assert.equal(unavailablePage.status, 503);
-    assert.match(unavailablePage.body, /Le Shelly est indisponible/);
-    assert.match(unavailablePage.body, /34:94:54:70:F8:E2/);
-    assert.match(unavailablePage.body, /Impossible de lire les données de la Shelly/);
-    assert.match(unavailablePage.body, /Données de puissance indisponibles/);
+    assert.match(unavailablePage.body, /Zendure.*indisponible/i);
+    assert.match(unavailablePage.body, /E0:72:A1:85:24:48/);
+    assert.match(unavailablePage.body, /Puissance de la maison indisponible/);
+    assert.match(unavailablePage.body, /Impossible de lire la puissance de la maison depuis le capteur Zendure/);
     assert.equal(main.isPowerDataAvailable(), false);
 
     const dataResponse = await request(server, '/api/data');
     assert.equal(dataResponse.status, 503);
-    assert.deepEqual(JSON.parse(dataResponse.body), {error: 'Shelly data is unavailable.'});
+    assert.deepEqual(JSON.parse(dataResponse.body), {error: 'Zendure house power data is unavailable.'});
 
     const normalById = await request(server, '/api/device/id/QQqR9/');
     assert.equal(normalById.status, 200);
@@ -76,8 +80,8 @@ test('Shelly failures disable device decisions and show a translated configurati
     assert.equal(advancedByName.status, 200);
     assert.deepEqual(JSON.parse(advancedByName.body), {alpha: 128, time_limit: 2500});
 
-    getInformations.req = (callback) => callback(null, {
-        emeters: [{power: -500}, {power: 100}]
+    getPowerData.req = (callback) => callback(null, {
+        emeters: [{power: -500}, {power: null}]
     });
     recoveryState = {recoveredIp: '192.168.0.37'};
 
@@ -85,9 +89,43 @@ test('Shelly failures disable device decisions and show a translated configurati
     assert.equal(availablePage.status, 200);
     assert.match(availablePage.body, /-500/);
     assert.match(availablePage.body, /192.168.0.37/);
+    assert.match(availablePage.body, /id="battery-level"/);
+    assert.match(availablePage.body, /86/);
+    assert.match(availablePage.body, /Unavailable/);
     assert.equal(main.isPowerDataAvailable(), true);
 
-    getInformations.req = (callback) => callback(new Error('Shelly is unreachable again'));
+    const powerResponse = await request(server, '/api/data');
+    assert.deepEqual(JSON.parse(powerResponse.body), {
+        power1: -500, power2: null, house_power_source: 'zendure',
+        power_activated_device: 0, device_states: {}
+    });
+    const batteryResponse = await request(server, '/api/battery');
+    assert.equal(batteryResponse.status, 200);
+    assert.equal(JSON.parse(batteryResponse.body).socPercent, 86);
+
+    // Rendered polling scripts must compile, including translated labels.
+    for (const script of availablePage.body.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+        new vm.Script(script[1]);
+    }
+
+    getPowerData.reqBattery = (callback) => callback(new Error('Battery is unreachable'));
+    const unavailableBattery = await request(server, '/api/battery');
+    assert.equal(unavailableBattery.status, 503);
+    assert.deepEqual(JSON.parse(unavailableBattery.body), {error: 'Zendure battery data is unavailable.'});
+    const pageWithoutBattery = await request(server, '/');
+    assert.equal(pageWithoutBattery.status, 200);
+    assert.match(pageWithoutBattery.body, /Unavailable/);
+    assert.equal(main.isPowerDataAvailable(), true);
+
+    getPowerData.req = (callback) => callback(new Error('Zendure is unreachable again'));
     await request(server, '/');
     assert.equal(main.isPowerDataAvailable(), false);
+
+    // An explicit Shelly source still gets the existing translated error page.
+    getPowerData.getHousePowerSource = () => 'shelly';
+    recoveryState = {enabled: true, notFound: true, macAddress: '34:94:54:70:F8:E2'};
+    const shellyError = await request(server, '/', {'accept-language': 'fr'});
+    assert.equal(shellyError.status, 503);
+    assert.match(shellyError.body, /Le Shelly est indisponible/);
+    assert.match(shellyError.body, /34:94:54:70:F8:E2/);
 });

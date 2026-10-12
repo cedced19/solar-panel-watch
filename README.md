@@ -16,6 +16,25 @@ Watch over electricity consumption from my house.
     "influx_url": "https://**********.influxdata.com",
     "timezone": "Europe/Paris",
     "shelly_req_threshold": 3000,
+    "house_power_source": "zendure",
+    "zendure_req_threshold": 1000,
+    "zendure_request_timeout": 3000,
+    "zendure_meter": {
+        "host": "192.168.0.48",
+        "serial": "TEE1NJP7P341978",
+        "mac_address": "E0:72:A1:85:24:48",
+        "recover_by_mac": true,
+        "power_field": "total_power",
+        "power_scale": 1
+    },
+    "zendure_battery_req_threshold": 20000,
+    "zendure_battery": {
+        "host": "192.168.0.40",
+        "serial": "ANACVCDLP283458",
+        "battery_serial": "BEAAVCDLA283460",
+        "mac_address": "90:64:9B:10:9A:14",
+        "recover_by_mac": true
+    },
     "energy_req_threshold": 1200000,
     "target_req_threshold": 240000,
     "force_mode_pass": "7HaIJtG44d"
@@ -73,6 +92,51 @@ to remove volume:
 ```
 sudo docker volume rm solar-panel-watch_data
 ```
+
+## Application power sources and battery
+
+House power now comes from the Zendure Smart Meter 1CT-S. Shelly is polled at
+the same time for solar production only. An offline Shelly leaves solar production
+and total power unavailable; Zendure house power and device decisions keep working.
+If Zendure house power fails, automatic device activation stops until a valid
+reading returns. House power never silently falls back to Shelly.
+
+Configure these settings in `config.json` and restart the application:
+
+| Setting | Purpose |
+| --- | --- |
+| `house_power_source` | `zendure` (configured default) or `shelly` for an explicit rollback. |
+| `zendure_req_threshold` | House polling/cache interval in milliseconds; default `1000`, matching the existing Shelly cadence. |
+| `zendure_request_timeout` | Deadline for each Zendure HTTP request; default `3000` ms. |
+| `zendure_meter` | Meter `host`, expected `serial`, `mac_address`, and `recover_by_mac`. |
+| `zendure_meter.power_field` | Field to read from `/properties/report`; default `total_power`. |
+| `zendure_meter.power_scale` | Multiply the raw field to obtain signed watts; default `1`. Positive means grid import, negative means export. Set a negative scale if the CT orientation reverses the sign. |
+| `zendure_battery_req_threshold` | Independent battery polling/cache interval; configured as `20000` ms. |
+| `zendure_battery` | SolarFlow `host`, device `serial`, expected `battery_serial`, `mac_address`, and `recover_by_mac`. |
+
+The supplied device addresses and identities match the standalone probes below.
+Enable the local API/HEMS setting in the Zendure app. The library reads LAN status
+without cloud credentials or control commands. A returned serial must match when
+present; a serial-less meter response remains unverified. MAC recovery uses an
+exact match within the configured host's `/24` subnet and keeps the recovered
+address in memory.
+
+The battery card shows the matching pack's charge percentage and state. If pack
+charge is unavailable, it uses `electricLevel` and labels it as the device average.
+Battery failures show an unavailable state without blocking house power. The
+server and visible dashboard refresh battery status on its independent interval;
+concurrent requests share the same cached reading or in-flight request.
+
+`GET /api/data` retains `power1` (house) and `power2` (solar) and includes
+`house_power_source`. Unavailable solar power is `null`, never a fabricated zero.
+`GET /api/battery` returns charge/status data or HTTP 503 when unavailable.
+InfluxDB history uses the selected house source and omits missing solar fields
+and network measurements that Zendure does not provide.
+
+The observed 1CT-S response exposes `total_power`, but the official zenSDK
+reference does not specify its scaling or sign. Verify `power_scale` against
+the Zendure app and a known import/export condition before relying on surplus
+power decisions.
 
 ## Standalone Zendure Smart Meter probe
 

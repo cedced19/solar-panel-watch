@@ -10,6 +10,25 @@
     "influx_url": "http://localhost:8086",
     "timezone": "Europe/Paris",
     "shelly_req_threshold": 1000,
+    "house_power_source": "zendure",
+    "zendure_req_threshold": 1000,
+    "zendure_request_timeout": 3000,
+    "zendure_meter": {
+        "host": "192.168.0.48",
+        "serial": "TEE1NJP7P341978",
+        "mac_address": "E0:72:A1:85:24:48",
+        "recover_by_mac": true,
+        "power_field": "total_power",
+        "power_scale": 1
+    },
+    "zendure_battery_req_threshold": 20000,
+    "zendure_battery": {
+        "host": "192.168.0.40",
+        "serial": "ANACVCDLP283458",
+        "battery_serial": "BEAAVCDLA283460",
+        "mac_address": "90:64:9B:10:9A:14",
+        "recover_by_mac": true
+    },
     "energy_req_threshold": 360000,
     "target_req_threshold": 240000,
     "force_mode_pass": "jifgLBHnUV",

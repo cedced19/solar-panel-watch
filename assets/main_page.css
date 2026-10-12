@@ -142,6 +142,101 @@ body.dashboard-page {
   font-size: .9rem;
 }
 
+.battery-card {
+  grid-column: 1 / -1;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.battery-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.battery-heading .card-heading {
+  margin: 0;
+}
+
+.battery-card .power-value {
+  color: #1d4ed8;
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+}
+
+#battery-progress {
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin-top: 18px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: #dbeafe;
+  accent-color: #2563eb;
+}
+
+#battery-progress[hidden] {
+  display: none;
+}
+
+#battery-progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #dbeafe;
+}
+
+#battery-progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: #2563eb;
+}
+
+#battery-progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: #2563eb;
+}
+
+.battery-state {
+  margin: 12px 0 0;
+  color: #1d4ed8;
+  font-size: .95rem;
+}
+
+.battery-state:empty {
+  display: none;
+}
+
+.battery-source {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: .85rem;
+}
+
+.card.is-unavailable {
+  border-color: #e5e7eb;
+  background: #f8fafc;
+}
+
+.card.is-unavailable .power-value {
+  color: #64748b;
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+  letter-spacing: 0;
+}
+
+.card.is-unavailable .power-unit {
+  display: none;
+}
+
+.dashboard-status.is-unavailable {
+  color: #64748b;
+  border-color: #e5e7eb;
+  background: #f8fafc;
+}
+
+.dashboard-status.is-unavailable::before {
+  background: #94a3b8;
+}
+
 .featured-actions {
   display: grid;
   grid-column: 1 / -1;

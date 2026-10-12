@@ -1,3 +1,11 @@
+<%
+  const source = typeof power_source !== 'undefined' && power_source === 'zendure' ? 'zendure' : 'shelly';
+  const unavailableKey = source === 'zendure' ? 'Zendure unavailable' : 'Shelly unavailable';
+  const batteryData = typeof battery !== 'undefined' && battery && Number.isFinite(battery.socPercent) && battery.socPercent >= 0 && battery.socPercent <= 100 ? battery : null;
+  const batteryInterval = typeof zendure_battery_req_threshold !== 'undefined' && Number.isFinite(zendure_battery_req_threshold) && zendure_battery_req_threshold > 0 ? zendure_battery_req_threshold : 20000;
+  const batteryStateKeys = {charging: 'Battery charging', standby: 'Battery standby', discharging: 'Battery discharging'};
+  const hasSolarPower = typeof power2 !== 'undefined' && Number.isFinite(power2);
+%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -5,7 +13,7 @@
   <meta name=viewport content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="/assets/styles.css">
   <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
-  <title>Solar Panel Watch<% if(error){ %> | <%= __('Shelly unavailable')%><% } %></title>
+  <title>Solar Panel Watch<% if(error){ %> | <%= __(unavailableKey)%><% } %></title>
   <link rel=manifest href=/assets/manifest.json>
   <% if(error){ %>
   <link rel="stylesheet" href="/assets/error_page.css">
@@ -20,26 +28,26 @@
       <div class="failure-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
       </div>
-      <div class="status-badge"><span class="status-dot"></span><%= __('Shelly connection status')%></div>
-      <h1><%= __('Shelly unavailable')%></h1>
-      <p class="failure-description"><%= __('Shelly configuration error')%></p>
+      <div class="status-badge"><span class="status-dot"></span><%= __(source === 'zendure' ? 'Zendure connection status' : 'Shelly connection status')%></div>
+      <h1><%= __(unavailableKey)%></h1>
+      <p class="failure-description"><%= __(source === 'zendure' ? 'Zendure configuration error' : 'Shelly configuration error')%></p>
       <% if(recovery && recovery.enabled && recovery.notFound){ %>
-        <p class="failure-description"><%= __('Shelly MAC not found')%> <code><%= recovery.macAddress %></code></p>
+        <p class="failure-description"><%= __(source === 'zendure' ? 'Zendure MAC not found' : 'Shelly MAC not found')%> <code><%= recovery.macAddress %></code></p>
       <% } %>
       <ul class="failure-checks">
-        <li><%= __('Check Shelly configuration')%></li>
-        <li><%= __('Check network connection')%></li>
+        <li><%= __(source === 'zendure' ? 'Check Zendure configuration' : 'Check Shelly configuration')%></li>
+        <li><%= __(source === 'zendure' ? 'Check Zendure network connection' : 'Check network connection')%></li>
       </ul>
       <a class="retry-button" href="/"><span aria-hidden="true">↻</span><%= __('Retry')%></a>
       <p class="safety-note"><%= __('Safety mode')%></p>
     </main>
   <% } else{ %>
-  <main class="dashboard-shell">
+  <main class="dashboard-shell" id="dashboard" data-unavailable="<%= __('Unavailable')%>">
     <header class="dashboard-header">
       <div>
         <h1>Solar Panel Watch</h1>
       </div>
-      <span class="dashboard-status">Live</span>
+      <span class="dashboard-status" id="dashboard-status" aria-live="polite" data-live-label="<%= __('Live')%>"><%= __('Live')%></span>
     </header>
     <div class="dashboard-grid">
       <section class="card available-power-card<% if((power_activated_device  + ((power1<0) ? -power1 : 0))<=0){ %> is-empty<% } %>" id="available-power-card">
@@ -52,19 +60,29 @@
         <p class="card-label"><%= __('House consumption')%></p>
       </section>
 
-      <section class="card stat-card">
-        <div class="power-value"><span id="solar-panel-production"><%= Math.ceil(power2*100)/100 %></span><span class="power-unit">W</span></div>
+      <section class="card stat-card<% if(!hasSolarPower){ %> is-unavailable<% } %>" id="solar-production-card">
+        <div class="power-value"><span id="solar-panel-production"><%= hasSolarPower ? Math.ceil(power2*100)/100 : __('Unavailable') %></span><span class="power-unit">W</span></div>
         <p class="card-label"><%= __('Solar panel production')%></p>
       </section>
 
-      <section class="card stat-card">
-        <div class="power-value"><span id="total-production"><%= Math.ceil((power1 + power2)*100)/100 %></span><span class="power-unit">W</span></div>
+      <section class="card stat-card<% if(!hasSolarPower){ %> is-unavailable<% } %>" id="total-power-card">
+        <div class="power-value"><span id="total-production"><%= hasSolarPower ? Math.ceil((power1 + power2)*100)/100 : __('Unavailable') %></span><span class="power-unit">W</span></div>
         <p class="card-label"><%= __('Total Power')%></p>
       </section>
 
-      <section class="card stat-card">
+      <section class="card stat-card" id="activated-devices-card">
         <div class="power-value"><span id="activated-devices-power"><%= Math.ceil(power_activated_device*100)/100 %></span><span class="power-unit">W</span></div>
         <p class="card-label"><%= __('Activated devices Power')%></p>
+      </section>
+
+      <section class="card battery-card<% if(!batteryData){ %> is-unavailable<% } %>" id="battery-card" data-poll-interval="<%= batteryInterval %>" data-charging="<%= __('Battery charging')%>" data-standby="<%= __('Battery standby')%>" data-discharging="<%= __('Battery discharging')%>">
+        <div class="battery-heading">
+          <h2 class="card-heading" id="battery-label"><%= __('Zendure battery level')%></h2>
+          <div class="power-value" aria-live="polite"><span id="battery-level"><%= batteryData ? Math.round(batteryData.socPercent * 10)/10 : __('Unavailable') %></span><span class="power-unit">%</span></div>
+        </div>
+        <progress id="battery-progress" max="100" aria-labelledby="battery-label"<% if(batteryData){ %> value="<%= batteryData.socPercent %>"<% } else { %> hidden<% } %>></progress>
+        <p class="battery-state" id="battery-state" aria-live="polite"><%= batteryData && Object.prototype.hasOwnProperty.call(batteryStateKeys, batteryData.state) ? __(batteryStateKeys[batteryData.state]) : '' %></p>
+        <p class="battery-source" id="battery-source"<% if(!batteryData || batteryData.socSource !== 'electricLevel'){ %> hidden<% } %>><%= __('Battery device average')%></p>
       </section>
 
       <nav class="featured-actions" aria-label="Featured actions">
@@ -111,66 +129,150 @@
   <% if(recovered_shelly_ip){ %>
     <p class="recovery-warning"><strong><%= __('Recovered Shelly warning')%></strong> <code><%= recovered_shelly_ip %></code></p>
   <% } %>
+  <% if(typeof recovered_zendure_ip !== 'undefined' && recovered_zendure_ip){ %>
+    <p class="recovery-warning"><strong><%= __('Recovered Zendure warning')%></strong> <code><%= recovered_zendure_ip %></code></p>
+  <% } %>
   </main>
   <% } %>
   <% if(!error){ %>
   <script>
+    const dashboard = document.getElementById('dashboard');
+    const unavailableLabel = dashboard.dataset.unavailable;
+    const dashboardStatus = document.getElementById('dashboard-status');
     const houseConsumptionEl = document.getElementById('house-consumption');
     const houseConsumptionCard = document.getElementById('house-consumption-card');
     const solarPanelProductionEl = document.getElementById('solar-panel-production');
+    const solarPanelProductionCard = document.getElementById('solar-production-card');
     const totalPowerEl = document.getElementById('total-production');
+    const totalPowerCard = document.getElementById('total-power-card');
     const activatedDevicesPowerEl = document.getElementById('activated-devices-power');
+    const activatedDevicesCard = document.getElementById('activated-devices-card');
     const availablePowerCard = document.getElementById('available-power-card');
     const availablePowerEl = document.getElementById('available-power');
+    const batteryCard = document.getElementById('battery-card');
+    const batteryLevelEl = document.getElementById('battery-level');
+    const batteryProgress = document.getElementById('battery-progress');
+    const batteryStateEl = document.getElementById('battery-state');
+    const batterySourceEl = document.getElementById('battery-source');
+    const batteryStates = {
+      charging: batteryCard.dataset.charging,
+      standby: batteryCard.dataset.standby,
+      discharging: batteryCard.dataset.discharging
+    };
+    const configuredBatteryInterval = Number(batteryCard.dataset.pollInterval);
+    const batteryPollInterval = Number.isFinite(configuredBatteryInterval) && configuredBatteryInterval > 0 ? configuredBatteryInterval : 20000;
+    let powerRequestPending = false;
+    let batteryRequestPending = false;
+    let powerInterval;
+    let batteryInterval;
 
-    function request_data(cb) {
-      let url = '/api/data';
-      fetch(url)
-      .then(function(res) { return res.json() })
-      .then(function(out) { cb(null, out) })
-      .catch(function(err) { console.error(err); cb(err)});
+    async function requestData(url) {
+      const response = await fetch(url, {cache: 'no-store'});
+      if (!response.ok) {
+        throw new Error('Data request failed: ' + response.status);
+      }
+      return response.json();
     }
 
-    function update_labels() {
-      request_data(function(err, data) {
-        houseConsumptionEl.textContent = Math.ceil(data.power1*100)/100;
-        solarPanelProductionEl.textContent = Math.ceil(data.power2*100)/100;
-        totalPowerEl.textContent = Math.ceil((data.power1 + data.power2)*100)/100;
-        activatedDevicesPowerEl.textContent = Math.ceil(data.power_activated_device*100)/100;
-        let availablePower = data.power_activated_device;
-        if (data.power1<0) {
-          availablePower-=data.power1;
-        }
-        availablePowerEl.textContent = Math.ceil(availablePower*100)/100;
-        if (data.power1 < 0) {
-            houseConsumptionCard.classList.add('is-producing');
-        } else {
-            houseConsumptionCard.classList.remove('is-producing');
-        }
-        if (availablePower > 0) {
-          availablePowerCard.classList.remove('is-empty');
-        } else {
-          availablePowerCard.classList.add('is-empty');
-        }
-        Object.keys(data.device_states).forEach(function (el) {
-          let device = data.device_states[el];
-          let span = document.getElementById(el + '-power');
-          if (span != null) {
-            span.innerHTML = device.last_power;
-          }
-        });
+    function setPower(element, card, value) {
+      const available = Number.isFinite(value);
+      element.textContent = available ? Math.ceil(value * 100) / 100 : unavailableLabel;
+      card.classList.toggle('is-unavailable', !available);
+    }
+
+    function renderPower(data) {
+      const housePower = data && Number.isFinite(data.power1) ? data.power1 : null;
+      const solarPower = data && Number.isFinite(data.power2) ? data.power2 : null;
+      const devicePower = data && Number.isFinite(data.power_activated_device) ? data.power_activated_device : null;
+      const availablePower = housePower !== null && devicePower !== null ? devicePower + Math.max(-housePower, 0) : null;
+      const totalPower = housePower !== null && solarPower !== null ? housePower + solarPower : null;
+
+      setPower(houseConsumptionEl, houseConsumptionCard, housePower);
+      setPower(solarPanelProductionEl, solarPanelProductionCard, solarPower);
+      setPower(totalPowerEl, totalPowerCard, totalPower);
+      setPower(activatedDevicesPowerEl, activatedDevicesCard, devicePower);
+      setPower(availablePowerEl, availablePowerCard, availablePower);
+      houseConsumptionCard.classList.toggle('is-producing', housePower !== null && housePower < 0);
+      availablePowerCard.classList.toggle('is-empty', availablePower !== null && availablePower <= 0);
+      dashboardStatus.textContent = housePower !== null ? dashboardStatus.dataset.liveLabel : unavailableLabel;
+      dashboardStatus.classList.toggle('is-unavailable', housePower === null);
+
+      document.querySelectorAll('.device-power span').forEach(function (span) {
+        const name = span.id.slice(0, -'-power'.length);
+        const device = data && data.device_states && data.device_states[name];
+        span.textContent = device && Number.isFinite(device.last_power) ? Math.floor(device.last_power) : unavailableLabel;
       });
     }
-    let interval = setInterval(update_labels, 10000);
+
+    async function update_labels() {
+      if (powerRequestPending) return;
+      powerRequestPending = true;
+      try {
+        renderPower(await requestData('/api/data'));
+      } catch (error) {
+        renderPower(null);
+      } finally {
+        powerRequestPending = false;
+      }
+    }
+
+    function renderBattery(data) {
+      const available = data && Number.isFinite(data.socPercent) && data.socPercent >= 0 && data.socPercent <= 100;
+      batteryCard.classList.toggle('is-unavailable', !available);
+      batteryLevelEl.textContent = available ? Math.round(data.socPercent * 10) / 10 : unavailableLabel;
+      batteryProgress.hidden = !available;
+      if (available) {
+        batteryProgress.value = data.socPercent;
+      } else {
+        batteryProgress.removeAttribute('value');
+      }
+      batteryStateEl.textContent = available && Object.prototype.hasOwnProperty.call(batteryStates, data.state) ? batteryStates[data.state] : '';
+      batterySourceEl.hidden = !available || data.socSource !== 'electricLevel';
+    }
+
+    async function updateBattery() {
+      if (batteryRequestPending) return;
+      batteryRequestPending = true;
+      try {
+        renderBattery(await requestData('/api/battery'));
+      } catch (error) {
+        renderBattery(null);
+      } finally {
+        batteryRequestPending = false;
+      }
+    }
+
+    function stopTimers() {
+      clearInterval(powerInterval);
+      clearInterval(batteryInterval);
+    }
+
+    function startTimers() {
+      stopTimers();
+      if (!document.hidden) {
+        powerInterval = setInterval(update_labels, 10000);
+        batteryInterval = setInterval(updateBattery, batteryPollInterval);
+      }
+    }
+
+    startTimers();
     document.addEventListener('visibilitychange', function() {
-        if(document.hidden) {
-          clearInterval(interval);
-        } else {
-          update_labels();
-          interval = setInterval(update_labels, 10000);
-        }
+      startTimers();
+      if (!document.hidden) {
+        update_labels();
+        updateBattery();
+      }
     });
-    
+    window.addEventListener('pagehide', stopTimers);
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) {
+        startTimers();
+        if (!document.hidden) {
+          update_labels();
+          updateBattery();
+        }
+      }
+    });
   </script>
   <% } %>
 </body>
