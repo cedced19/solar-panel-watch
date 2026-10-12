@@ -7,7 +7,7 @@
         "ids": ["QQqR9"],
         "priority": 1,
         "min_alpha": 40,
-        "max_energy_time_range": "3h",
+        "max_energy_time_range": "4h",
         "max_energy_val": 6000,
         "var_label": "Temperature (°C)",
         "max_control_var_val": 55,

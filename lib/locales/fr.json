@@ -81,6 +81,7 @@
 	"Device": "Appareil",
 	"Status": "Status",
 	"Status (tout-ou-rien)": "Status (tout-ou-rien)",
+	"Status (all-or-nothing)": "Status (tout-ou-rien)",
 	"Status (advanced)": "Status (avancé)",
 	"Activated": "Activé",
 	"Activations": "Activations",
