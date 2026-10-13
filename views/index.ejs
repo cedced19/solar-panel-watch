@@ -1,8 +1,10 @@
 <%
   const source = typeof power_source !== 'undefined' && power_source === 'zendure' ? 'zendure' : 'shelly';
   const unavailableKey = source === 'zendure' ? 'Zendure unavailable' : 'Shelly unavailable';
-  const batteryData = typeof battery !== 'undefined' && battery && Number.isFinite(battery.socPercent) && battery.socPercent >= 0 && battery.socPercent <= 100 ? battery : null;
-  const batteryChargingPower = batteryData && Number.isFinite(batteryData.chargingPowerW) && batteryData.chargingPowerW >= 0 ? batteryData.chargingPowerW : null;
+  const batteryReading = typeof battery !== 'undefined' && battery ? battery : null;
+  const batteryData = batteryReading && Number.isFinite(batteryReading.socPercent) && batteryReading.socPercent >= 0 && batteryReading.socPercent <= 100 ? batteryReading : null;
+  const batteryChargingPower = batteryReading && Number.isFinite(batteryReading.chargingPowerW) && batteryReading.chargingPowerW >= 0 ? batteryReading.chargingPowerW : null;
+  const batteryDischargingPower = batteryReading && Number.isFinite(batteryReading.dischargingPowerW) && batteryReading.dischargingPowerW >= 0 ? batteryReading.dischargingPowerW : null;
   const batteryInterval = typeof zendure_battery_req_threshold !== 'undefined' && Number.isFinite(zendure_battery_req_threshold) && zendure_battery_req_threshold > 0 ? zendure_battery_req_threshold : 20000;
   const batteryStateKeys = {charging: 'Battery charging', standby: 'Battery standby', discharging: 'Battery discharging'};
   const deviceChargingKeys = {
@@ -13,6 +15,9 @@
   };
   const deviceCharging = typeof device_charging !== 'undefined' && device_charging && typeof device_charging.enabled === 'boolean' && Object.prototype.hasOwnProperty.call(deviceChargingKeys, device_charging.reason) ? device_charging : {enabled: false, reason: 'battery-unavailable'};
   const hasSolarPower = typeof power2 !== 'undefined' && Number.isFinite(power2);
+  const hasTotalPower = typeof power1 !== 'undefined' && Number.isFinite(power1) && hasSolarPower;
+  const batteryPowerAvailable = batteryChargingPower !== null && batteryDischargingPower !== null;
+  const totalPower = hasTotalPower ? power1 + power2 + (batteryPowerAvailable ? batteryDischargingPower - batteryChargingPower : 0) : null;
 %>
 <!DOCTYPE html>
 <html>
@@ -66,7 +71,7 @@
 
       <section class="card stat-card house-consumption-card<% if(power1<0){ %> is-producing<% } %>" id="house-consumption-card">
         <div class="power-value"><span id="house-consumption"><%= Math.ceil(power1*100)/100 %></span><span class="power-unit">W</span></div>
-        <p class="card-label"><%= __('House consumption')%></p>
+        <p class="card-label"><%= __('Network power')%></p>
       </section>
 
       <section class="card stat-card<% if(!hasSolarPower){ %> is-unavailable<% } %>" id="solar-production-card">
@@ -74,8 +79,8 @@
         <p class="card-label"><%= __('Solar panel production')%></p>
       </section>
 
-      <section class="card stat-card<% if(!hasSolarPower){ %> is-unavailable<% } %>" id="total-power-card">
-        <div class="power-value"><span id="total-production"><%= hasSolarPower ? Math.ceil((power1 + power2)*100)/100 : __('Unavailable') %></span><span class="power-unit">W</span></div>
+      <section class="card stat-card<% if(totalPower === null){ %> is-unavailable<% } %>" id="total-power-card">
+        <div class="power-value"><span id="total-production"><%= totalPower === null ? __('Unavailable') : Math.ceil(totalPower*100)/100 %></span><span class="power-unit">W</span></div>
         <p class="card-label"><%= __('Total Power')%></p>
       </section>
 
@@ -95,6 +100,10 @@
         <p class="battery-charging-power<% if(batteryChargingPower === null){ %> is-unavailable<% } %>" id="battery-charging-power-row">
           <span><%= __('Battery charging power') %></span>
           <span class="battery-charging-power-value" aria-live="polite"><span id="battery-charging-power"><%= batteryChargingPower === null ? __('Unavailable') : Math.round(batteryChargingPower * 100) / 100 %></span><span id="battery-charging-power-unit"<% if(batteryChargingPower === null){ %> hidden<% } %>> W</span></span>
+        </p>
+        <p class="battery-discharging-power<% if(batteryDischargingPower === null){ %> is-unavailable<% } %>" id="battery-discharging-power-row">
+          <span><%= __('Battery discharging power') %></span>
+          <span class="battery-discharging-power-value" aria-live="polite"><span id="battery-discharging-power"><%= batteryDischargingPower === null ? __('Unavailable') : Math.round(batteryDischargingPower * 100) / 100 %></span><span id="battery-discharging-power-unit"<% if(batteryDischargingPower === null){ %> hidden<% } %>> W</span></span>
         </p>
         <p class="battery-source" id="battery-source"<% if(!batteryData || batteryData.socSource !== 'electricLevel'){ %> hidden<% } %>><%= __('Battery device average')%></p>
       </section>
@@ -172,6 +181,9 @@
     const batteryChargingPowerRow = document.getElementById('battery-charging-power-row');
     const batteryChargingPowerEl = document.getElementById('battery-charging-power');
     const batteryChargingPowerUnit = document.getElementById('battery-charging-power-unit');
+    const batteryDischargingPowerRow = document.getElementById('battery-discharging-power-row');
+    const batteryDischargingPowerEl = document.getElementById('battery-discharging-power');
+    const batteryDischargingPowerUnit = document.getElementById('battery-discharging-power-unit');
     const batterySourceEl = document.getElementById('battery-source');
     const deviceChargingStatusEl = document.getElementById('device-charging-status');
     const deviceChargingReasons = {
@@ -191,6 +203,14 @@
     let batteryRequestPending = false;
     let powerInterval;
     let batteryInterval;
+    let latestPowerData = {
+      power1: <%= Number.isFinite(power1) ? power1 : 'null' %>,
+      power2: <%= Number.isFinite(power2) ? power2 : 'null' %>
+    };
+    let latestBatteryData = {
+      chargingPowerW: <%= batteryChargingPower === null ? 'null' : batteryChargingPower %>,
+      dischargingPowerW: <%= batteryDischargingPower === null ? 'null' : batteryDischargingPower %>
+    };
 
     async function requestData(url) {
       const response = await fetch(url, {cache: 'no-store'});
@@ -212,6 +232,25 @@
       card.classList.toggle('is-unavailable', !available);
     }
 
+    function validBatteryPower(value) {
+      return Number.isFinite(value) && value >= 0;
+    }
+
+    function householdPower(power, battery) {
+      const networkPower = power && Number.isFinite(power.power1) ? power.power1 : null;
+      const solarPower = power && Number.isFinite(power.power2) ? power.power2 : null;
+      if (networkPower === null || solarPower === null) return null;
+
+      const chargingPower = battery && validBatteryPower(battery.chargingPowerW) ? battery.chargingPowerW : null;
+      const dischargingPower = battery && validBatteryPower(battery.dischargingPowerW) ? battery.dischargingPowerW : null;
+      const batteryAdjustment = chargingPower === null || dischargingPower === null ? 0 : dischargingPower - chargingPower;
+      return networkPower + solarPower + batteryAdjustment;
+    }
+
+    function renderHouseholdPower() {
+      setPower(totalPowerEl, totalPowerCard, householdPower(latestPowerData, latestBatteryData));
+    }
+
     function renderDeviceCharging(data, fallbackReason) {
       const available = data && typeof data.enabled === 'boolean' && Object.prototype.hasOwnProperty.call(deviceChargingReasons, data.reason);
       const status = available ? data : {enabled: false, reason: fallbackReason};
@@ -224,11 +263,11 @@
       const solarPower = data && Number.isFinite(data.power2) ? data.power2 : null;
       const devicePower = data && Number.isFinite(data.power_activated_device) ? data.power_activated_device : null;
       const availablePower = housePower !== null && devicePower !== null ? devicePower + Math.max(-housePower, 0) : null;
-      const totalPower = housePower !== null && solarPower !== null ? housePower + solarPower : null;
+      latestPowerData = data;
 
       setPower(houseConsumptionEl, houseConsumptionCard, housePower);
       setPower(solarPanelProductionEl, solarPanelProductionCard, solarPower);
-      setPower(totalPowerEl, totalPowerCard, totalPower);
+      renderHouseholdPower();
       setPower(activatedDevicesPowerEl, activatedDevicesCard, devicePower);
       setPower(availablePowerEl, availablePowerCard, availablePower);
       houseConsumptionCard.classList.toggle('is-producing', housePower !== null && housePower < 0);
@@ -258,7 +297,9 @@
 
     function renderBattery(data, deviceCharging) {
       const available = data && Number.isFinite(data.socPercent) && data.socPercent >= 0 && data.socPercent <= 100;
-      const chargingPower = available && Number.isFinite(data.chargingPowerW) && data.chargingPowerW >= 0 ? data.chargingPowerW : null;
+      const chargingPower = data && validBatteryPower(data.chargingPowerW) ? data.chargingPowerW : null;
+      const dischargingPower = data && validBatteryPower(data.dischargingPowerW) ? data.dischargingPowerW : null;
+      latestBatteryData = data;
       batteryCard.classList.toggle('is-unavailable', !available);
       batteryLevelEl.textContent = available ? Math.round(data.socPercent * 10) / 10 : unavailableLabel;
       batteryProgress.hidden = !available;
@@ -271,7 +312,11 @@
       batteryChargingPowerEl.textContent = chargingPower === null ? unavailableLabel : Math.round(chargingPower * 100) / 100;
       batteryChargingPowerUnit.hidden = chargingPower === null;
       batteryChargingPowerRow.classList.toggle('is-unavailable', chargingPower === null);
+      batteryDischargingPowerEl.textContent = dischargingPower === null ? unavailableLabel : Math.round(dischargingPower * 100) / 100;
+      batteryDischargingPowerUnit.hidden = dischargingPower === null;
+      batteryDischargingPowerRow.classList.toggle('is-unavailable', dischargingPower === null);
       batterySourceEl.hidden = !available || data.socSource !== 'electricLevel';
+      renderHouseholdPower();
       renderDeviceCharging(deviceCharging || (data && data.device_charging), 'battery-unavailable');
     }
 

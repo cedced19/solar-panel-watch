@@ -57,7 +57,7 @@ test('the dashboard reports Zendure house power and battery availability indepen
     getPowerData.getHouseRecoveryState = () => recoveryState;
     getPowerData.getShellyRecoveryState = () => ({});
     getPowerData.reqBattery = (callback) => callback(null, {
-        socPercent: 86, state: 'charging', socSource: 'packData.socLevel', chargingPowerW: 345
+        socPercent: 86, state: 'charging', socSource: 'packData.socLevel', chargingPowerW: 345, dischargingPowerW: 300
     });
 
     const unavailablePage = await request(server, '/', {'accept-language': 'fr'});
@@ -94,7 +94,7 @@ test('the dashboard reports Zendure house power and battery availability indepen
     assert.deepEqual(JSON.parse(advancedByName.body), {alpha: 128, time_limit: 2500});
 
     getPowerData.req = (callback) => callback(null, {
-        emeters: [{power: -500}, {power: null}]
+        emeters: [{power: -500}, {power: 1000}]
     });
     recoveryState = {recoveredIp: '192.168.0.37'};
 
@@ -106,12 +106,13 @@ test('the dashboard reports Zendure house power and battery availability indepen
     assert.match(availablePage.body, /86/);
     assert.match(availablePage.body, /Battery charging power/);
     assert.match(availablePage.body, /id="battery-charging-power">345<\/span>/);
-    assert.match(availablePage.body, /Unavailable/);
+    assert.match(availablePage.body, /id="battery-discharging-power">300<\/span>/);
+    assert.match(availablePage.body, /id="total-production">455<\/span>/);
     assert.equal(main.isPowerDataAvailable(), true);
 
     const powerResponse = await request(server, '/api/data');
     assert.deepEqual(JSON.parse(powerResponse.body), {
-        power1: -500, power2: null, house_power_source: 'zendure',
+        power1: -500, power2: 1000, house_power_source: 'zendure',
         power_activated_device: 0,
         device_charging: healthyBatteryDecision,
         device_states: {}
@@ -127,13 +128,14 @@ test('the dashboard reports Zendure house power and battery availability indepen
     }
 
     getPowerData.reqBattery = (callback) => callback(null, {
-        socPercent: 86, state: 'standby', chargingPowerW: 0
+        socPercent: 86, state: 'standby', chargingPowerW: 0, dischargingPowerW: 0
     });
     const zeroChargePowerPage = await request(server, '/');
     assert.match(zeroChargePowerPage.body, /id="battery-charging-power">0<\/span>/);
-    getPowerData.reqBattery = (callback) => callback(null, {socPercent: 86, state: 'standby'});
+    getPowerData.reqBattery = (callback) => callback(null, {socPercent: 86, state: 'standby', chargingPowerW: 345});
     const missingChargePowerPage = await request(server, '/');
-    assert.match(missingChargePowerPage.body, /id="battery-charging-power">Unavailable<\/span>/);
+    assert.match(missingChargePowerPage.body, /id="battery-discharging-power">Unavailable<\/span>/);
+    assert.match(missingChargePowerPage.body, /id="total-production">500<\/span>/);
 
     getPowerData.reqBattery = (callback) => callback(new Error('Battery is unreachable'));
     const unavailableBattery = await request(server, '/api/battery');

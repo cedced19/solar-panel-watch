@@ -17,6 +17,10 @@ charging gives 1,600 W of household consumption.
   aligns readings by timestamp, supports the existing downsampling selector,
   and preserves device curves. Raw totals use only preceding fresh readings;
   averaged totals use matching windows and check battery field completeness.
+- The live home page uses the same balance for its total-power card and shows
+  both battery directions. Its refreshes recalculate the total whenever either
+  power or battery data arrives, while incomplete battery readings fall back to
+  net grid power plus solar production.
 - Both period and calendar-day energy APIs integrate the raw grid, solar, and
   battery series independently. Results include `battery_discharging` and
   `battery_charging` in kWh, and subtract charging from `house_consumption`.

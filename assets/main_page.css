@@ -227,7 +227,8 @@ body.dashboard-page {
   display: none;
 }
 
-.battery-charging-power {
+.battery-charging-power,
+.battery-discharging-power {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -239,12 +240,14 @@ body.dashboard-page {
   border-top: 1px solid #bfdbfe;
 }
 
-.battery-charging-power-value {
+.battery-charging-power-value,
+.battery-discharging-power-value {
   color: #1d4ed8;
   font-weight: 700;
 }
 
-.battery-charging-power.is-unavailable .battery-charging-power-value {
+.battery-charging-power.is-unavailable .battery-charging-power-value,
+.battery-discharging-power.is-unavailable .battery-discharging-power-value {
   color: #64748b;
 }
 
