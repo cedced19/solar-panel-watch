@@ -125,11 +125,12 @@
             const tbody = document.createElement('tbody');
             value.forEach(r => {
                 const tr = document.createElement('tr');
-                const energySaved = Math.floor((r.house_consumption - r.consumption_on_network) * 1000) / 1000;
+                const energySaved = r.house_consumption === null ? null :
+                    Math.floor((r.house_consumption - r.consumption_on_network) * 1000) / 1000;
                 const cells = [prettyDate(r.start_date), prettyDate(r.end_date), r.consumption_on_network, r.solar_panel, r.house_consumption, r.introduced_on_network, energySaved];
                 cells.forEach(text => {
                     const td = document.createElement('td');
-                    td.textContent = text;
+                    td.textContent = text === null ? '<%= __("Unavailable")%>' : text;
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);

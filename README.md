@@ -140,6 +140,11 @@ Readings expire after the battery polling interval plus the Zendure request time
 
 `GET /api/data` retains `power1` (house) and `power2` (solar) and includes
 `house_power_source`. Unavailable solar power is `null`, never a fabricated zero.
+Calendar-day and period energy queries integrate network and solar readings on
+their own timelines, holding each reading until the next reading within that day.
+Gaps or differing timestamps do not discard the day's solar production or combined
+house consumption. Those totals are `null` only for days with no usable solar
+readings, and are displayed as unavailable in the energy views.
 `GET /api/battery` returns charge/status data or HTTP 503 when unavailable.
 Both power and battery responses include `device_charging` with the current
 permission, reason, minimum SOC and measured SOC.

@@ -280,9 +280,11 @@
             const aggregatedDates = sortedKeys.map(key => getAggregationDate(key, aggregation));
             
             // Aggregate metrics (sum for all aggregations, or max for day)
-            const aggregateFn = aggregation === 'day' ? 
-                (arr) => Math.max(...arr) : 
-                (arr) => arr.reduce((sum, val) => sum + val, 0);
+            const aggregateFn = (arr) => {
+                if (arr.some(value => value === null)) return null;
+                return aggregation === 'day' ? Math.max(...arr) :
+                    arr.reduce((sum, val) => sum + val, 0);
+            };
             
             const consumption = sortedKeys.map(key => {
                 const entries = grouped[key];
@@ -297,6 +299,7 @@
             const saved = sortedKeys.map(key => {
                 const entries = grouped[key];
                 return aggregateFn(entries.map(e => {
+                    if (e.house_consumption === null) return null;
                     return Math.floor((e.house_consumption - e.consumption_on_network) * 1000) / 1000;
                 }));
             });
@@ -309,6 +312,7 @@
             const totalEnergyUsed = sortedKeys.map(key => {
                 const entries = grouped[key];
                 return aggregateFn(entries.map(e => {
+                    if (e.solar_panel === null) return null;
                     const total = e.consumption_on_network + (e.solar_panel + e.introduced_on_network);
                     return Math.floor(total * 1000) / 1000;
                 }));
@@ -352,7 +356,8 @@
                 const start = Math.max(0, i - Math.floor(effectiveWindowSize / 2));
                 const end = Math.min(data.length, i + Math.ceil(effectiveWindowSize / 2));
                 const window = data.slice(start, end);
-                const avg = window.reduce((sum, val) => sum + val, 0) / window.length;
+                const avg = window.some(value => value === null) ? null :
+                    window.reduce((sum, val) => sum + val, 0) / window.length;
                 movingAverage.push(avg);
             }
             return movingAverage;
@@ -856,9 +861,11 @@
                 }
                 tr.appendChild(labelCell);
                 breakdownMetrics.forEach(m => {
-                    const sum = grouped[key].reduce((acc, e) => acc + (e[m.key] || 0), 0);
+                    const values = grouped[key].map(e => e[m.key]);
+                    const sum = values.some(value => value === null) ? null :
+                        values.reduce((acc, value) => acc + value, 0);
                     const td = document.createElement('td');
-                    td.textContent = fmtSum(sum);
+                    td.textContent = sum === null ? '<%= __("Unavailable")%>' : fmtSum(sum);
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
