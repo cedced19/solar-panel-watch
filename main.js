@@ -13,6 +13,7 @@ const getAlpha = require('./lib/get-alpha.js');
 const influxLib = require('./lib/influx-lib.js');
 const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const computeEnergy = require('./lib/compute-energy.js');
+const computeConsumptionPower = require('./lib/compute-consumption-power.js');
 const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate-params.js');
 
 
@@ -488,11 +489,26 @@ app.get('/api/data/var/:tag/:period', validatePeriod, (req, res, next) => {
     });
 });
 
+app.get('/api/data/consumption/:period', validatePeriod, (req, res) => {
+    const raw = req.query.raw === 'true' || config.graph_downsampling === 'none';
+    const every = raw ? null :
+        (isValidPeriod(req.query.every) ? req.query.every : influxLib.getAggregateWindow(req.params.period));
+    influxLib.requestConsumptionOverPeriod(req.params.period, every).then(data => {
+        res.json(computeConsumptionPower(data, {
+            aggregated: Boolean(every),
+            powerMaxAgeMs: (config.influx_update_delay || 15000) * 2,
+            batteryMaxAgeMs: getPowerData.batteryRequestThreshold + batteryRequestTimeout
+        }));
+    }, error => {
+        res.status(500).json({error: error.message});
+    });
+});
+
 app.get('/api/data/energy/:period', validatePeriod, (req, res, next) => {
-    // single InfluxDB query returning both power1 and power2
-    influxLib.requestPowerOverPeriodMulti(req.params.period, ['power1', 'power2']).then(function (data) {
+    // Integrate raw meter and pack readings together, independently of graph resolution.
+    influxLib.requestConsumptionOverPeriod(req.params.period).then(function (data) {
         try {
-            let energy_data = computeEnergy(data.power1, data.power2);
+            let energy_data = computeEnergy(data.power1, data.power2, data.battery);
             res.json(energy_data);
             db_energy.post({date: new Date(), period: req.params.period, result: energy_data}, function (error) {
                 if (error) return console.error(error)
@@ -557,9 +573,9 @@ app.get('/api/data/energy/day/:date', (req, res, next) => {
     const day = parseInt(parts[2], 10);
     const start = new Date(year, month, day);
     const stop = new Date(year, month, day + 1);
-    influxLib.requestPowerOverRange(start, stop, ['power1', 'power2']).then(function (data) {
+    influxLib.requestConsumptionOverRange(start, stop).then(function (data) {
         try {
-            const energy_data = computeEnergy(data.power1, data.power2);
+            const energy_data = computeEnergy(data.power1, data.power2, data.battery);
             res.json(energy_data);
             db_energy.post({date: new Date(), period: req.params.date, result: energy_data}, function (error) {
                 if (error) return console.error(error);

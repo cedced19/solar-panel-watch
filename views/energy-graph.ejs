@@ -139,6 +139,28 @@
             <div id="graph-solar" class="graph-container"></div>
         </div>
 
+        <div class="graph-section" id="battery-discharging-section" style="display: none;">
+            <h3><%= __("Battery discharging energy")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <input type="checkbox" id="weekend-coloring-battery-discharging" />
+                    <span><%= __("Color weekends")%></span>
+                </label>
+            </div>
+            <div id="graph-battery-discharging" class="graph-container"></div>
+        </div>
+
+        <div class="graph-section" id="battery-charging-section" style="display: none;">
+            <h3><%= __("Battery charging energy")%></h3>
+            <div class="graph-controls">
+                <label>
+                    <input type="checkbox" id="weekend-coloring-battery-charging" />
+                    <span><%= __("Color weekends")%></span>
+                </label>
+            </div>
+            <div id="graph-battery-charging" class="graph-container"></div>
+        </div>
+
         <!-- Energy Saved Graph -->
         <div class="graph-section" id="saved-section" style="display: none;">
             <h3><%= __("Energy Saved")%></h3>
@@ -209,6 +231,8 @@
         let dataMetrics = {
             consumption: null,
             solar: null,
+            batteryDischarging: null,
+            batteryCharging: null,
             saved: null,
             introduced: null,
             totalEnergyUsed: null
@@ -258,6 +282,18 @@
             }
         };
         
+        const preferBatteryAwareCalculations = (entries) => {
+            const hasBatteryFields = entry =>
+                Object.prototype.hasOwnProperty.call(entry, 'battery_discharging') &&
+                Object.prototype.hasOwnProperty.call(entry, 'battery_charging');
+            const updatedDays = new Set(entries.filter(hasBatteryFields)
+                .map(entry => getAggregationKey(entry.start_date, 'day')));
+            // Keep nulls from new calculations: older totals cannot establish
+            // consumption when the battery-aware calculation is unavailable.
+            return entries.filter(entry => hasBatteryFields(entry) ||
+                !updatedDays.has(getAggregationKey(entry.start_date, 'day')));
+        };
+
         const aggregateData = (aggregation) => {
             if (!rawFlattenedData) return null;
             
@@ -281,7 +317,7 @@
             
             // Aggregate metrics (sum for all aggregations, or max for day)
             const aggregateFn = (arr) => {
-                if (arr.some(value => value === null)) return null;
+                if (arr.some(value => !Number.isFinite(value))) return null;
                 return aggregation === 'day' ? Math.max(...arr) :
                     arr.reduce((sum, val) => sum + val, 0);
             };
@@ -296,10 +332,15 @@
                 return aggregateFn(entries.map(e => e.solar_panel));
             });
             
+            const batteryDischarging = sortedKeys.map(key =>
+                aggregateFn(grouped[key].map(e => e.battery_discharging)));
+            const batteryCharging = sortedKeys.map(key =>
+                aggregateFn(grouped[key].map(e => e.battery_charging)));
+
             const saved = sortedKeys.map(key => {
                 const entries = grouped[key];
                 return aggregateFn(entries.map(e => {
-                    if (e.house_consumption === null) return null;
+                    if (!Number.isFinite(e.house_consumption) || !Number.isFinite(e.consumption_on_network)) return null;
                     return Math.floor((e.house_consumption - e.consumption_on_network) * 1000) / 1000;
                 }));
             });
@@ -311,17 +352,15 @@
             
             const totalEnergyUsed = sortedKeys.map(key => {
                 const entries = grouped[key];
-                return aggregateFn(entries.map(e => {
-                    if (e.solar_panel === null) return null;
-                    const total = e.consumption_on_network + (e.solar_panel + e.introduced_on_network);
-                    return Math.floor(total * 1000) / 1000;
-                }));
+                return aggregateFn(entries.map(e => e.house_consumption));
             });
             
             return {
                 dates: aggregatedDates,
                 consumption,
                 solar,
+                batteryDischarging,
+                batteryCharging,
                 saved,
                 introduced,
                 totalEnergyUsed
@@ -335,6 +374,8 @@
             dateObjects = aggregated.dates;
             dataMetrics.consumption = aggregated.consumption;
             dataMetrics.solar = aggregated.solar;
+            dataMetrics.batteryDischarging = aggregated.batteryDischarging;
+            dataMetrics.batteryCharging = aggregated.batteryCharging;
             dataMetrics.saved = aggregated.saved;
             dataMetrics.introduced = aggregated.introduced;
             dataMetrics.totalEnergyUsed = aggregated.totalEnergyUsed;
@@ -342,10 +383,12 @@
             // Recreate all graphs
             createGraph('graph-consumption', '<%= __("Consumption on network")%>', '<%= __("Consumption on network")%>', aggregated.consumption, 'consumption', 'weekend-coloring-consumption');
             createSolarGraph('graph-solar', '<%= __("Solar panel production energy")%>', '<%= __("Solar panel production energy")%>', aggregated.solar, 'weekend-coloring-solar', 'show-sunshine-solar');
+            createGraph('graph-battery-discharging', '<%= __("Battery discharging energy")%>', '<%= __("Battery discharging energy")%>', aggregated.batteryDischarging, 'batteryDischarging', 'weekend-coloring-battery-discharging');
+            createGraph('graph-battery-charging', '<%= __("Battery charging energy")%>', '<%= __("Battery charging energy")%>', aggregated.batteryCharging, 'batteryCharging', 'weekend-coloring-battery-charging');
             createGraph('graph-saved', '<%= __("Energy Saved")%>', '<%= __("Energy Saved")%>', aggregated.saved, 'saved', 'weekend-coloring-saved');
             createGraph('graph-introduced', '<%= __("Energy Introduced")%>', '<%= __("Energy Introduced")%>', aggregated.introduced, 'introduced', 'weekend-coloring-introduced');
             createGraph('graph-total', '<%= __("Total energy used")%>', '<%= __("Total energy used")%>', aggregated.totalEnergyUsed, 'total', 'weekend-coloring-total');
-            createStackedGraph('graph-stacked', aggregated.consumption, aggregated.solar, aggregated.introduced);
+            createStackedGraph('graph-stacked', aggregated);
         };
         
         const calculateMovingAverage = (data, windowSize) => {
@@ -356,7 +399,7 @@
                 const start = Math.max(0, i - Math.floor(effectiveWindowSize / 2));
                 const end = Math.min(data.length, i + Math.ceil(effectiveWindowSize / 2));
                 const window = data.slice(start, end);
-                const avg = window.some(value => value === null) ? null :
+                const avg = window.some(value => !Number.isFinite(value)) ? null :
                     window.reduce((sum, val) => sum + val, 0) / window.length;
                 movingAverage.push(avg);
             }
@@ -449,40 +492,26 @@
             });
         };
         
-        const createStackedGraph = (containerId, consumptionData, solarData, introducedData) => {
-            if (!dateObjects || !consumptionData || !solarData || !introducedData) return;
-            
-            // Stacked bars: consumption at bottom, solar on top (positive), introduced below 0 (negative)
-            const trace1 = {
-                type: 'bar',
-                x: dateObjects,
-                y: consumptionData,
-                name: '<%= __("Consumption on network")%>',
-                marker: { color: '#3498db' }
-            };
-            
-            // Used produced energy = solar + introduced
-            const usedProducedEnergy = solarData.map((solar, index) => {
-                return solar + introducedData[index];
-            });
-            
-            const trace2 = {
-                type: 'bar',
-                x: dateObjects,
-                y: usedProducedEnergy,
-                name: '<%= __("Used produced energy")%>',
-                marker: { color: '#2ecc71' }
-            };
-            
-            // Introduced energy displayed as negative (below 0)
-            const trace3 = {
-                type: 'bar',
-                x: dateObjects,
-                y: introducedData,
-                name: '<%= __("Energy Introduced")%>',
-                marker: { color: '#f39c12' }
-            };
-            
+        const createStackedGraph = (containerId, metrics) => {
+            if (!dateObjects || !metrics) return;
+
+            // Charging and exported energy subtract from energy reaching the house.
+            const traces = [
+                { type: 'bar', x: dateObjects, y: metrics.consumption,
+                    name: '<%= __("Consumption on network")%>', marker: { color: '#3498db' } },
+                { type: 'bar', x: dateObjects, y: metrics.solar,
+                    name: '<%= __("Solar panel production energy")%>', marker: { color: '#2ecc71' } },
+                { type: 'bar', x: dateObjects, y: metrics.introduced,
+                    name: '<%= __("Energy Introduced")%>', marker: { color: '#f39c12' } },
+                { type: 'bar', x: dateObjects, y: metrics.batteryDischarging,
+                    name: '<%= __("Battery discharging energy")%>', marker: { color: '#9b59b6' } },
+                { type: 'bar', x: dateObjects,
+                    y: metrics.batteryCharging.map(value => Number.isFinite(value) ? -value : null),
+                    name: '<%= __("Battery charging energy")%>', marker: { color: '#e74c3c' } },
+                { type: 'scatter', mode: 'lines+markers', x: dateObjects, y: metrics.totalEnergyUsed,
+                    name: '<%= __("Total energy used")%>', line: { color: '#111827', width: 2 } }
+            ];
+
             // Get container width dynamically
             const container = document.getElementById(containerId);
             let containerWidth = 1000;
@@ -521,7 +550,7 @@
                 autosize: false
             };
             
-            Plotly.newPlot(containerId, [trace1, trace2, trace3], layout);
+            Plotly.newPlot(containerId, traces, layout);
             
             // Handle window resize
             window.addEventListener('resize', function() {
@@ -807,6 +836,9 @@
         const breakdownMetrics = [
             { key: 'consumption_on_network', label: '<%= __("Consumption on network")%>' },
             { key: 'solar_panel', label: '<%= __("Solar panel production energy")%>' },
+            { key: 'battery_discharging', label: '<%= __("Battery discharging energy")%>' },
+            { key: 'battery_charging', label: '<%= __("Battery charging energy")%>' },
+            { key: 'house_consumption', label: '<%= __("Total energy used")%>' },
             { key: 'introduced_on_network', label: '<%= __("Energy Introduced")%>' }
         ];
 
@@ -862,7 +894,7 @@
                 tr.appendChild(labelCell);
                 breakdownMetrics.forEach(m => {
                     const values = grouped[key].map(e => e[m.key]);
-                    const sum = values.some(value => value === null) ? null :
+                    const sum = values.some(value => !Number.isFinite(value)) ? null :
                         values.reduce((acc, value) => acc + value, 0);
                     const td = document.createElement('td');
                     td.textContent = sum === null ? '<%= __("Unavailable")%>' : fmtSum(sum);
@@ -909,14 +941,15 @@
                     flattened.push(...el.result);
                 }
                 
-                // Store raw flattened data for aggregation
-                rawFlattenedData = flattened;
+                // Prefer updated daily calculations over earlier totals that
+                // excluded battery flows, without rewriting saved history.
+                rawFlattenedData = preferBatteryAwareCalculations(flattened);
                 
                 // Calculate date range from energy data
                 let minDate = null;
                 let maxDate = null;
                 
-                for (const entry of flattened) {
+                for (const entry of rawFlattenedData) {
                     const dateObj = new Date(entry.start_date);
                     if (!minDate || dateObj < minDate) {
                         minDate = dateObj;
@@ -939,6 +972,8 @@
                 document.getElementById('global-controls').style.display = 'flex';
                 document.getElementById('consumption-section').style.display = 'block';
                 document.getElementById('solar-section').style.display = 'block';
+                document.getElementById('battery-discharging-section').style.display = 'block';
+                document.getElementById('battery-charging-section').style.display = 'block';
                 document.getElementById('saved-section').style.display = 'block';
                 document.getElementById('introduced-section').style.display = 'block';
                 document.getElementById('total-energy-section').style.display = 'block';

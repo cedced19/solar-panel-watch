@@ -37,6 +37,12 @@
             date = new Date(date);
             return ((bold) ? '<b>': '') + ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth()+1 < 10) ? '0': '') +  (date.getMonth()+1) + '/' + date.getFullYear() + ((bold) ? '</b>': '') +  ' ' + ((date.getHours() < 10) ? '0': '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0': '') + date.getMinutes();
         }
+        const energyValue = (value) => Number.isFinite(value) ? value : '<%= __("Unavailable")%>';
+        const energyWithRatio = (value, total) => {
+            if (!Number.isFinite(value)) return '<%= __("Unavailable")%>';
+            return value + (Number.isFinite(total) && total > 0 ?
+                ' (' + Math.floor(value / total * 100) + '%)' : '');
+        };
         const loadData = () => {
 
             const fetchData = fetch('/api/data/energy/<%= period%>')
@@ -49,73 +55,40 @@
             
             fetchData.then((value) => {
                 
-                var table = document.createElement('table');
-                var thead = document.createElement('thead');
-                var tr = document.createElement('tr');
-                var td1 = document.createElement('th');
-                var td2 = document.createElement('th');
-                var td3 = document.createElement('th');
-                var td4 = document.createElement('th');
-                var td5 = document.createElement('th');
-                var td6 = document.createElement('th');
-                var td7 = document.createElement('th');
-                var text1 = document.createTextNode('<%= __("Date Begin")%>');
-                var text2 = document.createTextNode('<%= __("Date End")%>');
-                var text3 = document.createTextNode('<%= __("House consumption energy")%> (kWh)');
-                var text4 = document.createTextNode('<%= __("Solar panel production energy")%> (kWh)');
-                var text5 = document.createTextNode('<%= __("Total Power energy")%> (kWh)');
-                var text6 = document.createTextNode('<%= __("Energy Introduced")%> (kWh)');
-                var text7 = document.createTextNode('<%= __("Energy Saved")%> (kWh)');
-                td1.appendChild(text1);
-                td2.appendChild(text2);
-                td3.appendChild(text3);
-                td4.appendChild(text4);
-                td5.appendChild(text5);
-                td6.appendChild(text6);
-                td7.appendChild(text7);
-                tr.appendChild(td1);
-                tr.appendChild(td2);
-                tr.appendChild(td3);
-                tr.appendChild(td4);
-                tr.appendChild(td5);
-                tr.appendChild(td6);
-                tr.appendChild(td7);
-                thead.appendChild(tr);
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const header = document.createElement('tr');
+                ['<%= __("Date Begin")%>', '<%= __("Date End")%>',
+                    '<%= __("Consumption on network")%> (kWh)',
+                    '<%= __("Solar panel production energy")%> (kWh)',
+                    '<%= __("Battery discharging energy")%> (kWh)',
+                    '<%= __("Battery charging energy")%> (kWh)',
+                    '<%= __("Total energy used")%> (kWh)',
+                    '<%= __("Energy Introduced")%> (kWh)',
+                    '<%= __("Energy Saved")%> (kWh)'].forEach(label => {
+                    const th = document.createElement('th');
+                    th.textContent = label;
+                    header.appendChild(th);
+                });
+                thead.appendChild(header);
                 table.appendChild(thead);
 
-                var tbody = document.createElement('tbody');
-                for (var k_bis in value){
-                    var k = value.length-1 - k_bis
-                    var tr = document.createElement('tr');
-                    var td1 = document.createElement('td');
-                    var td2 = document.createElement('td');
-                    var td3 = document.createElement('td');
-                    var td4 = document.createElement('td');
-                    var td5 = document.createElement('td');
-                    var td6 = document.createElement('td');
-                    var td7 = document.createElement('td');
-                    td1.innerHTML = prettyDate(value[k].start_date, true);
-                    var text2 = document.createTextNode(prettyDate(value[k].end_date));
-                    var houseAvailable = value[k].house_consumption !== null;
-                    var text3 = document.createTextNode(value[k].consumption_on_network + (houseAvailable ? ' (' + Math.floor((value[k].consumption_on_network/value[k].house_consumption)*100) + '%)' : ''));
-                    var text4 = document.createTextNode(value[k].solar_panel === null ? '<%= __("Unavailable")%>' : value[k].solar_panel);
-                    var text5 = document.createTextNode(houseAvailable ? value[k].house_consumption : '<%= __("Unavailable")%>');
-                    var text6 = document.createTextNode(value[k].introduced_on_network);
-                    var energySaved = Math.floor((value[k].house_consumption - value[k].consumption_on_network)*1000)/1000;
-                    var text7 = document.createTextNode(houseAvailable ? energySaved + ' (' + Math.floor((energySaved/value[k].house_consumption)*100) + '%)' : '<%= __("Unavailable")%>');
-                    td2.appendChild(text2);
-                    td3.appendChild(text3);
-                    td4.appendChild(text4);
-                    td5.appendChild(text5);
-                    td6.appendChild(text6);
-                    td7.appendChild(text7);
-                    tr.appendChild(td1);
-                    tr.appendChild(td2);
-                    tr.appendChild(td3);
-                    tr.appendChild(td4);
-                    tr.appendChild(td5);
-                    tr.appendChild(td6);
-                    tr.appendChild(td7);
+                const tbody = document.createElement('tbody');
+                for (const r of value.slice().reverse()) {
+                    const tr = document.createElement('tr');
+                    const energySaved = Number.isFinite(r.house_consumption) && Number.isFinite(r.consumption_on_network) ?
+                        Math.floor((r.house_consumption - r.consumption_on_network) * 1000) / 1000 : null;
+                    const cells = [prettyDate(r.start_date), prettyDate(r.end_date),
+                        energyWithRatio(r.consumption_on_network, r.house_consumption),
+                        energyValue(r.solar_panel), energyValue(r.battery_discharging),
+                        energyValue(r.battery_charging), energyValue(r.house_consumption),
+                        energyValue(r.introduced_on_network), energyWithRatio(energySaved, r.house_consumption)];
+                    cells.forEach((text, index) => {
+                        const td = document.createElement('td');
+                        if (index === 0) td.innerHTML = prettyDate(r.start_date, true);
+                        else td.appendChild(document.createTextNode(text));
+                        tr.appendChild(td);
+                    });
                     tbody.appendChild(tr);
                 }
                 table.appendChild(tbody);

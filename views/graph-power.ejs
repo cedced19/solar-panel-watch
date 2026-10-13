@@ -10,7 +10,18 @@
     <title>Solar panel watch | <%= __('Graph')%></title>
   </head>
   <body class="dashboard-page subpage graph-page">
-    <main class="dashboard-shell">
+    <main class="dashboard-shell" id="consumption-power-page"
+          data-period="<%= period %>" data-timezone="<%= timezone %>"
+          data-title="<%= __('Power over time') %>"
+          data-network-label="<%= __('Network power') %>"
+          data-solar-label="<%= __('Solar panel production') %>"
+          data-discharging-label="<%= __('Battery discharging power') %>"
+          data-charging-label="<%= __('Battery charging power') %>"
+          data-total-label="<%= __('Total Power') %>"
+          data-power-label="<%= __('Power (W)') %>" data-time-label="<%= __('Time') %>"
+          data-error-label="<%= __('Power history unavailable') %>"
+          data-empty-label="<%= __('No power readings') %>"
+          data-total-unavailable-label="<%= __('Total power unavailable') %>" aria-busy="true">
       <header class="dashboard-header">
         <div class="header-title">
           <h1><a href="/" style="color:inherit;text-decoration:none;">Solar Panel Watch</a></h1>
@@ -29,87 +40,14 @@
       <div class="graph-shell">
         <div id="loader" class="loader"></div>
         <section class="card graph-card">
+          <p id="consumption-power-status" role="status" hidden></p>
           <div id="graphs-container"></div>
         </section>
       </div>
     </main>
     <script src="/assets/plotly.js"></script>
     <script src="/assets/influx-csv.js"></script>
-    <script>
-        const loadData = () => {
-            let firstTrace;
-            let secondTrace;
-            
-            const plotly = (firstTrace, secondTrace, thirdTrace) =>{
-                const layout = {
-                title: '<%= __("Power over time")%>',
-                autosize: true,
-                height: Math.max(window.innerHeight * 0.7, 420),
-                };
-                return Plotly.newPlot('graphs-container', [firstTrace, secondTrace, thirdTrace], layout, {responsive: true});
-            }
-            const unpackData = (arr, key) => {
-                return arr.map(obj => obj[key])
-            }
-            function convertTZ(date, tzString) {
-                return new Date((typeof date === "string" ? new Date(date) : date).toLocaleString("en-US", {timeZone: tzString}));   
-            }
-            const applyTZ = (arr) => {
-                return arr.map(obj => convertTZ(obj, "<%= timezone %>"));
-            }
-
-            const fetchData = () =>{
-                firstTrace = fetchPointsCSV('/api/data/power/power1/<%= period%>')
-                .then(data => {
-                    
-                    const traceData = {
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: '<%= __("House consumption")%>',
-                    x: applyTZ(unpackData(data, '_time')),
-                    y: unpackData(data, '_value'),
-                    line: {color: '#c0392b'}
-                    }   
-                    return traceData      
-                }).catch((error) => {
-                    console.error('Error:', error);
-                });
-
-                secondTrace = fetchPointsCSV('/api/data/power/power2/<%= period%>')
-                .then(data => {
-                    const traceData = {
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: '<%= __("Solar panel production")%>',
-                    x: applyTZ(unpackData(data, '_time')),
-                    y: unpackData(data, '_value'),
-                    line: {color: '#2ecc71'}
-                    } 
-                    return traceData        
-                }).catch((error) => {
-                    console.error('Error:', error);
-                });
-                return [firstTrace, secondTrace]
-            }
-
-            [firstTrace, secondTrace] = fetchData()
-            
-            Promise.all([firstTrace, secondTrace]).then((values) => {
-                const sum_values = {
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: '<%= __("Total Power")%>',
-                    x: values[0].x,
-                    y: values[0].y.map(function (num, idx) { return num +values[1].y[idx]; }),
-                    line: {color: '#2980b9'}
-                }
-                plotly(values[0], values[1], sum_values);
-                document.getElementById('loader').style.display = 'none';
-            });   
-        }
-        window.addEventListener('load', loadData);
-        attachDownsampleSelector(loadData);
-    </script>
+    <script src="/assets/consumption-graph.js"></script>
       <script src="/assets/nav.js"></script>
 </body>
 </html>

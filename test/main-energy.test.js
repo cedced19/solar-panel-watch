@@ -14,13 +14,20 @@ test('calendar and period energy endpoints handle missing solar and save usable 
     let data = {power1: [
         {_time: new Date(2026, 9, 13, 12).toISOString(), _value: 600},
         {_time: new Date(2026, 9, 13, 12, 1).toISOString(), _value: 600}
-    ], power2: []};
+    ], power2: [], battery: []};
+    let failure;
     const influx = {
-        async requestPowerOverRange(start, stop, tags) {
-            queries.push({start, stop, tags});
+        async requestConsumptionOverRange(start, stop) {
+            queries.push({start, stop});
+            if (failure) throw failure;
             return data;
         },
-        async requestPowerOverPeriodMulti() { return data; }
+        async requestConsumptionOverPeriod(period, every) {
+            queries.push({period, every});
+            if (failure) throw failure;
+            return data;
+        },
+        getAggregateWindow() { return '30m'; }
     };
     const database = {
         post(entry, cb) { history.push(entry); cb(null); },
@@ -63,7 +70,8 @@ test('calendar and period energy endpoints handle missing solar and save usable 
     assert.equal(day.house_consumption, null);
     assert.equal(queries[0].start.getTime(), new Date(2026, 9, 13).getTime());
     assert.equal(queries[0].stop.getTime(), new Date(2026, 9, 14).getTime());
-    assert.deepEqual(Array.from(queries[0].tags), ['power1', 'power2']);
+    assert.equal(day.battery_discharging, null);
+    assert.equal(day.battery_charging, null);
     assert.equal(history[0].period, '2026-10-13');
     assert.deepEqual(JSON.parse(JSON.stringify(history[0].result)), [day]);
 
@@ -74,6 +82,7 @@ test('calendar and period energy endpoints handle missing solar and save usable 
     assert.deepEqual(JSON.parse(coverage.body), ['2026-10-13']);
 
     data.power2 = [{...data.power1[1], _value: 1200}];
+    data.battery = data.power1.map(point => ({_time: point._time, packInputPower: 0, outputPackPower: 0}));
     const sparseSolar = await request('/api/data/energy/day/2026-10-13');
     assert.equal(sparseSolar.status, 200);
     const [sparseDay] = JSON.parse(sparseSolar.body);
@@ -83,7 +92,32 @@ test('calendar and period energy endpoints handle missing solar and save usable 
     const sparsePeriod = await request('/api/data/energy/24h');
     assert.deepEqual(JSON.parse(sparsePeriod.body), [sparseDay]);
 
-    data = {power1: [], power2: []};
+    data.power2 = data.power1.map(point => ({...point, _value: 1200}));
+    data.battery = data.power1.map(point => ({_time: point._time, packInputPower: 600, outputPackPower: 300}));
+    const chargedPeriod = await request('/api/data/energy/24h?every=1h');
+    const [chargedDay] = JSON.parse(chargedPeriod.body);
+    assert.equal(chargedDay.battery_discharging, 0.012);
+    assert.equal(chargedDay.battery_charging, 0.006);
+    assert.equal(chargedDay.house_consumption, 0.043);
+    assert.equal(queries.at(-1).every, undefined); // energy always integrates raw points
+    const chargedDate = await request('/api/data/energy/day/2026-10-13');
+    assert.deepEqual(JSON.parse(chargedDate.body), [chargedDay]);
+    assert.equal(history.at(-1).result[0].battery_charging, 0.006);
+
+    for (const [suffix, expectedEvery] of [['?every=1m', '1m'], ['?raw=true&every=1h', null], ['', '30m']]) {
+        const balance = await request('/api/data/consumption/24h' + suffix);
+        assert.equal(balance.status, 200);
+        assert.equal(queries.at(-1).every, expectedEvery);
+        assert.deepEqual(JSON.parse(balance.body).house_consumption.map(point => point._value), [2100, 2100]);
+    }
+    assert.equal((await request('/api/data/consumption/invalid')).status, 400);
+    failure = new Error('Influx unavailable');
+    const failed = await request('/api/data/consumption/24h');
+    assert.equal(failed.status, 500);
+    assert.deepEqual(JSON.parse(failed.body), {error: 'Influx unavailable'});
+    failure = null;
+
+    data = {power1: [], power2: [], battery: []};
     const empty = await request('/api/data/energy/day/2026-10-14');
     assert.equal(empty.status, 200);
     assert.deepEqual(JSON.parse(empty.body), []);
