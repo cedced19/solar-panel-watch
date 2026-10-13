@@ -44,6 +44,7 @@
         <div id="day-result"></div>
       </section>
     </main>
+    <script src="/assets/energy-consumption.js"></script>
     <script>
         const coveredDays = new Set();
         let viewYear, viewMonth;
@@ -124,10 +125,10 @@
             table.appendChild(thead);
 
             const tbody = document.createElement('tbody');
-            value.forEach(r => {
+            value.forEach(entry => {
+                const r = window.energyConsumption.normalizeEntry(entry);
                 const tr = document.createElement('tr');
-                const energySaved = Number.isFinite(r.house_consumption) && Number.isFinite(r.consumption_on_network) ?
-                    Math.floor((r.house_consumption - r.consumption_on_network) * 1000) / 1000 : null;
+                const energySaved = window.energyConsumption.savedEnergy(r);
                 const cells = [prettyDate(r.start_date), prettyDate(r.end_date), r.consumption_on_network,
                     r.solar_panel, r.battery_discharging, r.battery_charging, r.house_consumption,
                     r.introduced_on_network, energySaved];

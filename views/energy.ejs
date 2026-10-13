@@ -33,6 +33,7 @@
         <div id="table"></div>
       </section>
     </main>
+    <script src="/assets/energy-consumption.js"></script>
     <script>
         const prettyDate = (date, bold) => {
             date = new Date(date);
@@ -75,10 +76,10 @@
                 table.appendChild(thead);
 
                 const tbody = document.createElement('tbody');
-                for (const r of value.slice().reverse()) {
+                for (const entry of value.slice().reverse()) {
+                    const r = window.energyConsumption.normalizeEntry(entry);
                     const tr = document.createElement('tr');
-                    const energySaved = Number.isFinite(r.house_consumption) && Number.isFinite(r.consumption_on_network) ?
-                        Math.floor((r.house_consumption - r.consumption_on_network) * 1000) / 1000 : null;
+                    const energySaved = window.energyConsumption.savedEnergy(r);
                     const cells = [prettyDate(r.start_date), prettyDate(r.end_date),
                         energyWithRatio(r.consumption_on_network, r.house_consumption),
                         energyValue(r.solar_panel), energyValue(r.battery_discharging),

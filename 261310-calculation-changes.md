@@ -24,13 +24,23 @@ charging gives 1,600 W of household consumption.
 - Energy tables, request history, calendar, and the energy dashboard display
   battery totals. Dashboard totals and savings use `house_consumption`; its
   stacked breakdown shows charging and grid export as outflows.
-- Missing battery fields remain unavailable rather than becoming zero. New
-  daily calculations with incomplete battery fields return unavailable dependent
-  totals; measured zero stays zero. English and French labels explain graph gaps.
+- When battery history is missing or incomplete, household power and total energy
+  used include only net grid exchange plus solar production. Energy saved uses
+  that total minus grid imports, with no battery contribution. Battery
+  adjustments apply only when both charge and discharge data are available;
+  neither flow is applied on its own. Missing battery values remain unavailable
+  in their own curves and columns, while measured zero stays zero. Grid and solar
+  readings are still required for household totals.
 
-Saved energy history is preserved. Legacy entries lack battery totals and retain
-their recorded house totals until recalculated. For a day with both legacy and
-battery-aware results, the dashboard uses the battery-aware results.
+Saved energy history is preserved. Legacy entries retain their recorded house
+totals. Reports with an unavailable total caused by missing battery data now
+display a total and savings from their saved grid and solar values, without
+rewriting the database. For a day with both legacy and battery-aware results,
+the dashboard uses the battery-aware results. Complete battery calculations
+take precedence over fallback estimates for the same day.
+
+The English and French Nomenclature page explains this fallback and distinguishes
+missing battery measurements from a measured zero.
 
 Validation covers charge/discharge signs, signed grid exchange, independent
 timestamps, matching aggregation windows, missing/legacy readings, zero values,

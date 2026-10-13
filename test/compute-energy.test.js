@@ -100,8 +100,10 @@ test('local-midnight samples preserve the inclusive boundary and daily tails', (
     assert.equal(result.length, 2);
     assert.equal(result[0].consumption_on_network, 0.015);
     assert.equal(result[0].solar_panel, 0.012);
+    assert.equal(result[0].house_consumption, 0.027);
     assert.equal(result[1].consumption_on_network, 0.005);
     assert.equal(result[1].solar_panel, 0.002);
+    assert.equal(result[1].house_consumption, 0.007);
 
     const missingBoundary = computeEnergy(network, solar.slice(0, 1));
     assert.equal(missingBoundary[0].solar_panel, 0.002);
@@ -139,7 +141,7 @@ test('battery energy uses its own unequal timestamps and includes extra samples'
     assert.equal(day.house_consumption, 0.09);
 });
 
-test('omitted, empty and older SOC-only battery history make battery totals unavailable', () => {
+test('omitted, empty and older SOC-only battery history retain grid-plus-solar household energy', () => {
     for (const battery of [undefined, [], points([50, 49, 48])]) {
         const [day] = computeEnergy(points([600, -300, 1200]), points([1200, 1800, 2400]), battery);
         assert.equal(day.consumption_on_network, 0.015);
@@ -147,17 +149,19 @@ test('omitted, empty and older SOC-only battery history make battery totals unav
         assert.equal(day.solar_panel, 0.06);
         assert.equal(day.battery_discharging, null);
         assert.equal(day.battery_charging, null);
-        assert.equal(day.house_consumption, null);
+        assert.equal(day.house_consumption, 0.07);
     }
 });
 
-test('partially missing battery fields invalidate their direction and household totals for that day', () => {
-    const battery = batteryPoints([600, 1200, 1800], [300, 600, 900]);
-    delete battery[1].outputPackPower;
-    const [day] = computeEnergy(points([600, -300, 1200]), points([1200, 1800, 2400]), battery);
-    assert.equal(day.battery_discharging, 0.037);
-    assert.equal(day.battery_charging, null);
-    assert.equal(day.house_consumption, null);
+test('either missing battery direction excludes both directions from household energy for that day', () => {
+    for (const field of ['packInputPower', 'outputPackPower']) {
+        const battery = batteryPoints([600, 1200, 1800], [300, 600, 900]);
+        delete battery[1][field];
+        const [day] = computeEnergy(points([600, -300, 1200]), points([1200, 1800, 2400]), battery);
+        assert.equal(day.battery_discharging, field === 'packInputPower' ? null : 0.037);
+        assert.equal(day.battery_charging, field === 'outputPackPower' ? null : 0.018);
+        assert.equal(day.house_consumption, 0.07);
+    }
 });
 
 test('invalid battery power remains unavailable while a measured zero remains zero', () => {
@@ -167,7 +171,7 @@ test('invalid battery power remains unavailable while a measured zero remains ze
         const [day] = computeEnergy(points([600, 600]), points([0, 0]), battery);
         assert.equal(day.battery_discharging, null);
         assert.equal(day.battery_charging, 0);
-        assert.equal(day.house_consumption, null);
+        assert.equal(day.house_consumption, 0.012);
     }
     const [day] = computeEnergy(points([600, 600]), points([0, 0]), batteryPoints([0, 0]));
     assert.equal(day.battery_discharging, 0);
@@ -175,18 +179,20 @@ test('invalid battery power remains unavailable while a measured zero remains ze
     assert.equal(day.house_consumption, 0.012);
 });
 
-test('SOC-only history on one day does not invalidate complete battery history on the next day', () => {
-    const [first, second] = computeEnergy(
-        [...points([600, 600]), ...points([600, 600], 14)],
-        [...points([1200, 1200]), ...points([1200, 1200], 14)],
-        [...points([50, 49]), ...batteryPoints([600, 600], [300, 300], 14)]
-    );
-    assert.equal(first.battery_discharging, null);
-    assert.equal(first.battery_charging, null);
-    assert.equal(first.house_consumption, null);
-    assert.equal(second.battery_discharging, 0.012);
-    assert.equal(second.battery_charging, 0.006);
-    assert.equal(second.house_consumption, 0.043);
+test('absent or SOC-only history uses the base estimate while the next day includes complete battery energy', () => {
+    for (const olderBattery of [[], points([50, 49])]) {
+        const [first, second] = computeEnergy(
+            [...points([600, 600]), ...points([600, 600], 14)],
+            [...points([1200, 1200]), ...points([1200, 1200], 14)],
+            [...olderBattery, ...batteryPoints([600, 600], [300, 300], 14)]
+        );
+        assert.equal(first.battery_discharging, null);
+        assert.equal(first.battery_charging, null);
+        assert.equal(first.house_consumption, 0.037);
+        assert.equal(second.battery_discharging, 0.012);
+        assert.equal(second.battery_charging, 0.006);
+        assert.equal(second.house_consumption, 0.043);
+    }
 });
 
 test('battery energy preserves local-midnight boundaries and marks missing boundary fields unavailable', () => {
@@ -207,9 +213,9 @@ test('battery energy preserves local-midnight boundaries and marks missing bound
     assert.equal(second.house_consumption, 0.01);
 
     delete battery[1].outputPackPower;
-    for (const day of computeEnergy(network, solar, battery)) {
+    for (const [i, day] of computeEnergy(network, solar, battery).entries()) {
         assert.notEqual(day.battery_discharging, null);
         assert.equal(day.battery_charging, null);
-        assert.equal(day.house_consumption, null);
+        assert.equal(day.house_consumption, i === 0 ? 0.027 : 0.007);
     }
 });

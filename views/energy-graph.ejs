@@ -224,6 +224,7 @@
         </div>
     </main>
     <script src="/assets/plotly.js"></script>
+    <script src="/assets/energy-consumption.js"></script>
     <script>
         let dateObjects = null;
         let rawFlattenedData = null;
@@ -287,12 +288,17 @@
             const hasBatteryFields = entry =>
                 Object.prototype.hasOwnProperty.call(entry, 'battery_discharging') &&
                 Object.prototype.hasOwnProperty.call(entry, 'battery_charging');
-            const updatedDays = new Set(entries.filter(hasBatteryFields)
-                .map(entry => getAggregationKey(entry.start_date, 'day')));
-            // Keep nulls from new calculations: older totals cannot establish
-            // consumption when the battery-aware calculation is unavailable.
-            return entries.filter(entry => hasBatteryFields(entry) ||
-                !updatedDays.has(getAggregationKey(entry.start_date, 'day')));
+            const tier = entry => window.energyConsumption.hasBatteryData(entry) ? 2 :
+                hasBatteryFields(entry) ? 1 : 0;
+            const preferredTier = new Map();
+            entries.forEach(entry => {
+                const day = getAggregationKey(entry.start_date, 'day');
+                preferredTier.set(day, Math.max(preferredTier.get(day) || 0, tier(entry)));
+            });
+            // Prefer complete battery readings, then the newer schema for each
+            // day. Preserve repeated calculations within the preferred tier.
+            return entries.filter(entry => tier(entry) ===
+                preferredTier.get(getAggregationKey(entry.start_date, 'day')));
         };
 
         const aggregateData = (aggregation) => {
@@ -309,7 +315,7 @@
                 if (!grouped[key]) {
                     grouped[key] = [];
                 }
-                grouped[key].push(entry);
+                grouped[key].push(window.energyConsumption.normalizeEntry(entry));
             }
             
             // Sort keys chronologically
@@ -320,7 +326,7 @@
             const aggregateFn = (arr) => {
                 if (arr.some(value => !Number.isFinite(value))) return null;
                 return aggregation === 'day' ? Math.max(...arr) :
-                    arr.reduce((sum, val) => sum + val, 0);
+                    window.energyConsumption.roundEnergy(arr.reduce((sum, val) => sum + val, 0));
             };
             
             const consumption = sortedKeys.map(key => {
@@ -340,10 +346,7 @@
 
             const saved = sortedKeys.map(key => {
                 const entries = grouped[key];
-                return aggregateFn(entries.map(e => {
-                    if (!Number.isFinite(e.house_consumption) || !Number.isFinite(e.consumption_on_network)) return null;
-                    return Math.floor((e.house_consumption - e.consumption_on_network) * 1000) / 1000;
-                }));
+                return aggregateFn(entries.map(window.energyConsumption.savedEnergy));
             });
             
             const introduced = sortedKeys.map(key => {
@@ -847,7 +850,7 @@
 
         const localYear = (date) => date.getFullYear();
         const localMonthKey = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
-        const fmtSum = (v) => Math.floor(v * 1000) / 1000;
+        const fmtSum = window.energyConsumption.roundEnergy;
 
         const renderBreakdownTable = () => {
             const select = document.getElementById('breakdown-year-select');
@@ -863,7 +866,7 @@
                 if (selectedYear && localYear(dateObj) !== selectedYear) return;
                 const key = selectedYear ? localMonthKey(dateObj) : String(localYear(dateObj));
                 if (!grouped[key]) grouped[key] = [];
-                grouped[key].push(entry);
+                grouped[key].push(window.energyConsumption.normalizeEntry(entry));
             });
 
             const sortedKeys = Object.keys(grouped).sort();

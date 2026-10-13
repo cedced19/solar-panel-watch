@@ -1,5 +1,6 @@
 // Both household graphs use the same time-aligned balance computed by the
-// server. Missing battery/solar readings remain gaps in the total trace.
+// server. Missing battery readings stay as component gaps; household totals
+// use grid and solar alone when the battery adjustment is unavailable.
 (function () {
     const page = document.getElementById('consumption-power-page');
     const loader = document.getElementById('loader');

@@ -176,6 +176,22 @@ test('unavailable total readings retain component plots and show a localized exp
     assert.equal(page.nodes['consumption-power-status'].textContent, 'Total indisponible');
 });
 
+test('historical totals remain visible when the server omits unavailable battery flows', async () => {
+    const data = balance();
+    data.power1 = points([600, -100, 0]);
+    data.power2 = points([1200, 200, 0]);
+    data.battery_discharging = [];
+    data.battery_charging = [];
+    data.house_consumption = points([1800, 100, 0]);
+    const page = createPage('graph-power', {data});
+    await page.load();
+    assert.equal(page.plots.length, 1);
+    assert.deepEqual(plain(page.plots[0].traces[4].y), [1800, 100, 0]);
+    assert.deepEqual(plain(page.plots[0].traces[2].y), []);
+    assert.deepEqual(plain(page.plots[0].traces[3].y), []);
+    assert.equal(page.nodes['consumption-power-status'].hidden, true);
+});
+
 for (const reply of [
     {ok: false, status: 503, data: {error: 'offline'}},
     {data: {power1: []}},

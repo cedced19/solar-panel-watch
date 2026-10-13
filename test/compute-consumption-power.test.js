@@ -19,16 +19,16 @@ test('raw total aligns preceding readings by time, adds discharge, subtracts cha
     assert.deepEqual(result.battery_charging, [point(5, 0), point(25, 200)]);
 });
 
-test('raw total never uses future, stale or missing pack and solar readings', () => {
+test('raw total omits future, stale or missing battery readings while solar gaps remain unavailable', () => {
     const data = {power1: [point(0, 500), point(10, 500), point(40, 500)],
         power2: [point(0, 1000)], battery: [battery(5, 300, 0)]};
     assert.deepEqual(computeConsumptionPower(data).house_consumption,
-        [point(0, null), point(10, 1800), point(40, null)]);
+        [point(0, 1500), point(10, 1800), point(40, null)]);
     data.power2.push(point(40, 1000));
-    assert.equal(computeConsumptionPower(data).house_consumption[2]._value, null);
+    assert.equal(computeConsumptionPower(data).house_consumption[2]._value, 1500);
     data.battery.push({_time: at(40), _value: 80});
     const result = computeConsumptionPower(data);
-    assert.equal(result.house_consumption[2]._value, null);
+    assert.equal(result.house_consumption[2]._value, 1500);
     assert.equal(result.battery_discharging[1]._value, null);
     assert.equal(result.battery_charging[1]._value, null);
 });
@@ -42,12 +42,26 @@ test('aggregate total joins only matching windows, regardless of missing indices
     assert.deepEqual(result.house_consumption, [point(0, 1800), point(60, null), point(120, 1100)]);
 });
 
-test('zero is available while negative or nonnumeric pack power produces gaps', () => {
+test('invalid battery readings remain component gaps and are ignored for household totals', () => {
     for (const value of [null, undefined, NaN, Infinity, -1, '0']) {
         const result = computeConsumptionPower({power1: [point(0, 500)], power2: [point(0, 0)],
             battery: [battery(0, value, 0)]});
-        assert.equal(result.house_consumption[0]._value, null);
+        assert.equal(result.house_consumption[0]._value, 500);
+        assert.equal(result.battery_discharging[0]._value, null);
     }
     assert.equal(computeConsumptionPower({power1: [point(0, 500)], power2: [point(0, 0)],
         battery: [battery(0, 0, 0)]}).house_consumption[0]._value, 500);
+});
+
+test('empty battery history and incomplete aggregate windows fall back to signed grid plus solar', () => {
+    const data = {
+        power1: [point(0, -200), point(60, 500), point(120, 400)],
+        power2: [point(0, 1000), point(60, 1000), point(120, 1000)],
+        battery: []
+    };
+    assert.deepEqual(computeConsumptionPower(data, {aggregated: true}).house_consumption,
+        [point(0, 800), point(60, 1500), point(120, 1400)]);
+    data.battery = [battery(0, 0, 300), {_time: at(60), packInputPower: 700}, battery(120, 700, 300)];
+    assert.deepEqual(computeConsumptionPower(data, {aggregated: true}).house_consumption,
+        [point(0, 500), point(60, 1500), point(120, 1800)]);
 });

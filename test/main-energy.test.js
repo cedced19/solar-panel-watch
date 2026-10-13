@@ -93,6 +93,21 @@ test('calendar and period energy endpoints handle missing solar and save usable 
     assert.deepEqual(JSON.parse(sparsePeriod.body), [sparseDay]);
 
     data.power2 = data.power1.map(point => ({...point, _value: 1200}));
+    for (const battery of [[], data.power1.map(point => ({_time: point._time, _value: 80})),
+        data.power1.map(point => ({_time: point._time, packInputPower: 600}))]) {
+        data.battery = battery;
+        for (const route of ['/api/data/energy/24h', '/api/data/energy/day/2026-10-13']) {
+            const response = await request(route);
+            assert.equal(response.status, 200);
+            const [fallbackDay] = JSON.parse(response.body);
+            assert.equal(fallbackDay.house_consumption, 0.037);
+            assert.equal(fallbackDay.battery_charging, null);
+            assert.equal(history.at(-1).result[0].house_consumption, 0.037);
+        }
+        const balance = await request('/api/data/consumption/24h?raw=true');
+        assert.equal(balance.status, 200);
+        assert.deepEqual(JSON.parse(balance.body).house_consumption.map(point => point._value), [1800, 1800]);
+    }
     data.battery = data.power1.map(point => ({_time: point._time, packInputPower: 600, outputPackPower: 300}));
     const chargedPeriod = await request('/api/data/energy/24h?every=1h');
     const [chargedDay] = JSON.parse(chargedPeriod.body);
