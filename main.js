@@ -332,6 +332,16 @@ app.get('/force/', function(req, res) {
     });
 });
 
+app.get('/nomenclature/', function(req, res) {
+    if (req.query.lang === 'en' || req.query.lang === 'fr') {
+        req.setLocale(req.query.lang);
+    }
+    const locale = req.getLocale();
+    res.set('Content-Language', locale);
+    res.vary('Accept-Language');
+    res.render('nomenclature', {locale});
+});
+
 app.get('/graph/power/:period', validatePeriod, function(req, res) {
     res.render('graph-power', {
         period: req.params.period,

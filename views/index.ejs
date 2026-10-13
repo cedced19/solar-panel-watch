@@ -48,6 +48,7 @@
       </ul>
       <a class="retry-button" href="/"><span aria-hidden="true">↻</span><%= __('Retry')%></a>
       <p class="safety-note"><%= __('Safety mode')%></p>
+      <a href="/nomenclature/"><%= __('Nomenclature') %></a>
     </main>
   <% } else{ %>
   <main class="dashboard-shell" id="dashboard" data-unavailable="<%= __('Unavailable')%>">
@@ -126,6 +127,7 @@
       <nav class="card links-card" aria-label="Dashboard links">
         <h2 class="card-heading"><%= __('Other')%></h2>
         <ul class="dashboard-links">
+          <li><a href="/nomenclature/"><%= __('Nomenclature') %></a></li>
           <li><a href="/graph/power/2h/"><%= __('Raw data 2h')%></a></li>
           <li><a href="/graph/power/1d/"><%= __('Raw data 1d')%></a></li>
           <li><a  href="/graph/power/1d/group-by/5m"><%= __('Mean data 1d')%></a></li>

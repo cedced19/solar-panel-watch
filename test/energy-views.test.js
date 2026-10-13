@@ -9,7 +9,7 @@ function page(name, data) {
     const filename = path.resolve(__dirname, '../views', name + '.ejs');
     const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
         __: label => label, period: '24h', timezone: 'Europe/Vienna', config: {}
-    });
+    }, {filename});
     const nodes = new Map();
     const cells = [];
     const plots = new Map();

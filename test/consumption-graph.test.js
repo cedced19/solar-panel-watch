@@ -17,10 +17,11 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
 
 function createPage(name, reply, {devices = [], language, labels = {}} = {}) {
     const translations = language && require('../lib/locales/' + language + '.json');
-    const html = ejs.render(fs.readFileSync(path.resolve(__dirname, '../views', name + '.ejs'), 'utf8'), {
+    const filename = path.resolve(__dirname, '../views', name + '.ejs');
+    const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
         period: '24h', timezone: 'Europe/Vienna', list_devices: devices,
         __: label => labels[label] || (translations ? translations[label] : label)
-    });
+    }, {filename});
     const nodes = {};
     const events = new Map();
     const requests = [];

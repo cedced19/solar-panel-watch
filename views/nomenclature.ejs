@@ -1,0 +1,248 @@
+<% const number = new Intl.NumberFormat(locale); %>
+<!DOCTYPE html>
+<html lang="<%= locale %>">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="<%= __('Nomenclature description') %>">
+    <link rel="stylesheet" href="/assets/styles.css">
+    <link rel="stylesheet" href="/assets/main_page.css">
+    <link rel="stylesheet" href="/assets/pages.css">
+    <link rel="stylesheet" href="/assets/nomenclature.css">
+    <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <title>Solar Panel Watch | <%= __('Nomenclature') %></title>
+  </head>
+  <body class="dashboard-page nomenclature-page">
+    <svg class="nomenclature-symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="0" height="0">
+      <defs>
+        <symbol id="nomenclature-solar-icon" viewBox="0 0 64 64">
+          <g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="47" cy="13" r="6"/><path d="M47 2v2m0 18v2M36 13h-2m26 0h2M39 5l-2-2m18 18 2 2M55 5l2-2"/>
+            <path d="m11 25-6 24h47l-6-24H11Z"/><path d="m23 25-2 24m14-24 2 24M8 37h41M28 49v9m-11 0h22"/>
+          </g>
+        </symbol>
+        <symbol id="nomenclature-grid-icon" viewBox="0 0 64 64">
+          <g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m19 59 9-53h8l9 53M16 21h32M12 34h40M21 49h22M27 21l13 13m-13 0 16 15M37 21 24 34m13 0L21 49"/>
+            <path d="M16 21v5m32-5v5M12 34v6m40-6v6M15 59h8m18 0h8"/>
+          </g>
+        </symbol>
+        <symbol id="nomenclature-battery-icon" viewBox="0 0 64 64">
+          <g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="15" y="13" width="34" height="45" rx="6"/><path d="M25 13V6h14v7"/>
+            <path d="m34 23-9 15h9l-4 12 10-16h-9l3-11Z"/>
+          </g>
+        </symbol>
+        <symbol id="nomenclature-home-icon" viewBox="0 0 64 64">
+          <g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m7 29 25-21 25 21M13 26v31h38V26M26 57V39h12v18"/><rect x="20" y="26" width="7" height="7" rx="1"/><rect x="37" y="26" width="7" height="7" rx="1"/>
+          </g>
+        </symbol>
+        <symbol id="nomenclature-clock-icon" viewBox="0 0 64 64">
+          <g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="23"/><path d="M32 17v16l11 7"/></g>
+        </symbol>
+        <symbol id="nomenclature-bolt-icon" viewBox="0 0 64 64">
+          <path d="m36 5-22 30h17l-3 24 22-32H33l3-22Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </symbol>
+      </defs>
+    </svg>
+    <main class="dashboard-shell nomenclature-shell" id="content">
+      <header class="dashboard-header nomenclature-header">
+        <a class="nomenclature-brand" href="/">Solar Panel Watch<span class="nomenclature-brand-dot" aria-hidden="true"></span></a>
+        <div class="nomenclature-header-actions">
+          <a class="nav-btn" href="/">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 10 9-7 9 7v11H3V10Z"/><path d="M9 21v-8h6v8"/></svg>
+            <span><%= __('Home') %></span>
+          </a>
+          <nav class="nomenclature-language" aria-label="<%= __('Nomenclature language') %>">
+            <a href="/nomenclature/?lang=fr" lang="fr" hreflang="fr"<% if (locale === 'fr') { %> aria-current="page"<% } %>><%= __('Nomenclature French') %></a>
+            <a href="/nomenclature/?lang=en" lang="en" hreflang="en"<% if (locale === 'en') { %> aria-current="page"<% } %>><%= __('Nomenclature English') %></a>
+          </nav>
+        </div>
+      </header>
+
+      <section class="nomenclature-hero" aria-labelledby="nomenclature-title">
+        <div class="nomenclature-intro">
+          <p class="nomenclature-eyebrow"><span aria-hidden="true">↗</span> <%= __('Nomenclature guide') %></p>
+          <h1 id="nomenclature-title"><%= __('Nomenclature') %></h1>
+          <p class="nomenclature-headline"><%= __('Nomenclature headline') %></p>
+          <p class="nomenclature-lead"><%= __('Nomenclature description') %></p>
+          <nav class="nomenclature-jump-links" aria-label="<%= __('Nomenclature contents') %>">
+            <a href="#flows"><span aria-hidden="true">01</span> <%= __('Nomenclature flows link') %></a>
+            <a href="#units"><span aria-hidden="true">02</span> <%= __('Nomenclature units link') %></a>
+            <a href="#dashboard-terms"><span aria-hidden="true">03</span> <%= __('Nomenclature dashboard link') %></a>
+          </nav>
+          <div class="nomenclature-storage-note">
+            <svg class="nomenclature-note-icon" viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-battery-icon"/></svg>
+            <p><strong><%= __('Nomenclature storage title') %></strong><span><%= __('Nomenclature storage description') %></span></p>
+          </div>
+        </div>
+        <figure class="nomenclature-flow-card">
+          <figcaption><span class="nomenclature-eyebrow"><%= __('Nomenclature diagram eyebrow') %></span><strong><%= __('Nomenclature diagram heading') %></strong></figcaption>
+          <svg class="nomenclature-flow-svg" viewBox="0 0 440 570" role="img" aria-labelledby="nomenclature-flow-title nomenclature-flow-description">
+            <title id="nomenclature-flow-title"><%= __('Nomenclature diagram title') %></title>
+            <desc id="nomenclature-flow-description"><%= __('Nomenclature diagram description') %></desc>
+            <defs>
+              <marker id="nomenclature-arrow-solar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#2b855e"/></marker>
+              <marker id="nomenclature-arrow-grid" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#536675"/></marker>
+              <marker id="nomenclature-arrow-house" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#3668b4"/></marker>
+              <marker id="nomenclature-arrow-charge" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#996523"/></marker>
+              <marker id="nomenclature-arrow-discharge" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#7a56ad"/></marker>
+            </defs>
+            <g fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M98 174v77q0 19 19 19h78" stroke="#2b855e" marker-end="url(#nomenclature-arrow-solar)"/>
+              <path d="M333 174v64q0 19-19 19h-69" stroke="#536675" marker-end="url(#nomenclature-arrow-grid)"/>
+              <path d="M245 285h127q14 0 14-14v-97" stroke="#536675" stroke-dasharray="5 6" marker-end="url(#nomenclature-arrow-grid)"/>
+              <path d="M195 289h-78q-19 0-19 19v90" stroke="#3668b4" marker-end="url(#nomenclature-arrow-house)"/>
+              <path d="M245 304h69q19 0 19 19v75" stroke="#996523" marker-end="url(#nomenclature-arrow-charge)"/>
+              <path d="M386 398v-63q0-13-13-13H246" stroke="#7a56ad" marker-end="url(#nomenclature-arrow-discharge)"/>
+            </g>
+            <g class="nomenclature-diagram-label" text-anchor="middle">
+              <text x="151" y="213" fill="#246e4f"><%= __('Nomenclature arrow solar') %></text>
+              <text x="278" y="211" fill="#405463"><%= __('Nomenclature arrow import') %></text>
+              <text x="338" y="282" fill="#405463" class="nomenclature-arrow-label-background"><%= __('Nomenclature arrow export') %></text>
+              <text x="157" y="345" fill="#285390"><%= __('Nomenclature arrow household') %></text>
+              <text x="286" y="355" fill="#875618"><%= __('Nomenclature arrow charge') %></text>
+              <text x="323" y="385" fill="#69449c" text-anchor="end"><%= __('Nomenclature arrow discharge') %></text>
+            </g>
+            <circle cx="220" cy="285" r="26" fill="#fff" stroke="#d9dfdc" stroke-width="2"/>
+            <path d="m223 268-13 19h12l-3 14 12-20h-11l3-13Z" fill="#365245"/>
+            <g class="nomenclature-diagram-node nomenclature-solar">
+              <rect x="20" y="28" width="155" height="145" rx="22" fill="#eef7ef" stroke="#d1e7d6"/>
+              <svg x="73" y="44" width="50" height="50" viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-solar-icon"/></svg>
+              <text x="98" y="119"><%= __('Nomenclature solar short') %></text>
+              <text class="nomenclature-node-caption" x="98" y="144"><%= __('Nomenclature produces') %></text>
+            </g>
+            <g class="nomenclature-diagram-node nomenclature-grid">
+              <rect x="265" y="28" width="155" height="145" rx="22" fill="#f0f3f4" stroke="#dce3e6"/>
+              <svg x="317" y="44" width="50" height="50" viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-grid-icon"/></svg>
+              <text x="343" y="119"><%= __('Nomenclature grid short') %></text>
+              <text class="nomenclature-node-caption" x="343" y="144"><%= __('Nomenclature exchanges') %></text>
+            </g>
+            <g class="nomenclature-diagram-node nomenclature-house">
+              <rect x="20" y="400" width="155" height="145" rx="22" fill="#edf3fb" stroke="#d2dff0"/>
+              <svg x="73" y="416" width="50" height="50" viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-home-icon"/></svg>
+              <text x="98" y="490"><%= __('Nomenclature house short') %></text>
+              <text class="nomenclature-node-caption" x="98" y="516"><%= __('Nomenclature uses') %></text>
+            </g>
+            <g class="nomenclature-diagram-node nomenclature-battery">
+              <rect x="265" y="400" width="155" height="145" rx="22" fill="#f5effb" stroke="#e3d8f0"/>
+              <svg x="317" y="416" width="50" height="50" viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-battery-icon"/></svg>
+              <text x="343" y="490"><%= __('Nomenclature battery short') %></text>
+              <text class="nomenclature-node-caption" x="343" y="516"><%= __('Nomenclature stores') %></text>
+            </g>
+          </svg>
+          <p class="nomenclature-diagram-note"><%= __('Nomenclature diagram note') %></p>
+        </figure>
+      </section>
+
+      <section class="nomenclature-section" id="flows" aria-labelledby="nomenclature-flows-title">
+        <div class="nomenclature-section-heading"><span class="nomenclature-section-number" aria-hidden="true">01</span><div><h2 id="nomenclature-flows-title"><%= __('Nomenclature flows title') %></h2><p><%= __('Nomenclature flows subtitle') %></p></div></div>
+        <div class="nomenclature-term-grid">
+          <% for (const term of [
+            { name: 'grid', title: 'Nomenclature grid term', description: 'Nomenclature grid description', label: 'Network power' },
+            { name: 'solar', title: 'Nomenclature solar term', description: 'Nomenclature solar description', label: 'Solar panel production' },
+            { name: 'battery', title: 'Nomenclature battery term', description: 'Nomenclature battery description', label: null },
+            { name: 'house', title: 'Nomenclature house term', description: 'Nomenclature house description', label: 'Total Power' }
+          ]) { %>
+            <article class="nomenclature-term-card nomenclature-<%= term.name %>">
+              <svg class="nomenclature-term-icon" viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-<%= term.name === 'house' ? 'home' : term.name %>-icon"/></svg>
+              <h3><%= __(term.title) %></h3>
+              <p><%= __(term.description) %></p>
+              <p class="nomenclature-field-label"><%= __('Nomenclature graph label') %>: <strong><%= __(term.label || 'Battery discharging power') %><% if (!term.label) { %> / <%= __('Battery charging power') %><% } %></strong></p>
+            </article>
+          <% } %>
+        </div>
+        <div class="nomenclature-equation-card">
+          <p class="nomenclature-eyebrow"><%= __('Nomenclature rule eyebrow') %></p>
+          <h3><%= __('Nomenclature rule title') %></h3>
+          <p><%= __('Nomenclature rule context') %></p>
+          <div class="nomenclature-formula" aria-label="<%= __('Nomenclature formula spoken') %>">
+            <span class="nomenclature-formula-term nomenclature-house"><%= __('Nomenclature house short') %><small><%= __('Nomenclature household use') %></small></span>
+            <span class="nomenclature-formula-chunk"><span class="nomenclature-operator">=</span><span class="nomenclature-formula-term nomenclature-grid"><%= __('Nomenclature grid short') %><small><%= __('Nomenclature grid sign') %></small></span></span>
+            <span class="nomenclature-formula-chunk"><span class="nomenclature-operator">+</span><span class="nomenclature-formula-term nomenclature-solar"><%= __('Nomenclature solar short') %><small><%= __('Nomenclature production') %></small></span></span>
+            <span class="nomenclature-formula-chunk"><span class="nomenclature-operator">+</span><span class="nomenclature-formula-term nomenclature-battery"><%= __('Nomenclature discharge') %><small><%= __('Nomenclature from battery') %></small></span></span>
+            <span class="nomenclature-formula-chunk"><span class="nomenclature-operator">−</span><span class="nomenclature-formula-term nomenclature-charge"><%= __('Nomenclature charge') %><small><%= __('Nomenclature into battery') %></small></span></span>
+          </div>
+          <p class="nomenclature-equation-explanation"><%= __('Nomenclature formula explanation') %></p>
+        </div>
+        <div class="nomenclature-example-grid">
+          <article class="nomenclature-example-card">
+            <span class="nomenclature-example-tag nomenclature-battery"><%= __('Nomenclature example discharge tag') %></span>
+            <h3><%= __('Nomenclature example discharge title') %></h3>
+            <p><%= __('Nomenclature example discharge description') %></p>
+            <p class="nomenclature-example-equation" aria-label="<%= __('Nomenclature example discharge spoken') %>">500 + <%= number.format(1000) %> + 300 − 0 <span>= <strong><%= number.format(1800) %> W</strong></span></p>
+          </article>
+          <article class="nomenclature-example-card">
+            <span class="nomenclature-example-tag nomenclature-solar"><%= __('Nomenclature example export tag') %></span>
+            <h3><%= __('Nomenclature example export title') %></h3>
+            <p><%= __('Nomenclature example export description') %></p>
+            <p class="nomenclature-example-equation" aria-label="<%= __('Nomenclature example export spoken') %>">−200 + <%= number.format(1000) %> + 0 − 300 <span>= <strong>500 W</strong></span></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="nomenclature-section" id="units" aria-labelledby="nomenclature-units-title">
+        <div class="nomenclature-section-heading"><span class="nomenclature-section-number" aria-hidden="true">02</span><div><h2 id="nomenclature-units-title"><%= __('Nomenclature units title') %></h2><p><%= __('Nomenclature units subtitle') %></p></div></div>
+        <div class="nomenclature-unit-grid">
+          <article class="nomenclature-unit-card">
+            <div class="nomenclature-unit-header"><span>W</span><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-bolt-icon"/></svg></div>
+            <h3><%= __('Nomenclature watts title') %></h3>
+            <p><%= __('Nomenclature watts description') %></p>
+          </article>
+          <article class="nomenclature-unit-card">
+            <div class="nomenclature-unit-header"><span>kWh</span><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-clock-icon"/></svg></div>
+            <h3><%= __('Nomenclature kwh title') %></h3>
+            <p><%= __('Nomenclature kwh description') %></p>
+          </article>
+        </div>
+        <div class="nomenclature-unit-equation">
+          <p><strong><%= __('Nomenclature unit example') %></strong></p>
+          <div class="nomenclature-math" aria-hidden="true">\[<%= __('Nomenclature energy equation') %>\]</div>
+          <p class="nomenclature-unit-explanation"><%= __('Nomenclature energy equation spoken') %></p>
+        </div>
+      </section>
+
+      <section class="nomenclature-section" id="dashboard-terms" aria-labelledby="nomenclature-dashboard-title">
+        <div class="nomenclature-section-heading"><span class="nomenclature-section-number" aria-hidden="true">03</span><div><h2 id="nomenclature-dashboard-title"><%= __('Nomenclature dashboard title') %></h2><p><%= __('Nomenclature dashboard subtitle') %></p></div></div>
+        <div class="nomenclature-glossary-card">
+          <table class="nomenclature-glossary">
+            <caption class="nomenclature-visually-hidden"><%= __('Nomenclature dashboard title') %></caption>
+            <thead><tr><th scope="col"><%= __('Nomenclature column term') %></th><th scope="col"><%= __('Nomenclature column meaning') %></th></tr></thead>
+            <tbody>
+              <% for (const [label, explanation] of [
+                ['Consumption on network', 'Nomenclature energy import'],
+                ['Solar panel production energy', 'Nomenclature energy solar'],
+                ['Battery discharging energy', 'Nomenclature energy discharge'],
+                ['Battery charging energy', 'Nomenclature energy charge'],
+                ['Total energy used', 'Nomenclature energy total'],
+                ['Energy Introduced', 'Nomenclature energy export'],
+                ['Energy Saved', 'Nomenclature energy saved']
+              ]) { %>
+                <tr><th scope="row"><%= __(label) %></th><td><%= __(explanation) %></td></tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+        <div class="nomenclature-notes-grid">
+          <% for (const [title, description] of [
+            ['Nomenclature soc title', 'Nomenclature soc description'],
+            ['Nomenclature unavailable title', 'Nomenclature unavailable description'],
+            ['Nomenclature history title', 'Nomenclature history description']
+          ]) { %>
+            <article class="nomenclature-detail-note"><h3><%= __(title) %></h3><p><%= __(description) %></p></article>
+          <% } %>
+        </div>
+      </section>
+
+      <footer class="nomenclature-footer">
+        <div><p class="nomenclature-eyebrow"><%= __('Nomenclature next eyebrow') %></p><h2><%= __('Nomenclature next title') %></h2></div>
+        <nav aria-label="<%= __('Nomenclature next navigation') %>">
+          <a class="nomenclature-primary-link" href="/graph/power/2h/"><%= __('Nomenclature view power') %><span aria-hidden="true">↗</span></a>
+          <a class="nomenclature-secondary-link" href="/energy/3d"><%= __('Energy summary') %><span aria-hidden="true">→</span></a>
+        </nav>
+      </footer>
+    </main>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+  </body>
+</html>
