@@ -71,6 +71,7 @@
             <a href="#flows"><span aria-hidden="true">01</span> <%= __('Nomenclature flows link') %></a>
             <a href="#units"><span aria-hidden="true">02</span> <%= __('Nomenclature units link') %></a>
             <a href="#dashboard-terms"><span aria-hidden="true">03</span> <%= __('Nomenclature dashboard link') %></a>
+            <a href="#activation-logic"><span aria-hidden="true">04</span> <%= __('Nomenclature logic link') %></a>
           </nav>
           <div class="nomenclature-storage-note">
             <svg class="nomenclature-note-icon" viewBox="0 0 64 64" aria-hidden="true"><use href="#nomenclature-battery-icon"/></svg>
@@ -235,6 +236,221 @@
         </div>
       </section>
 
+      <%
+        // Activation logic: colours shared by the Mermaid decision diagrams.
+        const mermaidClasses = [
+          'classDef question fill:#ffffff,stroke:#9db5a5,color:#24392f',
+          'classDef step fill:#f0f5fa,stroke:#b9cbe0,color:#24392f',
+          'classDef battery fill:#f5effb,stroke:#cdb8e6,color:#4f2f78',
+          'classDef on fill:#e5f3e9,stroke:#3f936b,color:#1f5c40',
+          'classDef off fill:#fbeceb,stroke:#c46a64,color:#7d2e29'
+        ].join('\n          ');
+        const watts = value => number.format(value) + ' W';
+        const percent = new Intl.NumberFormat(locale, {style: 'percent'});
+      %>
+      <section class="nomenclature-section" id="activation-logic" aria-labelledby="nomenclature-logic-title">
+        <div class="nomenclature-section-heading"><span class="nomenclature-section-number" aria-hidden="true">04</span><div><h2 id="nomenclature-logic-title"><%= __('Nomenclature logic title') %></h2><p><%= __('Nomenclature logic subtitle') %></p></div></div>
+
+        <div class="nomenclature-logic-overview">
+          <div class="nomenclature-logic-overview-text">
+            <p class="nomenclature-eyebrow"><%= __('Nomenclature logic overview eyebrow') %></p>
+            <h3><%= __('Nomenclature logic overview heading') %></h3>
+            <p><%= __('Nomenclature logic overview text') %></p>
+            <ol class="nomenclature-logic-steps">
+              <% for (const [href, title, description] of [
+                ['#battery-logic', 'Nomenclature logic battery title', 'Nomenclature logic step battery'],
+                ['#device-logic', 'Nomenclature logic step device a title', 'Nomenclature logic step device a'],
+                ['#device-logic', 'Nomenclature logic step device b title', 'Nomenclature logic step device b'],
+                ['#device-logic', 'Nomenclature logic chart more', 'Nomenclature logic step more']
+              ]) { %>
+                <li><span><a href="<%= href %>"><strong><%= __(title) %></strong></a> <%= __(description) %></span></li>
+              <% } %>
+            </ol>
+          </div>
+          <figure class="nomenclature-diagram-card">
+            <figcaption><span class="nomenclature-eyebrow"><%= __('Nomenclature logic diagram eyebrow') %></span><strong><%= __('Nomenclature logic overview caption') %></strong></figcaption>
+            <pre class="mermaid nomenclature-mermaid">
+          flowchart TD
+          meter(["<%= __('Nomenclature logic chart meter') %>"]) --> battery{"<%= __('Nomenclature logic chart battery question') %>"}
+          battery -->|"<%= __('Nomenclature logic no') %>"| blocked["<%= __('Nomenclature logic chart all off') %>"]
+          battery -->|"<%= __('Nomenclature logic yes') %>"| deviceA["<%= __('Nomenclature logic chart device a') %>"]
+          deviceA -->|"<%= __('Nomenclature logic chart surplus left') %>"| deviceB["<%= __('Nomenclature logic chart device b') %>"]
+          deviceB -->|"<%= __('Nomenclature logic chart surplus left') %>"| more["<%= __('Nomenclature logic chart more') %>"]
+          <%- mermaidClasses %>
+          class meter step
+          class battery battery
+          class deviceA,deviceB,more question
+          class blocked off
+            </pre>
+          </figure>
+        </div>
+
+        <div class="nomenclature-subsection" id="battery-logic">
+          <div class="nomenclature-subsection-heading"><span class="nomenclature-subsection-number" aria-hidden="true">4.1</span><h3><%= __('Nomenclature logic battery title') %></h3></div>
+          <p class="nomenclature-subsection-intro"><%= __('Nomenclature logic battery intro') %></p>
+          <div class="nomenclature-logic-split">
+            <figure class="nomenclature-diagram-card">
+              <figcaption><span class="nomenclature-eyebrow"><%= __('Nomenclature logic diagram eyebrow') %></span><strong><%= __('Nomenclature logic battery diagram caption') %></strong></figcaption>
+              <pre class="mermaid nomenclature-mermaid">
+          flowchart TD
+          reading(["<%= __('Nomenclature logic chart new reading') %>"]) --> available{"<%= __('Nomenclature logic chart data available') %>"}
+          available -->|"<%= __('Nomenclature logic no') %>"| blocked1["<%= __('Nomenclature logic chart devices off') %>"]
+          available -->|"<%= __('Nomenclature logic yes') %>"| discharging{"<%= __('Nomenclature logic chart discharging') %>"}
+          discharging -->|"<%= __('Nomenclature logic yes') %>"| blocked2["<%= __('Nomenclature logic chart devices off') %>"]
+          discharging -->|"<%= __('Nomenclature logic no') %>"| charging{"<%= __('Nomenclature logic chart charging') %>"}
+          charging -->|"<%= __('Nomenclature logic yes') %>"| atMax{"<%= __('Nomenclature logic chart at max') %>"}
+          atMax -->|"<%= __('Nomenclature logic yes') %>"| allowed1["<%= __('Nomenclature logic chart devices allowed') %>"]
+          atMax -->|"<%= __('Nomenclature logic no') %>"| blocked3["<%= __('Nomenclature logic chart devices off') %>"]
+          charging -->|"<%= __('Nomenclature logic no') %>"| full{"<%= __('Nomenclature logic chart full') %>"}
+          full -->|"<%= __('Nomenclature logic yes') %>"| allowed2["<%= __('Nomenclature logic chart devices allowed') %>"]
+          full -->|"<%= __('Nomenclature logic no') %>"| blocked4["<%= __('Nomenclature logic chart devices off') %>"]
+          <%- mermaidClasses %>
+          class reading step
+          class available,discharging,charging,atMax,full question
+          class allowed1,allowed2 on
+          class blocked1,blocked2,blocked3,blocked4 off
+              </pre>
+            </figure>
+            <ol class="nomenclature-logic-rules">
+              <% for (const [rule, why, allowed] of [
+                ['Nomenclature logic rule discharging', 'Nomenclature logic rule discharging why', false],
+                ['Nomenclature logic rule charging max', 'Nomenclature logic rule charging max why', true],
+                ['Nomenclature logic rule charging below', 'Nomenclature logic rule charging below why', false],
+                ['Nomenclature logic rule full', 'Nomenclature logic rule full why', true],
+                ['Nomenclature logic rule other', 'Nomenclature logic rule other why', false],
+                ['Nomenclature logic rule missing', 'Nomenclature logic rule missing why', false]
+              ]) { %>
+                <li>
+                  <p class="nomenclature-logic-rule-head"><span><%= __(rule) %></span><span class="nomenclature-outcome <%= allowed ? 'is-on' : 'is-off' %>"><%= __(allowed ? 'Nomenclature logic outcome on' : 'Nomenclature logic outcome off') %></span></p>
+                  <p><%= __(why) %></p>
+                </li>
+              <% } %>
+            </ol>
+          </div>
+
+          <div class="nomenclature-equation-card">
+            <p class="nomenclature-eyebrow"><%= __('Nomenclature logic check eyebrow') %></p>
+            <h4><%= __('Nomenclature logic check title') %></h4>
+            <div class="nomenclature-math-pair">
+              <% for (const [label, equation, explanation] of [
+                ['Nomenclature logic max label', 'Nomenclature logic max equation', 'Nomenclature logic max explanation'],
+                ['Nomenclature logic full label', 'Nomenclature logic full equation', 'Nomenclature logic full explanation']
+              ]) { %>
+                <div class="nomenclature-math-box">
+                  <p class="nomenclature-math-label"><%= __(label) %></p>
+                  <div class="nomenclature-math" aria-hidden="true">\[<%= __(equation) %>\]</div>
+                  <p><%= __(explanation) %></p>
+                </div>
+              <% } %>
+            </div>
+            <div class="nomenclature-logic-callout"><strong><%= __('Nomenclature logic why title') %></strong><p><%= __('Nomenclature logic why') %></p></div>
+            <p class="nomenclature-logic-note"><%= __('Nomenclature logic settings note') %></p>
+          </div>
+
+          <p class="nomenclature-logic-examples-intro"><%= __('Nomenclature logic examples intro') %></p>
+          <div class="nomenclature-example-grid">
+            <% for (const example of [
+              {name: 'morning', allowed: false, terms: [350, 0], total: 350, sign: '<'},
+              {name: 'midday', allowed: true, terms: [800, 0], total: 800, sign: '≥'},
+              {name: 'running', allowed: true, terms: [300, 500], total: 800, sign: '≥'},
+              {name: 'cloud', allowed: false}
+            ]) { %>
+              <article class="nomenclature-example-card">
+                <span class="nomenclature-example-tag <%= example.allowed ? 'is-on' : 'is-off' %>"><%= __(example.allowed ? 'Nomenclature logic outcome on' : 'Nomenclature logic outcome off') %></span>
+                <h4><%= __('Nomenclature logic example ' + example.name + ' title') %></h4>
+                <p><%= __('Nomenclature logic example ' + example.name + ' description') %></p>
+                <% if (example.terms) { %>
+                  <p class="nomenclature-example-equation"><%= example.terms.map(value => number.format(value)).join(' + ') %> <span>= <strong><%= watts(example.total) %></strong> <%= example.sign %> <%= watts(750) %></span></p>
+                <% } else { %>
+                  <p class="nomenclature-example-equation"><%= __('Nomenclature logic example cloud equation') %> <span>→ <strong><%= __('Nomenclature logic outcome off') %></strong></span></p>
+                <% } %>
+              </article>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="nomenclature-subsection" id="device-logic">
+          <div class="nomenclature-subsection-heading"><span class="nomenclature-subsection-number" aria-hidden="true">4.2</span><h3><%= __('Nomenclature logic device title') %></h3></div>
+          <p class="nomenclature-subsection-intro"><%= __('Nomenclature logic device intro') %></p>
+
+          <div class="nomenclature-equation-card">
+            <p class="nomenclature-eyebrow"><%= __('Nomenclature logic surplus eyebrow') %></p>
+            <h4><%= __('Nomenclature logic surplus title') %></h4>
+            <div class="nomenclature-math" aria-hidden="true">\[<%= __('Nomenclature logic surplus equation') %>\]</div>
+            <p><%= __('Nomenclature logic surplus explanation') %></p>
+            <p class="nomenclature-example-equation"><span><%= __('Nomenclature logic surplus example') %></span><span><%= number.format(1000) %> − (−600) = <strong><%= watts(1600) %></strong></span></p>
+          </div>
+
+          <div class="nomenclature-logic-split">
+            <figure class="nomenclature-diagram-card">
+              <figcaption><span class="nomenclature-eyebrow"><%= __('Nomenclature logic device diagram eyebrow') %></span><strong><%= __('Nomenclature logic device diagram caption') %></strong></figcaption>
+              <pre class="mermaid nomenclature-mermaid">
+          flowchart TD
+          turn(["<%= __('Nomenclature logic chart device turn') %>"]) --> battery{"<%= __('Nomenclature logic chart battery yes') %>"}
+          battery -->|"<%= __('Nomenclature logic no') %>"| blocked1["<%= __('Nomenclature logic chart off') %>"]
+          battery -->|"<%= __('Nomenclature logic yes') %>"| contact{"<%= __('Nomenclature logic chart contact') %>"}
+          contact -->|"<%= __('Nomenclature logic no') %>"| blocked2["<%= __('Nomenclature logic chart off') %>"]
+          contact -->|"<%= __('Nomenclature logic yes') %>"| limit{"<%= __('Nomenclature logic chart limit') %>"}
+          limit -->|"<%= __('Nomenclature logic yes') %>"| blocked3["<%= __('Nomenclature logic chart off') %>"]
+          limit -->|"<%= __('Nomenclature logic no') %>"| forced{"<%= __('Nomenclature logic chart forced') %>"}
+          forced -->|"<%= __('Nomenclature logic yes') %>"| chosen["<%= __('Nomenclature logic chart forced level') %>"]
+          forced -->|"<%= __('Nomenclature logic no') %>"| kind{"<%= __('Nomenclature logic chart kind') %>"}
+          kind -->|"<%= __('Nomenclature logic chart on off') %>"| enough{"<%= __('Nomenclature logic chart enough') %>"}
+          enough -->|"<%= __('Nomenclature logic yes') %>"| allowed["<%= __('Nomenclature logic chart on') %>"]
+          enough -->|"<%= __('Nomenclature logic no') %>"| blocked4["<%= __('Nomenclature logic chart off') %>"]
+          kind -->|"<%= __('Nomenclature logic chart adjustable') %>"| level["<%= __('Nomenclature logic chart level') %>"]
+          allowed --> next(["<%= __('Nomenclature logic chart next') %>"])
+          level --> next
+          <%- mermaidClasses %>
+          class turn,next step
+          class battery battery
+          class contact,limit,forced,kind,enough question
+          class allowed,level,chosen on
+          class blocked1,blocked2,blocked3,blocked4 off
+              </pre>
+            </figure>
+            <div class="nomenclature-logic-types">
+              <% for (const name of ['on off', 'adjustable']) { %>
+                <article class="nomenclature-logic-type-card">
+                  <p class="nomenclature-eyebrow"><%= __('Nomenclature logic ' + name + ' eyebrow') %></p>
+                  <h4><%= __('Nomenclature logic ' + name + ' title') %></h4>
+                  <p><%= __('Nomenclature logic ' + name + ' description') %></p>
+                  <div class="nomenclature-math" aria-hidden="true">\[<%= __('Nomenclature logic ' + name + ' equation') %>\]</div>
+                  <p class="nomenclature-logic-legend"><%= __('Nomenclature logic ' + name + ' legend') %></p>
+                </article>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="nomenclature-logic-priority">
+            <p class="nomenclature-eyebrow"><%= __('Nomenclature logic priority eyebrow') %></p>
+            <h4><%= __('Nomenclature logic priority title') %></h4>
+            <p><%= __('Nomenclature logic priority description') %></p>
+          </div>
+          <div class="nomenclature-example-grid">
+            <article class="nomenclature-example-card">
+              <span class="nomenclature-example-tag is-on"><%= __('Nomenclature logic priority a tag') %></span>
+              <h4><%= __('Nomenclature logic priority a title') %></h4>
+              <p><%= __('Nomenclature logic priority a description') %></p>
+              <p class="nomenclature-example-equation"><%= watts(2500) %> &gt; <%= watts(2000) %> <span>→ <strong><%= __('Nomenclature logic chart on') %></strong>, <%= watts(2500) %> − <%= watts(2000) %> = <%= watts(500) %></span></p>
+            </article>
+            <article class="nomenclature-example-card">
+              <span class="nomenclature-example-tag is-on"><%= __('Nomenclature logic priority b tag') %></span>
+              <h4><%= __('Nomenclature logic priority b title') %></h4>
+              <p><%= __('Nomenclature logic priority b description') %></p>
+              <p class="nomenclature-example-equation">(500 − 20) ÷ <%= number.format(1000) %> <span>= <strong><%= percent.format(0.48) %> → <%= watts(480) %></strong></span></p>
+            </article>
+          </div>
+
+          <h4 class="nomenclature-logic-limits-title"><%= __('Nomenclature logic limits title') %></h4>
+          <div class="nomenclature-notes-grid is-two-columns">
+            <% for (const name of ['target', 'energy', 'forced', 'contact']) { %>
+              <article class="nomenclature-detail-note"><h5><%= __('Nomenclature logic limit ' + name + ' title') %></h5><p><%= __('Nomenclature logic limit ' + name + ' description') %></p></article>
+            <% } %>
+          </div>
+        </div>
+      </section>
+
       <footer class="nomenclature-footer">
         <div><p class="nomenclature-eyebrow"><%= __('Nomenclature next eyebrow') %></p><h2><%= __('Nomenclature next title') %></h2></div>
         <nav aria-label="<%= __('Nomenclature next navigation') %>">
@@ -244,5 +460,23 @@
       </footer>
     </main>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script id="Mermaid-script" src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+    <script>
+      (function () {
+        if (!window.mermaid) {
+          // Without the diagram library, the written rules next to each diagram remain.
+          document.documentElement.classList.add('nomenclature-no-mermaid');
+          return;
+        }
+        window.mermaid.initialize({
+          startOnLoad: true,
+          theme: 'base',
+          securityLevel: 'strict',
+          fontFamily: getComputedStyle(document.body).fontFamily,
+          flowchart: {curve: 'basis', useMaxWidth: true},
+          themeVariables: {fontSize: '14px', lineColor: '#8a9c8f', primaryTextColor: '#24392f', edgeLabelBackground: '#ffffff'}
+        });
+      })();
+    </script>
   </body>
 </html>

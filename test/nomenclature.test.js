@@ -55,6 +55,14 @@ test('the public nomenclature page follows i18n and switches languages without n
         assert.match(response.body, /href="\/nomenclature\/\?lang=fr"/);
         assert.match(response.body, /href="\/nomenclature\/\?lang=en"/);
         assert.match(response.body, /<script[^>]*id="MathJax-script"[^>]*async[^>]*src="https:\/\/cdn\.jsdelivr\.net\/npm\/mathjax@4\/tex-mml-chtml\.js"/);
+        assert.match(response.body, /<script[^>]*id="Mermaid-script"[^>]*src="https:\/\/cdn\.jsdelivr\.net\/npm\/mermaid@11\.4\.1\/dist\/mermaid\.min\.js"/);
+        assert.match(response.body, /href="#activation-logic"/);
+        for (const id of ['activation-logic', 'battery-logic', 'device-logic']) {
+            assert.match(response.body, new RegExp(`id="${id}"`));
+        }
+        assert.ok(response.body.includes(ejs.escapeXML(labels['Nomenclature logic title'])));
+        assert.equal(response.body.match(/<pre class="mermaid nomenclature-mermaid">/g).length, 3);
+        assert.match(response.body, /flowchart TD/);
         assert.doesNotMatch(response.body, /\b(?:packInputPower|outputPackPower|house_consumption|_value)\b/);
         for (const inline of response.body.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
             new vm.Script(inline[1]);

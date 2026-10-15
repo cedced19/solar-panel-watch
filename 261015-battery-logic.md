@@ -85,6 +85,15 @@ application at startup and report a configuration error.
   The old above/below-SOC messages have been removed.
 - **README**: the configuration table and the device-charging section describe
   the new rule.
+- **Nomenclature page** (`/nomenclature/`): new section "04 Activation logic"
+  ("Logique d'activation" in French). It has an overview diagram (battery logic,
+  then device A, device B, and so on) and two subsections. The battery logic
+  subsection has a decision diagram, the rules, the LaTeX checks and four
+  examples. The device logic subsection explains the surplus, has a decision
+  diagram for one device, the on/off and adjustable rules, an example of two
+  devices sharing the surplus, and the limits that keep a device off.
+  Diagrams use Mermaid 11.4.1 from jsdelivr, next to the existing MathJax. If
+  Mermaid cannot load, the diagram cards are hidden and the written rules remain.
 
 ## Tests
 
