@@ -522,9 +522,9 @@ body.graph-page .graph-card {
   font-size: 1.1rem;
 }
 
-/* ---- Configuration panel ------------------------------------------------ */
+/* ---- Login (configuration panel, force page) and configuration panel ---- */
 
-.config-page [hidden] {
+.login-page [hidden] {
   display: none !important;
 }
 
@@ -599,7 +599,7 @@ body.graph-page .graph-card {
   min-width: 0;
 }
 
-.config-page button {
+.login-page button {
   border-radius: 10px;
   font-family: inherit;
 }

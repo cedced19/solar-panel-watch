@@ -6,11 +6,25 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
+const {createAuth, readOptions} = require('../lib/auth');
+
 const mainPath = path.resolve(__dirname, '../main.js');
 const requireFromMain = createRequire(mainPath);
 const mainSource = fs.readFileSync(mainPath, 'utf8');
 
 const fullBattery = {socPercent: 100, state: 'standby', chargingPowerW: 0, dischargingPowerW: 0};
+const authConfig = {mails: ['tester@example.com'], jwt_secret: 'test-secret'};
+
+// Signs in through a code, as the force page does; the token is valid for the
+// app since both share auth.jwt_secret.
+async function loginToken() {
+    let code;
+    const auth = createAuth(readOptions({auth: authConfig}), {
+        mailer: (_options, _to, sent) => { code = sent; return Promise.resolve(); }
+    });
+    await auth.request(authConfig.mails[0]);
+    return auth.verify(authConfig.mails[0], code);
+}
 
 // Execute the real server and control loop with no hardware, database, disk writes,
 // or running background timers. The callbacks are invoked by each test.
@@ -23,7 +37,7 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
         {uri: 'advanced', ids: ['advanced-id'], priority: 2, power_limit: 1000,
             power_threshold_percentage: 0.02, time_limit: 2500, min_alpha: 40}
     ];
-    const config = {...requireFromMain('./config.json'), force_mode_pass: 'test-pass'};
+    const config = {...requireFromMain('./config.json'), auth: authConfig};
     if (omitBatterySettings) {
         delete config.zendure_battery_full_soc;
         delete config.zendure_battery_max_charging_power;
@@ -97,10 +111,10 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
     });
     t.after(() => new Promise((resolve) => server.close(resolve)));
 
-    function request(route, headers = {}) {
+    function request(route, {method = 'GET', headers = {}, body} = {}) {
         return new Promise((resolve, reject) => {
             const req = http.request({host: '127.0.0.1', port: server.address().port,
-                path: route, headers}, (res) => {
+                path: route, method, headers}, (res) => {
                 let body = '';
                 res.setEncoding('utf8');
                 res.on('data', (chunk) => { body += chunk; });
@@ -109,8 +123,16 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
                     json: res.headers['content-type']?.includes('application/json') ? JSON.parse(body) : null}));
             });
             req.on('error', reject);
-            req.end();
+            req.end(body);
         });
+    }
+    const token = await loginToken();
+    // Forces uri to percent (0 to 1), or stops forcing it when percent is null, signed in.
+    function force(uri, percent) {
+        const headers = {Authorization: 'Bearer ' + token};
+        if (percent === null) return request(`/api/device/${uri}/force`, {method: 'DELETE', headers});
+        return request(`/api/device/${uri}/force`, {method: 'PUT',
+            headers: {...headers, 'Content-Type': 'application/json'}, body: JSON.stringify({percent})});
     }
     function startBackgroundTasks() {
         main.startBackgroundTasks();
@@ -148,7 +170,7 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
             assert.equal(debug.requested_alpha, 128);
         }
     }
-    return {main, readings, batteryHistory, request, startBackgroundTasks, controlTick, batteryTick,
+    return {main, readings, batteryHistory, request, token, force, startBackgroundTasks, controlTick, batteryTick,
         initializeDevices, assertDevicesOff, assertRequestedPowerOff};
 }
 
@@ -220,7 +242,7 @@ test('forcing is decided before the battery: forced devices run whatever the bat
     assert.equal((await app.request('/api/data')).json.device_charging.enabled, true);
     await app.assertDevicesOff();
     for (const uri of ['normal', 'advanced']) {
-        const forced = await app.request(`/api/device/${uri}/force/test-pass/1`);
+        const forced = await app.force(uri, 1);
         assert.deepEqual(forced.json, {force_mode: true, percent: 1});
     }
     app.controlTick();
@@ -247,8 +269,7 @@ test('forcing is decided before the battery: forced devices run whatever the bat
     }
 
     // Once forcing stops, the battery decides again and turns the device off right away.
-    assert.deepEqual((await app.request('/api/device/advanced/force/test-pass/disable')).json,
-        {force_mode: false, percent: 0});
+    assert.deepEqual((await app.force('advanced', null)).json, {force_mode: false, percent: 0});
     assert.deepEqual((await app.request('/api/device/advanced/advanced/')).json, {alpha: 128, time_limit: 2500});
     app.controlTick();
     assert.deepEqual((await app.request('/api/device/advanced/advanced/')).json, {alpha: 128, time_limit: 2500});
@@ -259,7 +280,7 @@ test('forcing is decided before the battery: forced devices run whatever the bat
 test('forced devices still stop when the house meter is unavailable', async (t) => {
     const app = await createServer(t);
     await app.initializeDevices();
-    await app.request('/api/device/normal/force/test-pass/1');
+    await app.force('normal', 1);
     app.controlTick();
     assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
     app.readings.powerError = new Error('house meter offline');
@@ -268,6 +289,38 @@ test('forced devices still stop when the house meter is unavailable', async (t) 
     app.readings.powerError = null;
     await app.request('/api/data');
     assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
+});
+
+test('forcing needs a login and a percentage between 0 and 1', async (t) => {
+    const app = await createServer(t);
+    await app.initializeDevices();
+    const notAuthenticated = {ok: false, error: 'not-authenticated'};
+    const put = (headers, body) => app.request('/api/device/normal/force', {method: 'PUT',
+        headers: {'Content-Type': 'application/json', ...headers}, body: JSON.stringify(body)});
+
+    for (const headers of [{}, {Authorization: 'Bearer forged.token.value'}]) {
+        const forced = await put(headers, {percent: 1});
+        assert.deepEqual([forced.status, forced.json], [401, notAuthenticated]);
+        const release = await app.request('/api/device/normal/force', {method: 'DELETE', headers});
+        assert.deepEqual([release.status, release.json], [401, notAuthenticated]);
+        const states = await app.request('/api/data-force', {headers});
+        assert.deepEqual([states.status, states.json], [401, notAuthenticated]);
+    }
+    // The former password URL no longer forces anything.
+    assert.equal((await app.request('/api/device/normal/force/test-pass/1')).status, 404);
+
+    for (const percent of [-0.1, 1.5, '1', null]) {
+        const res = await put({Authorization: 'Bearer ' + app.token}, {percent});
+        assert.deepEqual([res.status, res.json], [400, {ok: false, error: 'invalid-percent'}]);
+    }
+    const unknown = await app.request('/api/device/missing/force', {method: 'DELETE',
+        headers: {Authorization: 'Bearer ' + app.token}});
+    assert.deepEqual([unknown.status, unknown.json], [404, {ok: false, error: 'unknown-device'}]);
+
+    assert.deepEqual((await app.force('normal', 0.5)).json, {force_mode: true, percent: 0.5});
+    const states = await app.request('/api/data-force', {headers: {Authorization: 'Bearer ' + app.token}});
+    assert.equal(states.status, 200);
+    assert.deepEqual(states.json.device_states.normal, {last_power: 0, force_mode_percent: 0.5, force_mode: true});
 });
 
 test('unavailable battery stops previously enabled devices and reports the same decision in both APIs', async (t) => {

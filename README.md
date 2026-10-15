@@ -50,7 +50,6 @@ It can also be edited online, see [Configuration panel](#configuration-panel).
     },
     "energy_req_threshold": 1200000,
     "target_req_threshold": 240000,
-    "force_mode_pass": "7HaIJtG44d",
     "auth": {
         "mails": ["cedced19@gmail.com"],
         "sender": {"user": "", "pass": ""},
@@ -65,8 +64,10 @@ It can also be edited online, see [Configuration panel](#configuration-panel).
 ## Configuration panel
 
 `/config/` (linked from the dashboard) edits `config.json` in the browser, as a
-form or as raw JSON. It is the only page that needs a login; every other page
-and API stays open. The login works like domotic-center:
+form or as raw JSON. It and the force page (`/force/`) are the only pages that
+need a login; every other page and API stays open. Both pages share the same
+login and token, so signing in on one signs in on the other. The login works
+like domotic-center:
 
 1. Enter an address listed in `auth.mails`. A 6-digit code, valid
    `otp_ttl_minutes`, is emailed through the `auth.sender` Gmail account.
@@ -84,6 +85,20 @@ sessions. Other settings are read at startup, so the panel then offers a
 restart: the process exits and docker/systemd (`restart: always`) starts it
 again. Under nodemon (`docker-compose-reload.yml`) the app stays stopped until
 the next file change.
+
+## Forcing devices
+
+`/force/` (linked from the dashboard) forces a connected device to a level, or
+gives it back to the automatic logic, once signed in. Its API takes the same
+`Authorization: Bearer <token>` header and answers HTTP 401 without it:
+
+- `GET /api/data-force`: forcing state and power of each connected device.
+- `PUT /api/device/:name/force` with `{"percent": 0.5}`: forces the device to
+  that share of its power, between 0 and 1 (0 keeps it off). Any other value
+  returns HTTP 400.
+- `DELETE /api/device/:name/force`: stops forcing the device.
+
+A device that has not called the app since it started returns HTTP 404.
 
 ## devices-to-activate.json
 ```json

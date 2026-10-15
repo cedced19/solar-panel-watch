@@ -18,7 +18,7 @@ const computeEnergy = require('./lib/compute-energy.js');
 const computeConsumptionPower = require('./lib/compute-consumption-power.js');
 const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate-params.js');
 const batteryLogic = require('./lib/battery-logic.js');
-const auth = require('./lib/auth.js');
+const { createAuth, readOptions } = require('./lib/auth.js');
 const { createConfigPanel } = require('./lib/config-panel.js');
 
 
@@ -27,6 +27,9 @@ const JSONStore = require('json-store-list');
 const config = require('./config.json');
 
 const batterySettings = batteryLogic.readSettings(config);
+
+// Login (emails in config.auth.mails) guarding the configuration panel and the force page.
+const auth = createAuth(readOptions(config));
 
 const db_energy = JSONStore('./energy-query-save.json');
 
@@ -325,11 +328,13 @@ app.get('/', function(req, res) {
     });
 });
 
+// The page is public like /config/; device states and forcing go through APIs that need a login.
 app.get('/force/', function(req, res) {
     res.render('force', {
         list_devices: Object.keys(devices_to_activate_state),
-        device_states: devices_to_activate_state,
-        pretty_name: pretty_name
+        pretty_name: pretty_name,
+        otp_ttl_minutes: auth.otpTtlMinutes(),
+        sender_configured: auth.senderConfigured()
     });
 });
 
@@ -451,7 +456,7 @@ app.get('/api/data/battery/:period', validatePeriod, (req, res, next) => {
     res.status(error.status || 500).json({error: error.message});
 });
 
-app.get('/api/data-force', function(req, res) {
+app.get('/api/data-force', auth.requireLogin, function(req, res) {
     res.json({
         device_states: keep_properties(devices_to_activate_state, ['last_power', 'force_mode_percent', 'force_mode'])
     });
@@ -717,65 +722,37 @@ app.get('/api/device/:name/', (req, res, next) => {
     }
 });
 
-app.get('/api/device/:name/force/:pass/disable', (req, res, next) => {
-    let element = devices_to_activate.filter(value => {
-        return value.uri == req.params.name;
-    });
-    if (element.length > 0) {
-        let device = element[0];
-        if (config.force_mode_pass == req.params.pass) {
-            devices_to_activate_state[device.uri].force_mode = false;
-            devices_to_activate_state[device.uri].force_mode_percent = 0;
-            let obj = { force_mode: devices_to_activate_state[device.uri].force_mode, percent: devices_to_activate_state[device.uri].force_mode_percent };
-            save_force_mode(device.uri, obj);
-            res.json(obj);
-        } else {
-            let err = new Error('Forbidden.');
-            err.status = 403;
-            res.status(403);
-            next(err); 
-        }
-    } else {
-        let err = new Error('Device cannot be found.');
-        err.status = 404;
-        res.status(404);
-        next(err);
+// Forcing needs a login. Only devices that already called the app have a
+// state to force: they are the ones listed on /force/.
+function requireConnectedDevice(req, res, next) {
+    if (!devices_to_activate_state.hasOwnProperty(req.params.name)) {
+        return res.status(404).json({ ok: false, error: 'unknown-device' });
     }
+    next();
+}
+
+function set_force_mode(uri, force_mode, percent) {
+    devices_to_activate_state[uri].force_mode = force_mode;
+    devices_to_activate_state[uri].force_mode_percent = percent;
+    let obj = { force_mode: force_mode, percent: percent };
+    save_force_mode(uri, obj);
+    return obj;
+}
+
+// Body {"percent": 0 to 1}: the device runs at that share of its power, 0 keeps it off.
+app.put('/api/device/:name/force', auth.requireLogin, requireConnectedDevice, express.json(), (req, res) => {
+    const percent = req.body && req.body.percent;
+    if (typeof percent !== 'number' || !(percent >= 0 && percent <= 1)) {
+        return res.status(400).json({ ok: false, error: 'invalid-percent' });
+    }
+    console.log(`[force] ${req.params.name} forced to ${percent} by ${req.authEmail}`);
+    res.json(set_force_mode(req.params.name, true, percent));
 });
 
-app.get('/api/device/:name/force/:pass/:percent', (req, res, next) => {
-    let element = devices_to_activate.filter(value => {
-        return value.uri == req.params.name;
-    });
-    if (element.length > 0) {
-        let device = element[0];
-        if (config.force_mode_pass == req.params.pass) {
-            let tmp = Number(req.params.percent);
-            if (isNaN(tmp)) {
-                devices_to_activate_state[device.uri].force_mode = false;
-                devices_to_activate_state[device.uri].force_mode_percent = 0;
-            } else {
-                devices_to_activate_state[device.uri].force_mode = true;
-                if (tmp > 1) {
-                    tmp = 1;
-                }
-                devices_to_activate_state[device.uri].force_mode_percent = tmp;
-            }
-            let obj = { force_mode: devices_to_activate_state[device.uri].force_mode, percent: devices_to_activate_state[device.uri].force_mode_percent };
-            save_force_mode(device.uri, obj);
-            res.json(obj);
-        } else {
-            let err = new Error('Forbidden.');
-            err.status = 403;
-            res.status(403);
-            next(err); 
-        }
-    } else {
-        let err = new Error('Device cannot be found.');
-        err.status = 404;
-        res.status(404);
-        next(err);
-    }
+// Gives the device back to the automatic logic.
+app.delete('/api/device/:name/force', auth.requireLogin, requireConnectedDevice, (req, res) => {
+    console.log(`[force] ${req.params.name} released by ${req.authEmail}`);
+    res.json(set_force_mode(req.params.name, false, 0));
 });
 
 app.get('/api/device/id/:id/advanced/', (req, res, next) => {
@@ -1016,11 +993,11 @@ app.get('/api/data/activation-hist/', (req, res) => {
     });
 });
 
-// Configuration panel: the only page behind a login (emails in config.auth.mails).
+// Configuration panel and the login routes shared with the force page.
 app.use(createConfigPanel({
     configPath: path.join(__dirname, 'config.json'),
     runningConfig: config,
-    auth: auth.createAuth(auth.readOptions(config))
+    auth: auth
 }));
 
 app.use(function (req, res, next) {

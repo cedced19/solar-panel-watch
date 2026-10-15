@@ -1,14 +1,12 @@
 <%
-  // Texts used by /assets/config-panel.js, keyed by the name the script uses.
+  // Texts used by /assets/config-panel.js, keyed by the name the script uses
+  // (the login ones are in partials/login.ejs).
   const messageKeys = {
-    codeSent: 'Config code sent',
     show: 'Config show',
     hide: 'Config hide',
     add: 'Config add',
     remove: 'Config remove',
     loading: 'Config loading',
-    sendingCode: 'Config sending code',
-    checking: 'Config checking',
     saving: 'Config saving',
     saved: 'Config saved',
     unsaved: 'Config unsaved',
@@ -17,16 +15,9 @@
     restartTimeout: 'Config restart timeout',
     invalidJson: 'Config invalid json',
     invalidNumber: 'Config invalid number',
-    sessionExpired: 'Config session expired',
-    requestFailed: 'Config request failed',
-    'invalid-code': 'Config error invalid-code',
-    'code-expired': 'Config error code-expired',
-    'too-many-attempts': 'Config error too-many-attempts',
     'mails-required': 'Config error mails-required',
     'invalid-mail': 'Config error invalid-mail',
     'config-object': 'Config error config-object',
-    'sender-required': 'Config error sender-required',
-    'sender-failed': 'Config error sender-failed',
     'write-failed': 'Config error write-failed',
     'read-failed': 'Config error read-failed'
   };
@@ -45,8 +36,8 @@
   <link rel=manifest href=/assets/manifest.json>
   <title><%= __('Configuration')%> | Solar Panel Watch</title>
 </head>
-<body class="dashboard-page subpage config-page">
-  <main class="dashboard-shell" id="config-panel" data-otp-ttl="<%= otp_ttl_minutes %>" data-messages="<%= JSON.stringify(messages) %>">
+<body class="dashboard-page subpage login-page">
+  <main class="dashboard-shell" id="config-panel" data-messages="<%= JSON.stringify(messages) %>">
     <header class="dashboard-header">
       <div class="header-title">
         <h1><a href="/" style="color:inherit;text-decoration:none;">Solar Panel Watch</a></h1>
@@ -67,35 +58,7 @@
       </div>
     </header>
 
-    <div class="loader" id="config-loader"></div>
-
-    <section class="card login-card" id="login-view" hidden>
-      <h2 class="card-heading"><%= __('Config sign in')%></h2>
-      <form id="email-form" class="login-form">
-        <p class="config-note"><%= __('Config email note')%></p>
-        <label for="login-email"><%= __('Config email')%></label>
-        <input type="email" id="login-email" name="email" autocomplete="email" required>
-        <fieldset class="sender-setup" id="sender-setup"<% if (sender_configured) { %> hidden disabled<% } %>>
-          <legend><%= __('Config sender setup title')%></legend>
-          <p class="config-note"><%= __('Config sender setup note')%></p>
-          <label for="sender-user"><%= __('Config sender user')%></label>
-          <input type="email" id="sender-user" name="sender_user" autocomplete="off" required>
-          <label for="sender-pass"><%= __('Config sender pass')%></label>
-          <input type="password" id="sender-pass" name="sender_pass" autocomplete="new-password" required>
-        </fieldset>
-        <button type="submit"><%= __('Config send code')%></button>
-      </form>
-      <form id="code-form" class="login-form" hidden>
-        <p class="config-note" id="code-note"></p>
-        <label for="login-code"><%= __('Config code')%></label>
-        <input type="text" id="login-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
-        <div class="config-buttons">
-          <button type="submit"><%= __('Config verify')%></button>
-          <button type="button" class="config-btn" id="change-email"><%= __('Config change email')%></button>
-        </div>
-      </form>
-      <p class="config-status" id="login-status" role="status"></p>
-    </section>
+    <%- include('partials/login', {title: __('Config sign in')}) %>
 
     <section class="card config-card" id="editor-view" hidden>
       <div class="config-toolbar">
@@ -120,6 +83,7 @@
     </section>
   </main>
   <script src="/assets/nav.js"></script>
+  <script src="/assets/login.js"></script>
   <script src="/assets/config-panel.js"></script>
 </body>
 </html>

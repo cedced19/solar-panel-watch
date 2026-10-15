@@ -1,0 +1,47 @@
+<%
+  // Login card of the pages behind the email login (/config/, /force/), run by
+  // /assets/login.js. title: heading of the card.
+  // Texts used by login.js, keyed by the name the script uses.
+  const loginMessageKeys = {
+    codeSent: 'Config code sent',
+    sendingCode: 'Config sending code',
+    checking: 'Config checking',
+    sessionExpired: 'Config session expired',
+    requestFailed: 'Config request failed',
+    'invalid-code': 'Config error invalid-code',
+    'code-expired': 'Config error code-expired',
+    'too-many-attempts': 'Config error too-many-attempts',
+    'sender-required': 'Config error sender-required',
+    'sender-failed': 'Config error sender-failed'
+  };
+  const loginMessages = {};
+  Object.keys(loginMessageKeys).forEach(function (name) { loginMessages[name] = __(loginMessageKeys[name]); });
+%><div class="loader" id="login-loader"></div>
+
+    <section class="card login-card" id="login-view" data-otp-ttl="<%= otp_ttl_minutes %>" data-messages="<%= JSON.stringify(loginMessages) %>" hidden>
+      <h2 class="card-heading"><%= title %></h2>
+      <form id="email-form" class="login-form">
+        <p class="config-note"><%= __('Config email note')%></p>
+        <label for="login-email"><%= __('Config email')%></label>
+        <input type="email" id="login-email" name="email" autocomplete="email" required>
+        <fieldset class="sender-setup" id="sender-setup"<% if (sender_configured) { %> hidden disabled<% } %>>
+          <legend><%= __('Config sender setup title')%></legend>
+          <p class="config-note"><%= __('Config sender setup note')%></p>
+          <label for="sender-user"><%= __('Config sender user')%></label>
+          <input type="email" id="sender-user" name="sender_user" autocomplete="off" required>
+          <label for="sender-pass"><%= __('Config sender pass')%></label>
+          <input type="password" id="sender-pass" name="sender_pass" autocomplete="new-password" required>
+        </fieldset>
+        <button type="submit"><%= __('Config send code')%></button>
+      </form>
+      <form id="code-form" class="login-form" hidden>
+        <p class="config-note" id="code-note"></p>
+        <label for="login-code"><%= __('Config code')%></label>
+        <input type="text" id="login-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+        <div class="config-buttons">
+          <button type="submit"><%= __('Config verify')%></button>
+          <button type="button" class="config-btn" id="change-email"><%= __('Config change email')%></button>
+        </div>
+      </form>
+      <p class="config-status" id="login-status" role="status"></p>
+    </section>

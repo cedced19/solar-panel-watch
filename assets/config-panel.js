@@ -1,26 +1,11 @@
-// Configuration panel (/config/): email + one-time code login, then a form or
-// raw JSON editor for config.json. The JWT returned by /api/auth/verify is kept
-// in localStorage and sent as a Bearer token to /api/config.
+// Configuration panel (/config/): once signed in (see login.js), a form or raw
+// JSON editor for config.json, loaded from and saved to /api/config.
 (function () {
-    var TOKEN_KEY = 'solar-panel-watch.token';
     var SECRET_KEY = /pass|secret|token|tocken/i;
 
+    var login = window.solarLogin;
     var panel = document.getElementById('config-panel');
     var messages = JSON.parse(panel.dataset.messages);
-    var otpTtl = panel.dataset.otpTtl;
-    var loader = document.getElementById('config-loader');
-    var logoutBtn = document.getElementById('logout-btn');
-
-    var loginView = document.getElementById('login-view');
-    var emailForm = document.getElementById('email-form');
-    var emailInput = document.getElementById('login-email');
-    var senderSetup = document.getElementById('sender-setup');
-    var senderUser = document.getElementById('sender-user');
-    var senderPass = document.getElementById('sender-pass');
-    var codeForm = document.getElementById('code-form');
-    var codeInput = document.getElementById('login-code');
-    var codeNote = document.getElementById('code-note');
-    var loginStatus = document.getElementById('login-status');
 
     var editorView = document.getElementById('editor-view');
     var signedInEmail = document.getElementById('signed-in-email');
@@ -34,7 +19,6 @@
     var discardBtn = document.getElementById('discard-btn');
     var editorStatus = document.getElementById('editor-status');
 
-    var token = readToken();
     var saved = null;          // config as last loaded from / saved to the server
     var draft = null;          // working copy edited by the form or the JSON tab
     var invalidFields = {};    // form inputs holding an unparsable number
@@ -43,29 +27,9 @@
 
     // ---- helpers ---------------------------------------------------------
 
-    function readToken() {
-        try { return localStorage.getItem(TOKEN_KEY); } catch (err) { return null; }
-    }
-
-    function setToken(value) {
-        token = value;
-        try {
-            if (value) localStorage.setItem(TOKEN_KEY, value);
-            else localStorage.removeItem(TOKEN_KEY);
-        } catch (err) { /* private mode: keep the token in memory only */ }
-    }
-
     function setStatus(element, message, kind) {
         element.textContent = message || '';
         element.className = 'config-status' + (kind ? ' is-' + kind : '');
-    }
-
-    function errorMessage(data) {
-        var code = data && data.error;
-        var message = (code && messages[code]) || messages.requestFailed;
-        if (data && data.value !== undefined) message += ' ' + data.value;
-        if (data && data.detail) message += ' ' + data.detail;
-        return message;
     }
 
     function clone(value) {
@@ -79,115 +43,6 @@
     function sleep(ms) {
         return new Promise(function (resolve) { setTimeout(resolve, ms); });
     }
-
-    // Calls a JSON endpoint with the stored token. A 401 sends back to login.
-    async function api(url, options) {
-        options = options || {};
-        options.headers = Object.assign({'Content-Type': 'application/json'}, options.headers);
-        if (token) options.headers.Authorization = 'Bearer ' + token;
-        options.cache = 'no-store';
-        var res = await fetch(url, options);
-        var data = await res.json().catch(function () { return {}; });
-        if (res.status === 401 && url.indexOf('/api/auth/') !== 0) {
-            showLogin(messages.sessionExpired);
-            throw new Error('not-authenticated');
-        }
-        if (!res.ok) {
-            var error = new Error(errorMessage(data));
-            error.handled = true;
-            throw error;
-        }
-        return data;
-    }
-
-    function failureText(err) {
-        return err && err.handled ? err.message : messages.requestFailed;
-    }
-
-    // ---- views -----------------------------------------------------------
-
-    // Asks for a sender on the login form while none is configured.
-    function setSenderSetup(needed) {
-        senderSetup.hidden = !needed;
-        senderSetup.disabled = !needed;
-    }
-
-    function showLogin(message) {
-        setToken(null);
-        loader.hidden = true;
-        editorView.hidden = true;
-        logoutBtn.hidden = true;
-        loginView.hidden = false;
-        emailForm.hidden = false;
-        codeForm.hidden = true;
-        setStatus(loginStatus, message, message ? 'error' : null);
-        emailInput.focus();
-        fetch('/api/auth/status', {cache: 'no-store'})
-            .then(function (res) { return res.json(); })
-            .then(function (data) { setSenderSetup(!data.sender_configured); })
-            .catch(function () { /* keep the state rendered by the server */ });
-    }
-
-    async function showEditor(email) {
-        loader.hidden = true;
-        loginView.hidden = true;
-        editorView.hidden = false;
-        logoutBtn.hidden = false;
-        signedInEmail.textContent = email;
-        await loadConfig();
-    }
-
-    // ---- login -----------------------------------------------------------
-
-    emailForm.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        var email = emailInput.value.trim();
-        var body = {email: email};
-        if (!senderSetup.disabled) body.sender = {user: senderUser.value.trim(), pass: senderPass.value};
-        setStatus(loginStatus, messages.sendingCode);
-        try {
-            await api('/api/auth/request', {method: 'POST', body: JSON.stringify(body)});
-            codeNote.textContent = messages.codeSent.replace('{email}', email).replace('{minutes}', otpTtl);
-            emailForm.hidden = true;
-            codeForm.hidden = false;
-            codeInput.value = '';
-            codeInput.focus();
-            setStatus(loginStatus, '');
-        } catch (err) {
-            setStatus(loginStatus, failureText(err), 'error');
-        }
-    });
-
-    codeForm.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        setStatus(loginStatus, messages.checking);
-        try {
-            var data = await api('/api/auth/verify', {
-                method: 'POST',
-                body: JSON.stringify({email: emailInput.value.trim(), code: codeInput.value.trim()})
-            });
-            setToken(data.token);
-            setStatus(loginStatus, '');
-            senderPass.value = '';
-            setSenderSetup(false);
-            await showEditor(data.email);
-        } catch (err) {
-            setStatus(loginStatus, failureText(err), 'error');
-        }
-    });
-
-    document.getElementById('change-email').addEventListener('click', function () {
-        codeForm.hidden = true;
-        emailForm.hidden = false;
-        setStatus(loginStatus, '');
-        emailInput.focus();
-    });
-
-    logoutBtn.addEventListener('click', function () {
-        if (isDirty() && !window.confirm(messages.unsaved)) return;
-        saved = draft = null;
-        showLogin();
-    });
 
     // ---- form rendering ----------------------------------------------------
 
@@ -413,11 +268,11 @@
     async function loadConfig() {
         setStatus(editorStatus, messages.loading);
         try {
-            var data = await api('/api/config');
+            var data = await login.api('/api/config');
             setDraft(data.config);
             restartBanner.hidden = !data.restart_required;
         } catch (err) {
-            if (err.message !== 'not-authenticated') setStatus(editorStatus, failureText(err), 'error');
+            if (err.message !== 'not-authenticated') setStatus(editorStatus, login.failureText(err), 'error');
         }
     }
 
@@ -425,13 +280,13 @@
         saveBtn.disabled = true;
         setStatus(editorStatus, messages.saving);
         try {
-            var data = await api('/api/config', {method: 'PUT', body: JSON.stringify(draft)});
+            var data = await login.api('/api/config', {method: 'PUT', body: JSON.stringify(draft)});
             setDraft(data.config);
             restartBanner.hidden = !data.restart_required;
             setStatus(editorStatus, messages.saved, 'success');
         } catch (err) {
             if (err.message === 'not-authenticated') return;
-            setStatus(editorStatus, failureText(err), 'error');
+            setStatus(editorStatus, login.failureText(err), 'error');
             saveBtn.disabled = false;
         }
     });
@@ -446,18 +301,18 @@
         restartBtn.disabled = true;
         setStatus(editorStatus, messages.restarting);
         try {
-            await api('/api/config/restart', {method: 'POST'});
+            await login.api('/api/config/restart', {method: 'POST'});
         } catch (err) {
             restartBtn.disabled = false;
-            if (err.message !== 'not-authenticated') setStatus(editorStatus, failureText(err), 'error');
+            if (err.message !== 'not-authenticated') setStatus(editorStatus, login.failureText(err), 'error');
             return;
         }
         var deadline = Date.now() + 60000;
         await sleep(2000);
         while (Date.now() < deadline) {
             try {
-                var res = await fetch('/api/auth/me', {headers: {Authorization: 'Bearer ' + token}, cache: 'no-store'});
-                if (res.status === 401) return showLogin(messages.sessionExpired);
+                var res = await fetch('/api/auth/me', {headers: {Authorization: 'Bearer ' + login.token()}, cache: 'no-store'});
+                if (res.status === 401) return login.showLogin(login.messages.sessionExpired);
                 if (res.ok) {
                     restartBtn.disabled = false;
                     await loadConfig();
@@ -478,15 +333,18 @@
         }
     });
 
-    // ---- startup: reuse a stored token when it is still valid ---------------
-
-    (async function () {
-        if (!token) return showLogin();
-        try {
-            var data = await api('/api/auth/me');
-            await showEditor(data.email);
-        } catch (err) {
-            showLogin();
+    login.start({
+        content: editorView,
+        messages: messages,
+        onLogin: async function (email) {
+            signedInEmail.textContent = email;
+            await loadConfig();
+        },
+        onLogout: function () {
+            saved = draft = null;
+        },
+        confirmLogout: function () {
+            return !isDirty() || window.confirm(messages.unsaved);
         }
-    })();
+    });
 })();

@@ -174,7 +174,7 @@ test('a logged-in user can restart the server', async (t) => {
     assert.equal(panel.restarts(), 1);
 });
 
-test('the configuration page is public and every other page stays without login', async (t) => {
+test('the configuration and force pages are public, their APIs need a login and other pages stay open', async (t) => {
     const main = require('../main');
     const server = await new Promise((resolve) => {
         const listening = main.app.listen(0, '127.0.0.1', () => resolve(listening));
@@ -186,9 +186,20 @@ test('the configuration page is public and every other page stays without login'
     assert.equal(page.status, 200);
     const html = await page.text();
     assert.match(html, /Connexion pour modifier la configuration/);
+    assert.match(html, /\/assets\/login\.js/);
     assert.match(html, /\/assets\/config-panel\.js/);
     assert.doesNotMatch(html, /cedced19@gmail\.com/);
 
+    const force = await fetch(`${base}/force/`, {headers: {'accept-language': 'fr'}});
+    assert.equal(force.status, 200);
+    const forceHtml = await force.text();
+    assert.match(forceHtml, /Connexion pour forcer les appareils/);
+    assert.match(forceHtml, /\/assets\/login\.js/);
+    assert.match(forceHtml, /\/assets\/force\.js/);
+    assert.doesNotMatch(forceHtml, /type="password" id="password"/);
+
     assert.equal((await fetch(`${base}/nomenclature/`)).status, 200);
     assert.equal((await fetch(`${base}/api/config`)).status, 401);
+    assert.equal((await fetch(`${base}/api/data-force`)).status, 401);
+    assert.equal((await fetch(`${base}/api/device/chauffe-eau/force`, {method: 'DELETE'})).status, 401);
 });

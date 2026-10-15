@@ -1,3 +1,12 @@
+<%
+  // Texts used by /assets/force.js, keyed by the name the script uses.
+  const messages = {
+    enabled: __('enabled forcing'),
+    disabled: __('disabled forcing'),
+    success: __('Successfull request'),
+    'invalid-percent': __('Force invalid percent')
+  };
+%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -10,7 +19,7 @@
   <link rel=manifest href=/assets/manifest.json>
   <title>Solar Panel Watch</title>
 </head>
-<body class="dashboard-page subpage">
+<body class="dashboard-page subpage login-page">
   <main class="dashboard-shell">
     <header class="dashboard-header">
       <div class="header-title">
@@ -24,34 +33,39 @@
             <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
             <span class="nav-label"><%= __('Back')%></span>
           </button>
+          <button class="nav-btn" id="logout-btn" type="button" hidden title="<%= __('Config log out')%>">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span class="nav-label"><%= __('Config log out')%></span>
+          </button>
         </nav>
       </div>
     </header>
-  <div class="dashboard-grid">
+
+    <%- include('partials/login', {title: __('Force sign in')}) %>
+
+  <div class="dashboard-grid" id="force-view" data-messages="<%= JSON.stringify(messages) %>" hidden>
     <% if(list_devices.length){ %>
       <section class="card force-card settings-card">
           <h2 class="card-heading"><%= __('Settings')%></h2>
           <p>
-            <label for="password"><%= __('Password')%></label>
-            <input type="password" id="password" name="password">
             <label for="percent"><%= __('Percent')%></label>
             <input type="number" id="percent" name="percent" min="0" max="1" step="0.01">
           </p>
       </section>
       <% for(var i=0; i < list_devices.length; i++) { %>
-      <section class="card force-card">
+      <section class="card force-card" data-device="<%= list_devices[i] %>">
           <h2 class="card-heading"><%= pretty_name(list_devices[i]) %></h2>
           <p class="force-meta">
-            <span id="<%= list_devices[i] %>-mode"><% if (device_states[list_devices[i]].force_mode) { %><%= __('enabled forcing')%><% } else { %><%= __('disabled forcing')%><% } %></span>,
-            <span id="<%= list_devices[i] %>-percent"><%= device_states[list_devices[i]].force_mode_percent*100 %></span> %,
-            <span id="<%= list_devices[i] %>-power"><%= Math.floor(device_states[list_devices[i]].last_power) %></span> W
+            <span class="force-mode">…</span>,
+            <span class="force-percent">…</span> %,
+            <span class="force-power">…</span> W
           </p>
           <ul>
-              <li><a id="<%= list_devices[i] %>-btn-enable" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
-              <li><a id="<%= list_devices[i] %>-btn-disable" href="#"><%= __('Disable force device')%></a></li>
-              <li><a id="<%= list_devices[i] %>-btn-stop" href="#"><%= __('Stop')%></a></li>
+              <li><a data-action="force" href="#"><%= __('Force device')%> / <%= __('Change percent')%></a></li>
+              <li><a data-action="release" href="#"><%= __('Disable force device')%></a></li>
+              <li><a data-action="stop" href="#"><%= __('Stop')%></a></li>
           </ul>
-          <p class="res" id="<%= list_devices[i] %>-res"></p>
+          <p class="res" role="status"></p>
       </section>
       <% } %>
     <% } else { %>
@@ -59,123 +73,8 @@
     <% } %>
   </div>
   </main>
-  <script>
-    const enableLabel = "<%= __('enabled forcing')%>";
-    const disableLabel = "<%= __('disabled forcing')%>";
-    const list_devices = JSON.parse('<%- JSON.stringify(list_devices) %>');
-    const password_box = document.getElementById('password');
-    const percent_box = document.getElementById('percent');
-
-
-    function apply_percent(uri, percent) {
-            let resP = document.getElementById(uri + '-res');
-            fetch('/api/device/' + uri + '/force/' + password_box.value + '/' + percent)
-              .then((response) => {
-                  if (!response.ok) {
-                    if (response.status == 403) {
-                      resP.innerHTML = "<%= __('Forbidden')%>";
-                    } else {
-                      resP.innerHTML = "<%= __('Error requesting')%>";
-                    }
-                    throw new Error(`Error HTTP : ${response.status}`);
-                  }
-                  return response.json();
-               })
-              .then((data) => {
-                let spanPercent = document.getElementById(uri + '-percent');
-                if (spanPercent != null) {
-                  spanPercent.innerHTML = data.percent * 100;
-                }
-                let spanMode = document.getElementById(uri + '-mode');
-                if (spanMode != null) {
-                  spanMode.innerHTML = (data.force_mode) ? enableLabel: disableLabel;
-                }
-                resP.innerHTML = "<%= __('Successfull request')%>";
-              })
-              .catch((error) => console.error(error));
-    }
-
-
-    list_devices.forEach(function (el) {
-          let buttonEnable = document.getElementById(el + '-btn-enable');
-          let buttonDisable = document.getElementById(el + '-btn-disable');
-          let buttonStop = document.getElementById(el + '-btn-stop');
-
-          buttonEnable.addEventListener('click', (event) => {
-            event.preventDefault();
-            apply_percent(el, percent_box.value);
-          });
-          buttonStop.addEventListener('click', (event) => {
-            event.preventDefault();
-            apply_percent(el, 0);
-          });
-          buttonDisable.addEventListener('click', (event) => {
-            event.preventDefault();
-
-            fetch('/api/device/' + el + '/force/' + password.value + '/disable')
-              .then((response) => {
-                  if (!response.ok) {
-                    if (response.status == 403) {
-                      resP.innerHTML = "<%= __('Forbidden')%>";
-                    } else {
-                      resP.innerHTML = "<%= __('Error requesting')%>";
-                    }
-                    throw new Error(`Error HTTP : ${response.status}`);
-                  }
-                  return response.json();
-               })
-              .then((data) => {
-                let spanPercent = document.getElementById(el + '-percent');
-                if (spanPercent != null) {
-                  spanPercent.innerHTML = data.percent;
-                }
-                let spanMode = document.getElementById(el + '-mode');
-                if (spanMode != null) {
-                  spanMode.innerHTML = (data.force_mode) ? enableLabel: disableLabel;
-                }
-                resP.innerHTML = "<%= __('Successfull request')%>";
-              })
-              .catch((error) => console.error(error));
-          });
-    });
-
-    function request_data(cb) {
-      let url = '/api/data-force';
-      fetch(url)
-      .then(function(res) { return res.json() })
-      .then(function(out) { cb(null, out) })
-      .catch(function(err) { console.error(err); cb(err)});
-    }
-
-    function update_labels() {
-      request_data(function(err, data) {
-        Object.keys(data.device_states).forEach(function (el) {
-          let device = data.device_states[el];
-          let spanPower = document.getElementById(el + '-power');
-          if (spanPower != null) {
-            spanPower.innerHTML = device.last_power;
-          }
-          let spanPercent = document.getElementById(el + '-percent');
-          if (spanPercent != null) {
-            spanPercent.innerHTML = device.force_mode_percent*100;
-          }
-          let spanMode = document.getElementById(el + '-mode');
-          if (spanMode != null) {
-            spanMode.innerHTML = (device.force_mode) ? enableLabel: disableLabel;
-          }
-        });
-      });
-    }
-    let interval = setInterval(update_labels, 5000);
-    document.addEventListener('visibilitychange', function() {
-        if(document.hidden) {
-          clearInterval(interval);
-        } else {
-          update_labels();
-          interval = setInterval(update_labels, 5000);
-        }
-    });
-  </script>
-    <script src="/assets/nav.js"></script>
+  <script src="/assets/nav.js"></script>
+  <script src="/assets/login.js"></script>
+  <script src="/assets/force.js"></script>
 </body>
 </html>
