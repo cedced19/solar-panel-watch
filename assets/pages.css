@@ -521,3 +521,265 @@ body.graph-page .graph-card {
   color: #111827;
   font-size: 1.1rem;
 }
+
+/* ---- Configuration panel ------------------------------------------------ */
+
+.config-page [hidden] {
+  display: none !important;
+}
+
+.login-card {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.login-form label,
+.config-key {
+  color: #334155;
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.login-form input {
+  margin-bottom: 12px;
+}
+
+/* An empty field focused on load is not an error yet. */
+.login-form input:focus:invalid {
+  color: var(--text);
+  border-color: var(--primary-400);
+}
+
+.config-note {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: .92rem;
+}
+
+.config-buttons,
+.config-actions,
+.config-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-inline {
+  flex-wrap: nowrap;
+  margin-bottom: 8px;
+}
+
+.config-inline input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.config-page button {
+  border-radius: 10px;
+  font-family: inherit;
+}
+
+.config-btn {
+  color: #2563eb !important;
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+}
+
+.config-btn:hover {
+  border-color: #bfdbfe !important;
+  background: #eff6ff !important;
+}
+
+.config-btn-small {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: .85rem;
+}
+
+.config-btn-icon {
+  width: 40px;
+  padding: 6px 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.config-btn-icon:hover {
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+  background: #fef2f2 !important;
+}
+
+.config-status {
+  min-height: 1.5em;
+  margin: 12px 0 0;
+  color: #64748b;
+  font-size: .92rem;
+}
+
+.config-actions .config-status {
+  margin: 0;
+}
+
+.config-status.is-error {
+  color: #b91c1c;
+}
+
+.config-status.is-success {
+  color: #15803d;
+}
+
+.config-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.config-toolbar .card-heading {
+  margin: 0;
+}
+
+.config-file {
+  color: #64748b;
+  font-family: var(--monospace);
+  font-size: .85rem;
+  font-weight: 400;
+}
+
+.config-tabs {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.config-tabs button {
+  padding: 6px 14px;
+  color: #475569;
+  font-size: .88rem;
+  font-weight: 700;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.config-tabs button:hover {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.config-tabs button[aria-selected="true"] {
+  color: #1d4ed8;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .12);
+}
+
+.restart-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  background: #fffbeb;
+}
+
+.config-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 4px 16px;
+  margin-bottom: 16px;
+}
+
+.config-field {
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.config-field .config-key {
+  display: block;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.config-field.is-checkbox {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 26px;
+}
+
+.config-field.is-checkbox input {
+  width: 18px;
+  height: 18px;
+}
+
+.config-group {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px 16px;
+  margin: 8px 0;
+  padding: 12px 14px 6px !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.config-group > legend {
+  width: auto;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+}
+
+.config-group .config-group {
+  background: #ffffff;
+}
+
+.config-list {
+  display: block;
+}
+
+.config-list > .config-btn {
+  margin-bottom: 8px;
+}
+
+.config-json {
+  min-height: 60vh;
+  margin-bottom: 16px;
+  font-family: var(--monospace);
+  font-size: .85rem;
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 4;
+}
+
+@media screen and (max-width: 600px) {
+  .config-form,
+  .config-group {
+    grid-template-columns: 1fr;
+  }
+
+  .config-field.is-checkbox {
+    padding-top: 0;
+  }
+
+  .config-group {
+    padding: 10px 8px 4px !important;
+  }
+
+  .config-actions button {
+    flex: 1 1 auto;
+  }
+}

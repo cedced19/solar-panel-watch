@@ -16,6 +16,8 @@ const computeEnergy = require('./lib/compute-energy.js');
 const computeConsumptionPower = require('./lib/compute-consumption-power.js');
 const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate-params.js');
 const batteryLogic = require('./lib/battery-logic.js');
+const auth = require('./lib/auth.js');
+const { createConfigPanel } = require('./lib/config-panel.js');
 
 
 const JSONStore = require('json-store-list');
@@ -1005,6 +1007,13 @@ app.get('/api/data/activation-hist/', (req, res) => {
         res.json(db_devices_activation.getAll());
     });
 });
+
+// Configuration panel: the only page behind a login (emails in config.auth.mails).
+app.use(createConfigPanel({
+    configPath: path.join(__dirname, 'config.json'),
+    runningConfig: config,
+    auth: auth.createAuth(auth.readOptions(config))
+}));
 
 app.use(function (req, res, next) {
     var err = new Error('Element cannot be found.');

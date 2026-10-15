@@ -39,5 +39,21 @@
     "energy_method": "integral",
     "graph_downsampling": "auto",
     "latitude": "48.766944",
-    "longitude": "7.259167"
+    "longitude": "7.259167",
+    "auth": {
+        "mails": [
+            "cedced19@gmail.com"
+        ],
+        "sender": {
+            "user": "",
+            "pass": ""
+        },
+        "smtp": {
+            "host": "smtp.gmail.com",
+            "port": 587
+        },
+        "jwt_secret": "ebdfb381878dcdfd656a0211ac1cef1603c167c959338d91fca2c718fe82fa5c",
+        "otp_ttl_minutes": 5,
+        "token_validity_hours": 8760
+    }
 }
