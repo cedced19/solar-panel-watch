@@ -197,12 +197,14 @@ test('devices run only while the battery is full or charging at its maximum powe
     app.controlTick();
     await assertDevicesOn(app);
 
-    // Once running, the devices take surplus away from the battery. Their draw is
-    // added back so the battery still counts as charging at its maximum.
+    // The battery decision only uses the battery reading: running devices do not
+    // count toward its charging power.
     app.readings.battery = {socPercent: 61, state: 'charging', chargingPowerW: 300, dischargingPowerW: 0};
-    assert.equal((await app.request('/api/battery')).json.device_charging.reason, 'battery-charging-at-max');
+    assert.deepEqual((await app.request('/api/battery')).json.device_charging,
+        status(false, 'battery-charging-below-max', 61));
     app.controlTick();
-    await assertDevicesOn(app);
+    await app.assertRequestedPowerOff();
+    await app.assertDevicesOff();
 
     app.readings.battery = {...fullBattery};
     await app.request('/api/battery');

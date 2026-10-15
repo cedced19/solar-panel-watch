@@ -144,9 +144,10 @@ activated only when the battery cannot take more power
 | Idle and at or above `zendure_battery_full_soc` | Allowed |
 | Anything else | Off |
 
-Power drawn by running devices is added to the measured charging power, so a
-battery that charges more slowly because of them still counts as charging at
-its maximum. Devices also stay off while battery status is unavailable or stale,
+This battery check is a precondition evaluated before any device logic and
+only uses the battery's own readings: "at maximum" compares the charging power
+reported by Zendure with `zendure_battery_max_charging_power`, and running
+devices are not taken into account. Devices also stay off while battery status is unavailable or stale,
 or while house power is unavailable. When allowed, the existing surplus,
 priority, energy and temperature limits still apply. A small status below the
 battery percentage explains whether devices may run and why. Readings expire

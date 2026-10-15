@@ -343,27 +343,23 @@
                 </div>
               <% } %>
             </div>
-            <div class="nomenclature-logic-callout"><strong><%= __('Nomenclature logic why title') %></strong><p><%= __('Nomenclature logic why') %></p></div>
+            <div class="nomenclature-logic-callout"><strong><%= __('Nomenclature logic independent title') %></strong><p><%= __('Nomenclature logic independent') %></p></div>
             <p class="nomenclature-logic-note"><%= __('Nomenclature logic settings note') %></p>
           </div>
 
           <p class="nomenclature-logic-examples-intro"><%= __('Nomenclature logic examples intro') %></p>
           <div class="nomenclature-example-grid">
             <% for (const example of [
-              {name: 'morning', allowed: false, terms: [350, 0], total: 350, sign: '<'},
-              {name: 'midday', allowed: true, terms: [800, 0], total: 800, sign: '≥'},
-              {name: 'running', allowed: true, terms: [300, 500], total: 800, sign: '≥'},
-              {name: 'cloud', allowed: false}
+              {name: 'morning', allowed: false, check: watts(350) + ' < ' + watts(750)},
+              {name: 'midday', allowed: true, check: watts(800) + ' ≥ ' + watts(750)},
+              {name: 'cloud', allowed: false, check: __('Nomenclature logic example cloud equation')},
+              {name: 'full', allowed: true, check: percent.format(1) + ' ≥ ' + percent.format(1)}
             ]) { %>
               <article class="nomenclature-example-card">
                 <span class="nomenclature-example-tag <%= example.allowed ? 'is-on' : 'is-off' %>"><%= __(example.allowed ? 'Nomenclature logic outcome on' : 'Nomenclature logic outcome off') %></span>
                 <h4><%= __('Nomenclature logic example ' + example.name + ' title') %></h4>
                 <p><%= __('Nomenclature logic example ' + example.name + ' description') %></p>
-                <% if (example.terms) { %>
-                  <p class="nomenclature-example-equation"><%= example.terms.map(value => number.format(value)).join(' + ') %> <span>= <strong><%= watts(example.total) %></strong> <%= example.sign %> <%= watts(750) %></span></p>
-                <% } else { %>
-                  <p class="nomenclature-example-equation"><%= __('Nomenclature logic example cloud equation') %> <span>→ <strong><%= __('Nomenclature logic outcome off') %></strong></span></p>
-                <% } %>
+                <p class="nomenclature-example-equation"><%= example.check %> <span>→ <strong><%= __(example.allowed ? 'Nomenclature logic outcome on' : 'Nomenclature logic outcome off') %></strong></span></p>
               </article>
             <% } %>
           </div>

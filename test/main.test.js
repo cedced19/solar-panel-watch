@@ -9,11 +9,9 @@ const config = require('../config.json');
 const batteryLogic = require('../lib/battery-logic');
 const batterySettings = batteryLogic.readSettings(config);
 const batteryLimits = {fullSocPercent: batterySettings.fullSocPercent, maxChargingPowerW: batterySettings.maxChargingPowerW};
-// The fixture battery charges at 345 W with no device running.
 const healthyBatteryDecision = batteryLogic.getDeviceActivation({
     battery: {socPercent: 86, state: 'charging', chargingPowerW: 345, dischargingPowerW: 300},
-    powerAvailable: true,
-    devicesPowerW: 0
+    powerAvailable: true
 }, batterySettings);
 
 function request(server, path, headers = {}) {

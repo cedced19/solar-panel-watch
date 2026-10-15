@@ -37,13 +37,13 @@ let batteryReceivedAt = 0;
 const batteryRequestTimeout = Number.isFinite(config.zendure_request_timeout) && config.zendure_request_timeout > 0 ? config.zendure_request_timeout : 3000;
 
 // The battery is served first; see lib/battery-logic.js for the activation rules.
+// This precondition only uses the battery reading, independently of the devices.
 function getDeviceChargingStatus() {
     const readingAge = Date.now() - batteryReceivedAt;
     const batteryFresh = readingAge >= 0 && readingAge <= getPowerData.batteryRequestThreshold + batteryRequestTimeout;
     return batteryLogic.getDeviceActivation({
         battery: batteryFresh ? batteryData : null,
-        powerAvailable: powerDataAvailable,
-        devicesPowerW: get_power_from_activated_devices()
+        powerAvailable: powerDataAvailable
     }, batterySettings);
 }
 

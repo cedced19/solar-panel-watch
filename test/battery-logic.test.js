@@ -5,8 +5,8 @@ const {readSettings, getDeviceActivation} = require('../lib/battery-logic');
 
 const settings = readSettings({zendure_battery_full_soc: 100, zendure_battery_max_charging_power: 800});
 
-function decide(battery, {powerAvailable = true, devicesPowerW = 0, config = settings} = {}) {
-    return getDeviceActivation({battery, powerAvailable, devicesPowerW}, config);
+function decide(battery, {powerAvailable = true, config = settings} = {}) {
+    return getDeviceActivation({battery, powerAvailable}, config);
 }
 
 test('settings default to a 100 % full battery, no known maximum charge and a 50 W tolerance', () => {
@@ -58,14 +58,6 @@ test('a charging battery activates devices only at its maximum charging power', 
         assert.equal(decision.enabled, false);
         assert.equal(decision.reason, 'battery-charging-below-max');
     }
-});
-
-test('power drawn by active devices counts toward the battery charging power', () => {
-    // 300 W reach the battery because the devices take 500 W of the surplus.
-    const battery = {socPercent: 40, state: 'charging', chargingPowerW: 300, dischargingPowerW: 0};
-    assert.equal(decide(battery, {devicesPowerW: 500}).reason, 'battery-charging-at-max');
-    assert.equal(decide(battery, {devicesPowerW: 400}).reason, 'battery-charging-below-max');
-    assert.equal(decide(battery, {devicesPowerW: NaN}).reason, 'battery-charging-below-max');
 });
 
 test('without a configured maximum charging power, charging never activates devices', () => {
