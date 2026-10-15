@@ -25,6 +25,8 @@
     'mails-required': 'Config error mails-required',
     'invalid-mail': 'Config error invalid-mail',
     'config-object': 'Config error config-object',
+    'sender-required': 'Config error sender-required',
+    'sender-failed': 'Config error sender-failed',
     'write-failed': 'Config error write-failed',
     'read-failed': 'Config error read-failed'
   };
@@ -73,6 +75,14 @@
         <p class="config-note"><%= __('Config email note')%></p>
         <label for="login-email"><%= __('Config email')%></label>
         <input type="email" id="login-email" name="email" autocomplete="email" required>
+        <fieldset class="sender-setup" id="sender-setup"<% if (sender_configured) { %> hidden disabled<% } %>>
+          <legend><%= __('Config sender setup title')%></legend>
+          <p class="config-note"><%= __('Config sender setup note')%></p>
+          <label for="sender-user"><%= __('Config sender user')%></label>
+          <input type="email" id="sender-user" name="sender_user" autocomplete="off" required>
+          <label for="sender-pass"><%= __('Config sender pass')%></label>
+          <input type="password" id="sender-pass" name="sender_pass" autocomplete="new-password" required>
+        </fieldset>
         <button type="submit"><%= __('Config send code')%></button>
       </form>
       <form id="code-form" class="login-form" hidden>

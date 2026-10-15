@@ -5,6 +5,19 @@ Watch over electricity consumption from my house.
 
 ## config.json
 
+`config.json` holds this installation's settings and secrets and is not tracked
+by git. `config-default.json` is the tracked template: on start (and before
+`npm test`), a missing `config.json` is created from it, and keys added to the
+template later are copied into an existing `config.json`. Values already set in
+`config.json` are never changed, and an empty `auth.jwt_secret` is replaced by a
+random one.
+
+> **Upgrading a checkout where `config.json` was still tracked:** pulling the
+> commit that untracks it deletes the local file. Keep a copy first:
+> `cp config.json config.local.json && git pull && mv config.local.json config.json`.
+
+It can also be edited online, see [Configuration panel](#configuration-panel).
+
 ```json
 {
     "ip_adress_shelly": "192.168.0.91",
@@ -37,9 +50,40 @@ Watch over electricity consumption from my house.
     },
     "energy_req_threshold": 1200000,
     "target_req_threshold": 240000,
-    "force_mode_pass": "7HaIJtG44d"
+    "force_mode_pass": "7HaIJtG44d",
+    "auth": {
+        "mails": ["cedced19@gmail.com"],
+        "sender": {"user": "", "pass": ""},
+        "smtp": {"host": "smtp.gmail.com", "port": 587},
+        "jwt_secret": "",
+        "otp_ttl_minutes": 5,
+        "token_validity_hours": 8760
+    }
 }
 ```
+
+## Configuration panel
+
+`/config/` (linked from the dashboard) edits `config.json` in the browser, as a
+form or as raw JSON. It is the only page that needs a login; every other page
+and API stays open. The login works like domotic-center:
+
+1. Enter an address listed in `auth.mails`. A 6-digit code, valid
+   `otp_ttl_minutes`, is emailed through the `auth.sender` Gmail account.
+2. Enter the code. The browser keeps the returned token (valid
+   `token_validity_hours`) in `localStorage`.
+
+While `auth.sender` is empty, the login form also asks for the sender: a Gmail
+address and one of its [app passwords](https://myaccount.google.com/apppasswords).
+The code is sent through it and it is saved to `config.json` only once that code
+is verified, so the sender is known to work and never has to be committed.
+
+Saving keeps the previous file in `config.json.bak`. Changes to `auth`
+(allowed emails, sender) apply immediately, and removing an address ends its
+sessions. Other settings are read at startup, so the panel then offers a
+restart: the process exits and docker/systemd (`restart: always`) starts it
+again. Under nodemon (`docker-compose-reload.yml`) the app stays stopped until
+the next file change.
 
 ## devices-to-activate.json
 ```json

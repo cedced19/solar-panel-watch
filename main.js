@@ -1,3 +1,5 @@
+// Create or complete config.json from config-default.json before any module reads it.
+require('./lib/config-file.js').ensureConfig();
 
 const fs = require('fs');
 const express = require('express');

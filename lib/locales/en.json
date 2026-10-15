@@ -441,5 +441,11 @@
 	"Config error invalid-mail": "Invalid allowed email:",
 	"Config error config-object": "The configuration must be a JSON object.",
 	"Config error write-failed": "config.json could not be written. Check the server logs.",
-	"Config error read-failed": "config.json could not be read. Check the server logs."
+	"Config error read-failed": "config.json could not be read. Check the server logs.",
+	"Config sender setup title": "First login: choose the sender",
+	"Config sender setup note": "No account is configured yet to email the login codes. Enter a Gmail address and one of its app passwords (Google account › Security › App passwords). They are saved to config.json once you have signed in with the code sent through them.",
+	"Config sender user": "Sender Gmail address",
+	"Config sender pass": "App password",
+	"Config error sender-required": "Enter the sender address and its app password.",
+	"Config error sender-failed": "The sender could not sign in to the mail server:"
 }

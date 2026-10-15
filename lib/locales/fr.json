@@ -447,5 +447,11 @@
 	"Config error invalid-mail": "E-mail autorisé invalide :",
 	"Config error config-object": "La configuration doit être un objet JSON.",
 	"Config error write-failed": "Impossible d'écrire config.json. Consultez les journaux du serveur.",
-	"Config error read-failed": "Impossible de lire config.json. Consultez les journaux du serveur."
+	"Config error read-failed": "Impossible de lire config.json. Consultez les journaux du serveur.",
+	"Config sender setup title": "Première connexion : choisir l'expéditeur",
+	"Config sender setup note": "Aucun compte n'est encore configuré pour envoyer les codes de connexion. Saisissez une adresse Gmail et l'un de ses mots de passe d'application (Compte Google › Sécurité › Mots de passe des applications). Ils sont enregistrés dans config.json une fois connecté avec le code envoyé par ce compte.",
+	"Config sender user": "Adresse Gmail d'envoi",
+	"Config sender pass": "Mot de passe d'application",
+	"Config error sender-required": "Saisissez l'adresse d'envoi et son mot de passe d'application.",
+	"Config error sender-failed": "L'expéditeur n'a pas pu se connecter au serveur de messagerie :"
 }

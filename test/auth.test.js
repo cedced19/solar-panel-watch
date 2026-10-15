@@ -12,7 +12,7 @@ function setup(overrides = {}) {
     }, {
         now: () => clock,
         mailer: (options, to, code) => {
-            sent.push({to, code});
+            sent.push({to, code, sender: options.senderUser});
             return Promise.resolve();
         }
     });
@@ -39,6 +39,18 @@ test('only whitelisted emails receive a code, matched case-insensitively', async
     assert.equal(sent.length, 1);
     assert.equal(sent[0].to, 'cedced19@gmail.com');
     assert.match(sent[0].code, /^\d{6}$/);
+});
+
+test('a code request can carry a sender until one is configured', async () => {
+    const {auth, sent} = setup();
+    assert.equal(auth.senderConfigured(), false);
+    await auth.request('cedced19@gmail.com', {senderUser: 'robot@gmail.com', senderPass: 'app-pass'});
+    assert.equal(sent[0].sender, 'robot@gmail.com');
+
+    auth.configure(readOptions({auth: {mails: ['cedced19@gmail.com'], sender: {user: 'saved@gmail.com', pass: 'x'}}}));
+    assert.equal(auth.senderConfigured(), true);
+    await auth.request('cedced19@gmail.com');
+    assert.equal(sent[1].sender, 'saved@gmail.com');
 });
 
 test('a correct code yields a token that identifies the user, and is single use', async () => {

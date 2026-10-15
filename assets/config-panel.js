@@ -14,6 +14,9 @@
     var loginView = document.getElementById('login-view');
     var emailForm = document.getElementById('email-form');
     var emailInput = document.getElementById('login-email');
+    var senderSetup = document.getElementById('sender-setup');
+    var senderUser = document.getElementById('sender-user');
+    var senderPass = document.getElementById('sender-pass');
     var codeForm = document.getElementById('code-form');
     var codeInput = document.getElementById('login-code');
     var codeNote = document.getElementById('code-note');
@@ -60,7 +63,9 @@
     function errorMessage(data) {
         var code = data && data.error;
         var message = (code && messages[code]) || messages.requestFailed;
-        return data && data.value !== undefined ? message + ' ' + data.value : message;
+        if (data && data.value !== undefined) message += ' ' + data.value;
+        if (data && data.detail) message += ' ' + data.detail;
+        return message;
     }
 
     function clone(value) {
@@ -101,6 +106,12 @@
 
     // ---- views -----------------------------------------------------------
 
+    // Asks for a sender on the login form while none is configured.
+    function setSenderSetup(needed) {
+        senderSetup.hidden = !needed;
+        senderSetup.disabled = !needed;
+    }
+
     function showLogin(message) {
         setToken(null);
         loader.hidden = true;
@@ -111,6 +122,10 @@
         codeForm.hidden = true;
         setStatus(loginStatus, message, message ? 'error' : null);
         emailInput.focus();
+        fetch('/api/auth/status', {cache: 'no-store'})
+            .then(function (res) { return res.json(); })
+            .then(function (data) { setSenderSetup(!data.sender_configured); })
+            .catch(function () { /* keep the state rendered by the server */ });
     }
 
     async function showEditor(email) {
@@ -127,9 +142,11 @@
     emailForm.addEventListener('submit', async function (event) {
         event.preventDefault();
         var email = emailInput.value.trim();
+        var body = {email: email};
+        if (!senderSetup.disabled) body.sender = {user: senderUser.value.trim(), pass: senderPass.value};
         setStatus(loginStatus, messages.sendingCode);
         try {
-            await api('/api/auth/request', {method: 'POST', body: JSON.stringify({email: email})});
+            await api('/api/auth/request', {method: 'POST', body: JSON.stringify(body)});
             codeNote.textContent = messages.codeSent.replace('{email}', email).replace('{minutes}', otpTtl);
             emailForm.hidden = true;
             codeForm.hidden = false;
@@ -151,6 +168,8 @@
             });
             setToken(data.token);
             setStatus(loginStatus, '');
+            senderPass.value = '';
+            setSenderSetup(false);
             await showEditor(data.email);
         } catch (err) {
             setStatus(loginStatus, failureText(err), 'error');

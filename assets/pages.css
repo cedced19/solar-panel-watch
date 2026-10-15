@@ -544,6 +544,30 @@ body.graph-page .graph-card {
   margin-bottom: 12px;
 }
 
+.sender-setup {
+  margin: 4px 0 14px;
+  padding: 10px 14px 2px !important;
+  border: 1px solid #fcd34d !important;
+  border-radius: 12px;
+  background: #fffbeb;
+}
+
+/* Floated, the legend is laid out inside the box, so a long title can wrap. */
+.sender-setup > legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 0;
+  color: #92400e;
+  font-size: .95rem;
+  font-weight: 700;
+  border: 0;
+}
+
+.sender-setup > legend + * {
+  clear: both;
+}
+
 /* An empty field focused on load is not an error yet. */
 .login-form input:focus:invalid {
   color: var(--text);

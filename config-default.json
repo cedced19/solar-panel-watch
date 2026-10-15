@@ -1,0 +1,59 @@
+{
+    "ip_adress_shelly": "192.168.0.91",
+    "shelly_mac_address": "34:94:54:70:F8:E2",
+    "recover_shelly_through_mac_address": true,
+    "influx_tocken": "joWbkcAOqD8hPtRRyEz7U64PLqOrPO",
+    "influx_org": "solar_panel_org",
+    "influx_bucket": "solar_panel",
+    "influx_default_tag": "home1",
+    "influx_update_delay": 15000,
+    "influx_url": "http://localhost:8086",
+    "timezone": "Europe/Paris",
+    "shelly_req_threshold": 1000,
+    "house_power_source": "zendure",
+    "zendure_req_threshold": 1000,
+    "zendure_request_timeout": 3000,
+    "zendure_meter": {
+        "host": "192.168.0.48",
+        "serial": "TEE1NJP7P341978",
+        "mac_address": "E0:72:A1:85:24:48",
+        "recover_by_mac": true,
+        "power_field": "total_power",
+        "power_scale": 1
+    },
+    "zendure_battery_req_threshold": 20000,
+    "zendure_battery_full_soc": 100,
+    "zendure_battery_max_charging_power": 1500,
+    "zendure_battery_max_charging_tolerance": 20,
+    "zendure_battery": {
+        "host": "192.168.0.40",
+        "serial": "ANACVCDLP283458",
+        "battery_serial": "BEAAVCDLA283460",
+        "mac_address": "90:64:9B:10:9A:14",
+        "recover_by_mac": true
+    },
+    "energy_req_threshold": 360000,
+    "target_req_threshold": 240000,
+    "force_mode_pass": "jifgLBHnUV",
+    "save_network_data": false,
+    "energy_method": "integral",
+    "graph_downsampling": "auto",
+    "latitude": "48.766944",
+    "longitude": "7.259167",
+    "auth": {
+        "mails": [
+            "cedced19@gmail.com"
+        ],
+        "sender": {
+            "user": "",
+            "pass": ""
+        },
+        "smtp": {
+            "host": "smtp.gmail.com",
+            "port": 587
+        },
+        "jwt_secret": "",
+        "otp_ttl_minutes": 5,
+        "token_validity_hours": 8760
+    }
+}

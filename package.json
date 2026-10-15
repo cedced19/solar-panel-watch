@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node main.js",
     "dev": "nodemon main.js",
+    "pretest": "node -e \"require('./lib/config-file.js').ensureConfig()\"",
     "test": "node --test test/*.test.js"
   },
   "devDependencies": {
