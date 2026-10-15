@@ -24,6 +24,16 @@ else:                            do not activate
 Devices also stay off when battery data is missing, invalid or stale, or when
 house power is unavailable. These checks run before the rule.
 
+### Forced devices skip the rule
+
+Forcing is decided before the battery rule. A device forced by hand runs at
+its forced level, whatever the battery reports, including discharging or
+missing battery data. The rule only applies to devices that are not forced.
+Forced devices still stop when house power is unavailable, when they are
+disconnected, or when their energy or temperature limit is reached. When
+forcing is turned off, the battery rule applies again on the device's next
+request.
+
 How each condition is read from the Zendure report:
 
 | Condition | Source |
@@ -38,8 +48,8 @@ discharging, devices stay off.
 
 ### The battery check is independent of the devices
 
-The battery rule is a precondition. It is decided before any device logic runs,
-and it only uses the battery's own readings from Zendure. "Charging power at max"
+The battery rule is decided before the surplus logic of every device that is
+not forced, and it only uses the battery's own readings from Zendure. "Charging power at max"
 compares the charging power that Zendure reports with the configured maximum.
 The power of running devices is not part of this check.
 
@@ -65,8 +75,8 @@ application at startup and report a configuration error.
   is fresh and passes it to `battery-logic`. The control loop checks the battery
   decision once per tick,
   before it handles any device. It no longer checks it again for each device.
-  Battery updates still turn devices off immediately when activation is no
-  longer allowed, including forced devices.
+  Forced devices skip the decision. Battery updates still turn the other
+  devices off immediately when activation is no longer allowed.
 - **API**: `device_charging` in `/api/data` and `/api/battery` is now
   `{enabled, reason, socPercent, fullSocPercent, maxChargingPowerW}`.
   `minSocPercent` has been removed. Possible `reason` values:
@@ -79,8 +89,8 @@ application at startup and report a configuration error.
 - **README**: the configuration table and the device-charging section describe
   the new rule.
 - **Nomenclature page** (`/nomenclature/`): new section "04 Activation logic"
-  ("Logique d'activation" in French). It has an overview diagram (battery logic,
-  then device A, device B, and so on) and two subsections. The battery logic
+  ("Logique d'activation" in French). It has an overview diagram (forcing, then
+  battery logic, then device A, device B, and so on) and two subsections. The battery logic
   subsection has a decision diagram, the rules, the LaTeX checks (charging power
   compared with the maximum, and the full level) and four examples. It states
   that only the battery's own readings count. The device logic subsection explains the surplus, has a decision
@@ -97,11 +107,13 @@ application at startup and report a configuration error.
 - `test/main-battery-gate.test.js` runs the real server through discharging,
   charging below max, not full, charging at max and full. While devices are
   running, a lower Zendure charging power turns them off: their power is not
-  counted. It also covers forced mode, stale readings and invalid settings.
+  counted. Forced devices keep running while the battery blocks the other
+  devices, and stop again when forcing ends. The tests also cover stale
+  readings and invalid settings.
 - `test/main.test.js` builds its expected status from the real `config.json`
   settings.
 
-The full `npm test` suite passes: 196 tests.
+The full `npm test` suite passes: 213 tests.
 
 ## Action needed
 

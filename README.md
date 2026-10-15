@@ -176,7 +176,7 @@ Battery failures show an unavailable state without blocking house power readings
 server and visible dashboard refresh battery status on its independent interval;
 concurrent requests share the same cached reading or in-flight request.
 
-The battery is charged first. Devices (normal, advanced and forced modes) are
+The battery is charged first. Devices in normal and advanced modes are
 activated only when the battery cannot take more power
 (see [`lib/battery-logic.js`](lib/battery-logic.js)):
 
@@ -188,8 +188,13 @@ activated only when the battery cannot take more power
 | Idle and at or above `zendure_battery_full_soc` | Allowed |
 | Anything else | Off |
 
-This battery check is a precondition evaluated before any device logic and
-only uses the battery's own readings: "at maximum" compares the charging power
+Forcing is decided before the battery: a forced device runs at its forced
+level whatever the battery reports. It still stops when house power is
+unavailable, when the device is disconnected, or when its energy or temperature
+limit is reached.
+
+For devices that are not forced, this battery check is evaluated before their
+surplus logic and only uses the battery's own readings: "at maximum" compares the charging power
 reported by Zendure with `zendure_battery_max_charging_power`, and running
 devices are not taken into account. Devices also stay off while battery status is unavailable or stale,
 or while house power is unavailable. When allowed, the existing surplus,

@@ -258,6 +258,7 @@
             <p><%= __('Nomenclature logic overview text') %></p>
             <ol class="nomenclature-logic-steps">
               <% for (const [href, title, description] of [
+                ['#device-logic', 'Nomenclature logic step forced title', 'Nomenclature logic step forced'],
                 ['#battery-logic', 'Nomenclature logic battery title', 'Nomenclature logic step battery'],
                 ['#device-logic', 'Nomenclature logic step device a title', 'Nomenclature logic step device a'],
                 ['#device-logic', 'Nomenclature logic step device b title', 'Nomenclature logic step device b'],
@@ -271,13 +272,15 @@
             <figcaption><span class="nomenclature-eyebrow"><%= __('Nomenclature logic diagram eyebrow') %></span><strong><%= __('Nomenclature logic overview caption') %></strong></figcaption>
             <pre class="mermaid nomenclature-mermaid">
           flowchart TD
-          meter(["<%= __('Nomenclature logic chart meter') %>"]) --> battery{"<%= __('Nomenclature logic chart battery question') %>"}
+          meter(["<%= __('Nomenclature logic chart meter') %>"]) --> forced["<%= __('Nomenclature logic chart forcing') %>"]
+          forced --> battery{"<%= __('Nomenclature logic chart battery question') %>"}
           battery -->|"<%= __('Nomenclature logic no') %>"| blocked["<%= __('Nomenclature logic chart all off') %>"]
           battery -->|"<%= __('Nomenclature logic yes') %>"| deviceA["<%= __('Nomenclature logic chart device a') %>"]
           deviceA -->|"<%= __('Nomenclature logic chart surplus left') %>"| deviceB["<%= __('Nomenclature logic chart device b') %>"]
           deviceB -->|"<%= __('Nomenclature logic chart surplus left') %>"| more["<%= __('Nomenclature logic chart more') %>"]
           <%- mermaidClasses %>
           class meter step
+          class forced on
           class battery battery
           class deviceA,deviceB,more question
           class blocked off
@@ -382,15 +385,15 @@
               <figcaption><span class="nomenclature-eyebrow"><%= __('Nomenclature logic device diagram eyebrow') %></span><strong><%= __('Nomenclature logic device diagram caption') %></strong></figcaption>
               <pre class="mermaid nomenclature-mermaid">
           flowchart TD
-          turn(["<%= __('Nomenclature logic chart device turn') %>"]) --> battery{"<%= __('Nomenclature logic chart battery yes') %>"}
-          battery -->|"<%= __('Nomenclature logic no') %>"| blocked1["<%= __('Nomenclature logic chart off') %>"]
-          battery -->|"<%= __('Nomenclature logic yes') %>"| contact{"<%= __('Nomenclature logic chart contact') %>"}
-          contact -->|"<%= __('Nomenclature logic no') %>"| blocked2["<%= __('Nomenclature logic chart off') %>"]
+          turn(["<%= __('Nomenclature logic chart device turn') %>"]) --> contact{"<%= __('Nomenclature logic chart contact') %>"}
+          contact -->|"<%= __('Nomenclature logic no') %>"| blocked1["<%= __('Nomenclature logic chart off') %>"]
           contact -->|"<%= __('Nomenclature logic yes') %>"| limit{"<%= __('Nomenclature logic chart limit') %>"}
-          limit -->|"<%= __('Nomenclature logic yes') %>"| blocked3["<%= __('Nomenclature logic chart off') %>"]
+          limit -->|"<%= __('Nomenclature logic yes') %>"| blocked2["<%= __('Nomenclature logic chart off') %>"]
           limit -->|"<%= __('Nomenclature logic no') %>"| forced{"<%= __('Nomenclature logic chart forced') %>"}
           forced -->|"<%= __('Nomenclature logic yes') %>"| chosen["<%= __('Nomenclature logic chart forced level') %>"]
-          forced -->|"<%= __('Nomenclature logic no') %>"| kind{"<%= __('Nomenclature logic chart kind') %>"}
+          forced -->|"<%= __('Nomenclature logic no') %>"| battery{"<%= __('Nomenclature logic chart battery yes') %>"}
+          battery -->|"<%= __('Nomenclature logic no') %>"| blocked3["<%= __('Nomenclature logic chart off') %>"]
+          battery -->|"<%= __('Nomenclature logic yes') %>"| kind{"<%= __('Nomenclature logic chart kind') %>"}
           kind -->|"<%= __('Nomenclature logic chart on off') %>"| enough{"<%= __('Nomenclature logic chart enough') %>"}
           enough -->|"<%= __('Nomenclature logic yes') %>"| allowed["<%= __('Nomenclature logic chart on') %>"]
           enough -->|"<%= __('Nomenclature logic no') %>"| blocked4["<%= __('Nomenclature logic chart off') %>"]

@@ -40,8 +40,9 @@ let batteryData = null;
 let batteryReceivedAt = 0;
 const batteryRequestTimeout = Number.isFinite(config.zendure_request_timeout) && config.zendure_request_timeout > 0 ? config.zendure_request_timeout : 3000;
 
-// The battery is served first; see lib/battery-logic.js for the activation rules.
-// This precondition only uses the battery reading, independently of the devices.
+// Forcing is decided first: a forced device runs at its chosen level whatever the battery does.
+// For the other devices the battery is served first; see lib/battery-logic.js for the rules.
+// This check only uses the battery reading, independently of the devices.
 function getDeviceChargingStatus() {
     const readingAge = Date.now() - batteryReceivedAt;
     const batteryFresh = readingAge >= 0 && readingAge <= getPowerData.batteryRequestThreshold + batteryRequestTimeout;
@@ -57,8 +58,13 @@ function disableDeviceCharging(state) {
     state.requested_power = 0;
 }
 
+// The battery decision comes after forcing, so it never turns off a forced device.
+function disableUnforcedDevice(state) {
+    if (!state.force_mode) disableDeviceCharging(state);
+}
+
 function disableRequestedDevices() {
-    Object.values(devices_to_activate_state).forEach(disableDeviceCharging);
+    Object.values(devices_to_activate_state).forEach(disableUnforcedDevice);
 }
 
 function requestBatteryData(cb) {
@@ -636,7 +642,7 @@ function normalDecisionReq(device, req, res) {
     }
     // make sure that device state exists
     init_device(device, 'normal', req);
-    if (!getDeviceChargingStatus().enabled) disableDeviceCharging(devices_to_activate_state[device.uri]);
+    if (!getDeviceChargingStatus().enabled) disableUnforcedDevice(devices_to_activate_state[device.uri]);
     let to_activate = devices_to_activate_state[device.uri].requested_toggle;
     res.json({toggle: to_activate, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_power = to_activate ? devices_to_activate_state[device.uri].requested_power : 0;
@@ -668,7 +674,7 @@ function advancedDecisionReq(device, req, res) {
     }
     // make sure that device state exists
     init_device(device, 'advanced', req);
-    if (!getDeviceChargingStatus().enabled) disableDeviceCharging(devices_to_activate_state[device.uri]);
+    if (!getDeviceChargingStatus().enabled) disableUnforcedDevice(devices_to_activate_state[device.uri]);
     let alpha = devices_to_activate_state[device.uri].requested_alpha;
     res.json({alpha: alpha, time_limit: device.time_limit});
     devices_to_activate_state[device.uri].last_call = (new Date()).getTime();
@@ -1128,7 +1134,8 @@ setInterval(function () {
                 
             }
             //print("Power available: " + power);
-            // Battery first: devices only share surplus once the battery allows it.
+            // Forcing first, then the battery: devices that are not forced only share
+            // surplus once the battery allows it.
             const devices_allowed = getDeviceChargingStatus().enabled;
             const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
             //print("Devices to consider: ",devices_to_consider);
@@ -1136,8 +1143,10 @@ setInterval(function () {
                 let device = devices_to_activate.filter(value => {
                     return value.uri == devices_to_consider[i];
                 })[0];
+                // A forced device skips the battery decision
+                const device_allowed = devices_to_activate_state[device.uri].force_mode || devices_allowed;
                 // Check for connection
-                if (devices_allowed && is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
+                if (device_allowed && is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
                     // Normal mode
                     if (devices_to_activate_state[device.uri].type == 'normal') {
                         let to_activate = normalDecision(device, power);
@@ -1168,7 +1177,8 @@ setInterval(function () {
                         //print("[" + device.uri + "] alpha = " + alpha + ", power = " + devices_to_activate_state[device.uri].requested_power + " W (" + percentage*100 + "%)")
                     }
                 } else {
-                    // Block charging when the battery gate is closed or the device is disconnected.
+                    // Block charging when the battery gate is closed for a device that is not forced,
+                    // or when the device is disconnected.
                     disableDeviceCharging(devices_to_activate_state[device.uri]);
                 }
                 if (devices_to_activate_state[device.uri].force_mode == false) { // Prevent from considering forced power as available power

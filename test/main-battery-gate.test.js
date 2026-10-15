@@ -212,7 +212,7 @@ test('devices run only while the battery is full or charging at its maximum powe
     await assertDevicesOn(app);
 });
 
-test('battery gating overrides forced operation and clears pending device power', async (t) => {
+test('forcing is decided before the battery: forced devices run whatever the battery says', async (t) => {
     const app = await createServer(t);
     await app.initializeDevices();
     app.readings.power = 500;
@@ -225,15 +225,49 @@ test('battery gating overrides forced operation and clears pending device power'
     }
     app.controlTick();
     await assertDevicesOn(app);
-    app.readings.battery = {socPercent: 80, state: 'standby', chargingPowerW: 0, dischargingPowerW: 0};
-    await app.request('/api/battery');
-    await app.assertDevicesOff();
-    app.controlTick();
-    await app.assertRequestedPowerOff();
-    await app.assertDevicesOff();
-    for (const uri of ['normal', 'advanced']) {
-        assert.equal((await app.request(`/api/device/${uri}/debug/`)).json.force_mode, true);
+
+    const blocked = [
+        [{socPercent: 80, state: 'standby', chargingPowerW: 0, dischargingPowerW: 0}, null, 'battery-not-full'],
+        [{socPercent: 80, state: 'discharging', chargingPowerW: 0, dischargingPowerW: 400}, null, 'battery-discharging'],
+        [{socPercent: 60, state: 'charging', chargingPowerW: 300, dischargingPowerW: 0}, null, 'battery-charging-below-max'],
+        [null, new Error('battery offline'), 'battery-unavailable']
+    ];
+    for (const [reading, error, reason] of blocked) {
+        app.readings.battery = reading;
+        app.readings.batteryError = error;
+        const battery = (await app.request('/api/battery')).json.device_charging;
+        assert.equal(battery.enabled, false);
+        assert.equal(battery.reason, reason);
+        await assertDevicesOn(app);
+        app.controlTick();
+        await assertDevicesOn(app);
+        for (const uri of ['normal', 'advanced']) {
+            assert.ok((await app.request(`/api/device/${uri}/debug/`)).json.requested_power > 0);
+        }
     }
+
+    // Once forcing stops, the battery decides again and turns the device off right away.
+    assert.deepEqual((await app.request('/api/device/advanced/force/test-pass/disable')).json,
+        {force_mode: false, percent: 0});
+    assert.deepEqual((await app.request('/api/device/advanced/advanced/')).json, {alpha: 128, time_limit: 2500});
+    app.controlTick();
+    assert.deepEqual((await app.request('/api/device/advanced/advanced/')).json, {alpha: 128, time_limit: 2500});
+    assert.equal((await app.request('/api/device/advanced/debug/')).json.requested_power, 0);
+    assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
+});
+
+test('forced devices still stop when the house meter is unavailable', async (t) => {
+    const app = await createServer(t);
+    await app.initializeDevices();
+    await app.request('/api/device/normal/force/test-pass/1');
+    app.controlTick();
+    assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
+    app.readings.powerError = new Error('house meter offline');
+    await app.request('/api/data');
+    assert.deepEqual((await app.request('/api/device/normal/')).json, {toggle: false, time_limit: 2500});
+    app.readings.powerError = null;
+    await app.request('/api/data');
+    assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
 });
 
 test('unavailable battery stops previously enabled devices and reports the same decision in both APIs', async (t) => {
