@@ -5,17 +5,18 @@ const test = require('node:test');
 const vm = require('node:vm');
 const ejs = require('ejs');
 
-function page(name, data) {
+function page(name, data, locals) {
     const filename = path.resolve(__dirname, '../views', name + '.ejs');
     const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
-        __: label => label, period: '24h', timezone: 'Europe/Vienna', config: {}
+        __: label => label, period: '24h', timezone: 'Europe/Vienna', config: {}, ...locals
     }, {filename});
     const nodes = new Map();
     const cells = [];
     const plots = new Map();
     function element(tag) {
-        const node = {children: [], style: {}, textContent: '', value: '', checked: false,
-            appendChild(child) { this.children.push(child); }, addEventListener() {},
+        const node = {children: [], style: {}, textContent: '', value: '', checked: false, listeners: {},
+            appendChild(child) { this.children.push(child); },
+            addEventListener(type, listener) { (this.listeners[type] = this.listeners[type] || []).push(listener); },
             closest() { return {offsetWidth: 1000}; }};
         if (tag === 'td') cells.push(node);
         return node;
@@ -332,4 +333,46 @@ test('invalid negative battery readings do not supersede complete zero readings 
     const result = JSON.parse(JSON.stringify(vm.runInContext("aggregateData('day')", context)));
     assert.deepEqual(result.totalEnergyUsed, [8]);
     assert.deepEqual(result.batteryDischarging, [0]);
+});
+
+test('energy graph duration defaults to the whole history and limits graphs, breakdown and weather', () => {
+    const {context, cells, nodes, plots} = page('energy-graph', null,
+        {config: {latitude: '48.2', longitude: '16.4', timezone: 'Europe/Vienna'}});
+    const weatherUrls = [];
+    context.fetch = async url => { weatherUrls.push(url); return {json: async () => null}; };
+    const entry = (start_date, consumption) => ({...day, start_date, consumption_on_network: consumption,
+        solar_panel: 1, battery_discharging: 0, battery_charging: 0, house_consumption: consumption + 1});
+    context.entries = [entry('2025-12-30T10:00:00.000Z', 1), entry('2026-01-02T10:00:00.000Z', 2),
+        entry('2026-01-05T10:00:00.000Z', 4)];
+    vm.runInContext(`rawFlattenedData = entries;
+        energyDateRange.minDate = new Date(entries[0].start_date);
+        energyDateRange.maxDate = new Date(entries[2].start_date);
+        setupDurationControls(); updateAllGraphs('day')`, context);
+    const start = nodes.get('range-start');
+    const end = nodes.get('range-end');
+    const fire = (node, type) => node.listeners[type].forEach(listener => listener({target: node}));
+    const consumption = () => Array.from(plots.get('graph-consumption').traces[0].y);
+    const isoDay = date => date.toISOString().split('T')[0];
+
+    assert.deepEqual([start.value, end.value, start.min, end.max],
+        ['2025-12-30', '2026-01-05', '2025-12-30', '2026-01-05']);
+    assert.deepEqual(consumption(), [1, 2, 4]);
+
+    start.value = '2026-01-01';
+    cells.length = 0;
+    fire(start, 'change');
+    assert.deepEqual(consumption(), [2, 4]);
+    assert.deepEqual(Array.from(plots.get('graph-total').traces[0].y), [3, 5]);
+    assert.deepEqual(cells.map(cell => String(cell.textContent)), ['2026', '6', '2', '0', '0', '8', '0']);
+    assert.ok(weatherUrls.at(-1).includes('start_date=' + isoDay(new Date(2025, 11, 31))));
+    assert.ok(weatherUrls.at(-1).includes('end_date=' + isoDay(new Date(2026, 0, 6))));
+
+    end.value = '2025-12-31';
+    fire(end, 'change');
+    assert.equal(start.value, '2025-12-31', 'an end before the start moves the start along');
+    assert.deepEqual(consumption(), [], 'an empty duration clears the previous graph');
+
+    fire(nodes.get('range-reset'), 'click');
+    assert.deepEqual([start.value, end.value], ['2025-12-30', '2026-01-05']);
+    assert.deepEqual(consumption(), [1, 2, 4]);
 });

@@ -76,6 +76,13 @@
             gap: 8px;
             color: #111827;
         }
+        .global-controls input[type="date"] {
+            width: auto;
+            padding: 6px 12px;
+        }
+        .global-controls button {
+            padding: 6px 16px;
+        }
     </style>
     <title>Solar panel watch | <%= __('Energy graph')%></title>
   </head>
@@ -110,6 +117,15 @@
                     <option value="year"><%= __("Year")%></option>
                 </select>
             </label>
+            <label>
+                <span><%= __("From")%>:</span>
+                <input type="date" id="range-start" />
+            </label>
+            <label>
+                <span><%= __("To")%>:</span>
+                <input type="date" id="range-end" />
+            </label>
+            <button type="button" id="range-reset"><%= __("Whole period")%></button>
         </div>
         
         <!-- Consumption on Network Graph -->
@@ -301,13 +317,30 @@
                 preferredTier.get(getAggregationKey(entry.start_date, 'day')));
         };
 
-        const aggregateData = (aggregation) => {
+        // Selected duration as local calendar days (YYYY-MM-DD); an empty
+        // field leaves that side of the range open.
+        const selectedRange = () => ({
+            start: document.getElementById('range-start').value,
+            end: document.getElementById('range-end').value
+        });
+
+        const selectedData = () => {
             if (!rawFlattenedData) return null;
-            
+            const {start, end} = selectedRange();
+            return rawFlattenedData.filter(entry => {
+                const day = localDayKey(new Date(entry.start_date));
+                return (!start || day >= start) && (!end || day <= end);
+            });
+        };
+
+        const aggregateData = (aggregation) => {
+            const entries = selectedData();
+            if (!entries) return null;
+
             const grouped = {};
-            
+
             // Group data by aggregation key
-            for (const entry of rawFlattenedData) {
+            for (const entry of entries) {
                 const dateObj = new Date(entry.start_date);
                 dateObj.setHours(0, 0, 0, 0);
                 const key = getAggregationKey(dateObj, aggregation);
@@ -570,7 +603,8 @@
         };
         
         const createSolarGraph = (containerId, title, yAxisTitle, data, weekendCheckboxId, sunshineCheckboxId) => {
-            if (!dateObjects || !data || data.length === 0) return;
+            // An empty duration still redraws, so no graph keeps a previous range.
+            if (!dateObjects || !data) return;
             
             const weekendColoringEnabled = document.getElementById(weekendCheckboxId).checked;
             const showSunshine = document.getElementById(sunshineCheckboxId).checked;
@@ -735,7 +769,8 @@
         };
         
         const createGraph = (containerId, title, yAxisTitle, data, metricName, weekendCheckboxId) => {
-            if (!dateObjects || !data || data.length === 0) return;
+            // An empty duration still redraws, so no graph keeps a previous range.
+            if (!dateObjects || !data) return;
             
             const weekendColoringEnabled = document.getElementById(weekendCheckboxId).checked;
             const barColors = dateObjects.map(date => {
@@ -850,6 +885,11 @@
 
         const localYear = (date) => date.getFullYear();
         const localMonthKey = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+        const localDayKey = (date) => localMonthKey(date) + '-' + String(date.getDate()).padStart(2, '0');
+        const parseLocalDay = (key) => {
+            const [year, month, day] = key.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        };
         const fmtSum = window.energyConsumption.roundEnergy;
 
         const renderBreakdownTable = () => {
@@ -861,7 +901,7 @@
             if (!rawFlattenedData || rawFlattenedData.length === 0) return;
 
             const grouped = {};
-            rawFlattenedData.forEach(entry => {
+            selectedData().forEach(entry => {
                 const dateObj = new Date(entry.start_date);
                 if (selectedYear && localYear(dateObj) !== selectedYear) return;
                 const key = selectedYear ? localMonthKey(dateObj) : String(localYear(dateObj));
@@ -910,11 +950,15 @@
             container.appendChild(table);
         };
 
-        const setupBreakdownTable = () => {
+        // The years offered follow the selected duration; the chosen year is
+        // kept while it remains in range.
+        const fillBreakdownYears = () => {
             const select = document.getElementById('breakdown-year-select');
+            const previous = select.value;
             const years = new Set();
-            rawFlattenedData.forEach(entry => years.add(localYear(new Date(entry.start_date))));
+            selectedData().forEach(entry => years.add(localYear(new Date(entry.start_date))));
 
+            select.innerHTML = '';
             const empty = document.createElement('option');
             empty.value = '';
             empty.textContent = '-- <%= __("All years")%> --';
@@ -925,10 +969,57 @@
                 opt.textContent = year;
                 select.appendChild(opt);
             });
-            select.addEventListener('change', renderBreakdownTable);
+            select.value = years.has(parseInt(previous, 10)) ? previous : '';
+        };
+
+        const setupBreakdownTable = () => {
+            fillBreakdownYears();
+            document.getElementById('breakdown-year-select').addEventListener('change', renderBreakdownTable);
 
             document.getElementById('breakdown-table-section').style.display = 'block';
             renderBreakdownTable();
+        };
+
+        const loadSelectedWeather = () => {
+            const {start, end} = selectedRange();
+            loadWeatherData(start ? parseLocalDay(start) : energyDateRange.minDate,
+                end ? parseLocalDay(end) : energyDateRange.maxDate);
+        };
+
+        const applyDuration = () => {
+            updateAllGraphs(document.getElementById('aggregation-select').value);
+            fillBreakdownYears();
+            renderBreakdownTable();
+            loadSelectedWeather();
+        };
+
+        const resetDuration = () => {
+            document.getElementById('range-start').value = localDayKey(energyDateRange.minDate);
+            document.getElementById('range-end').value = localDayKey(energyDateRange.maxDate);
+        };
+
+        // Defaults to the whole recorded period.
+        const setupDurationControls = () => {
+            if (!energyDateRange.minDate || !energyDateRange.maxDate) return;
+            const start = document.getElementById('range-start');
+            const end = document.getElementById('range-end');
+            start.min = end.min = localDayKey(energyDateRange.minDate);
+            start.max = end.max = localDayKey(energyDateRange.maxDate);
+            resetDuration();
+
+            // Moving one bound past the other moves the other along with it.
+            start.addEventListener('change', () => {
+                if (start.value && end.value && start.value > end.value) end.value = start.value;
+                applyDuration();
+            });
+            end.addEventListener('change', () => {
+                if (start.value && end.value && start.value > end.value) start.value = end.value;
+                applyDuration();
+            });
+            document.getElementById('range-reset').addEventListener('click', () => {
+                resetDuration();
+                applyDuration();
+            });
         };
 
         const loadData = () => {
@@ -966,7 +1057,8 @@
                 // Store date range for later use
                 energyDateRange.minDate = minDate;
                 energyDateRange.maxDate = maxDate;
-                
+                setupDurationControls();
+
                 // Get initial aggregation (default: day)
                 const initialAggregation = document.getElementById('aggregation-select').value;
                 updateAllGraphs(initialAggregation);
@@ -988,17 +1080,15 @@
                 // Add event listener for aggregation change
                 document.getElementById('aggregation-select').addEventListener('change', function(e) {
                     updateAllGraphs(e.target.value);
-                    if (energyDateRange.minDate && energyDateRange.maxDate) {
-                        loadWeatherData(energyDateRange.minDate, energyDateRange.maxDate);
-                    }
+                    loadSelectedWeather();
                 });
-                
-                // Load weather data with date range from energy data
-                if (minDate && maxDate) {
-                    loadWeatherData(minDate, maxDate);
-                }
+
+                // Load weather data for the selected duration
+                loadSelectedWeather();
             });
         }
+
+        let weatherRequest = 0;
         
         const loadWeatherData = (startDate, endDate) => {
             if (!startDate || !endDate) {
@@ -1027,16 +1117,20 @@
             // Fetch directly from Open-Meteo Archive API
             const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${startStr}&end_date=${endStr}&daily=temperature_2m_max,temperature_2m_min,sunshine_duration&timezone=${timezone}`;
             
+            const request = ++weatherRequest;
             const fetchWeatherData = fetch(url)
                 .then(response => response.json())
                 .catch(error => {
                     console.error('Error fetching weather data:', error);
                     return null;
                 });
-            
+
             fetchWeatherData.then(weatherResponse => {
+                // A later duration or aggregation change supersedes this response.
+                if (request !== weatherRequest) return;
                 if (!weatherResponse || !weatherResponse.daily || !weatherResponse.daily.time || weatherResponse.daily.time.length === 0) {
-                    // No weather data available
+                    // No weather data available for this range: hide the previous one
+                    document.getElementById('weather-section').style.display = 'none';
                     return;
                 }
                 
