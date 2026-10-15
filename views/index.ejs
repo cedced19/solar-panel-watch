@@ -8,11 +8,17 @@
   const batteryInterval = typeof zendure_battery_req_threshold !== 'undefined' && Number.isFinite(zendure_battery_req_threshold) && zendure_battery_req_threshold > 0 ? zendure_battery_req_threshold : 20000;
   const batteryStateKeys = {charging: 'Battery charging', standby: 'Battery standby', discharging: 'Battery discharging'};
   const deviceChargingKeys = {
-    'soc-above-threshold': 'Device charging allowed above SOC',
-    'soc-at-or-below-threshold': 'Device charging blocked below SOC',
+    'battery-full': 'Device activation allowed battery full',
+    'battery-not-full': 'Device activation blocked battery not full',
+    'battery-charging-at-max': 'Device activation allowed battery charging at max',
+    'battery-charging-below-max': 'Device activation blocked battery charging below max',
+    'battery-discharging': 'Device activation blocked battery discharging',
     'battery-unavailable': 'Device charging blocked battery unavailable',
     'power-unavailable': 'Device charging blocked power unavailable'
   };
+  function deviceChargingText(template, status) {
+    return template.replace('{soc}', status.fullSocPercent).replace('{power}', Number.isFinite(status.maxChargingPowerW) ? status.maxChargingPowerW : '?');
+  }
   const deviceCharging = typeof device_charging !== 'undefined' && device_charging && typeof device_charging.enabled === 'boolean' && Object.prototype.hasOwnProperty.call(deviceChargingKeys, device_charging.reason) ? device_charging : {enabled: false, reason: 'battery-unavailable'};
   const hasSolarPower = typeof power2 !== 'undefined' && Number.isFinite(power2);
   const hasTotalPower = typeof power1 !== 'undefined' && Number.isFinite(power1) && hasSolarPower;
@@ -95,7 +101,7 @@
           <div class="power-value" aria-live="polite"><span id="battery-level"><%= batteryData ? Math.round(batteryData.socPercent * 10)/10 : __('Unavailable') %></span><span class="power-unit">%</span></div>
         </div>
         <progress id="battery-progress" max="100" aria-labelledby="battery-label"<% if(batteryData){ %> value="<%= batteryData.socPercent %>"<% } else { %> hidden<% } %>></progress>
-        <p class="device-charging-status<% if(deviceCharging.enabled){ %> is-enabled<% } %>" id="device-charging-status" aria-live="polite" data-soc-above-threshold="<%= __('Device charging allowed above SOC') %>" data-soc-at-or-below-threshold="<%= __('Device charging blocked below SOC') %>" data-battery-unavailable="<%= __('Device charging blocked battery unavailable') %>" data-power-unavailable="<%= __('Device charging blocked power unavailable') %>"><%= __(deviceChargingKeys[deviceCharging.reason]).replace('{soc}', deviceCharging.minSocPercent) %></p>
+        <p class="device-charging-status<% if(deviceCharging.enabled){ %> is-enabled<% } %>" id="device-charging-status" aria-live="polite" <% Object.keys(deviceChargingKeys).forEach(function (reason) { %> data-<%= reason %>="<%= __(deviceChargingKeys[reason]) %>"<% }) %>><%= deviceChargingText(__(deviceChargingKeys[deviceCharging.reason]), deviceCharging) %></p>
         <p class="battery-state" id="battery-state" aria-live="polite"><%= batteryData && Object.prototype.hasOwnProperty.call(batteryStateKeys, batteryData.state) ? __(batteryStateKeys[batteryData.state]) : '' %></p>
         <p class="battery-charging-power<% if(batteryChargingPower === null){ %> is-unavailable<% } %>" id="battery-charging-power-row">
           <span><%= __('Battery charging power') %></span>
@@ -186,12 +192,9 @@
     const batteryDischargingPowerUnit = document.getElementById('battery-discharging-power-unit');
     const batterySourceEl = document.getElementById('battery-source');
     const deviceChargingStatusEl = document.getElementById('device-charging-status');
-    const deviceChargingReasons = {
-      'soc-above-threshold': deviceChargingStatusEl.dataset.socAboveThreshold,
-      'soc-at-or-below-threshold': deviceChargingStatusEl.dataset.socAtOrBelowThreshold,
-      'battery-unavailable': deviceChargingStatusEl.dataset.batteryUnavailable,
-      'power-unavailable': deviceChargingStatusEl.dataset.powerUnavailable
-    };
+    const deviceChargingReasons = {};
+    <% Object.keys(deviceChargingKeys).forEach(function (reason) { %>deviceChargingReasons['<%= reason %>'] = deviceChargingStatusEl.getAttribute('data-<%= reason %>');
+    <% }) %>
     const batteryStates = {
       charging: batteryCard.dataset.charging,
       standby: batteryCard.dataset.standby,
@@ -254,7 +257,9 @@
     function renderDeviceCharging(data, fallbackReason) {
       const available = data && typeof data.enabled === 'boolean' && Object.prototype.hasOwnProperty.call(deviceChargingReasons, data.reason);
       const status = available ? data : {enabled: false, reason: fallbackReason};
-      deviceChargingStatusEl.textContent = deviceChargingReasons[status.reason].replace('{soc}', status.minSocPercent);
+      deviceChargingStatusEl.textContent = deviceChargingReasons[status.reason]
+        .replace('{soc}', status.fullSocPercent)
+        .replace('{power}', Number.isFinite(status.maxChargingPowerW) ? status.maxChargingPowerW : '?');
       deviceChargingStatusEl.classList.toggle('is-enabled', status.enabled);
     }
 

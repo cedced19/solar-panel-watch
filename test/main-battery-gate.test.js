@@ -10,11 +10,13 @@ const mainPath = path.resolve(__dirname, '../main.js');
 const requireFromMain = createRequire(mainPath);
 const mainSource = fs.readFileSync(mainPath, 'utf8');
 
+const fullBattery = {socPercent: 100, state: 'standby', chargingPowerW: 0, dischargingPowerW: 0};
+
 // Execute the real server and control loop with no hardware, database, disk writes,
 // or running background timers. The callbacks are invoked by each test.
-async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
+async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatterySettings = false} = {}) {
     const intervals = [];
-    const readings = {battery: {socPercent: 81, state: 'charging'}, power: -3000};
+    const readings = {battery: {...fullBattery}, power: -3000};
     const devices = [
         {uri: 'normal', ids: ['normal-id'], priority: 1, power_limit: 1000,
             power_threshold_percentage: 0.02, time_limit: 2500},
@@ -22,10 +24,12 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
             power_threshold_percentage: 0.02, time_limit: 2500, min_alpha: 40}
     ];
     const config = {...requireFromMain('./config.json'), force_mode_pass: 'test-pass'};
-    if (omitMinSoc) {
-        delete config.zendure_battery_min_soc;
+    if (omitBatterySettings) {
+        delete config.zendure_battery_full_soc;
+        delete config.zendure_battery_max_charging_power;
     } else {
-        config.zendure_battery_min_soc = minSoc;
+        config.zendure_battery_full_soc = fullSoc;
+        config.zendure_battery_max_charging_power = maxChargingPower;
     }
     const powerData = {
         powerRequestThreshold: 1000,
@@ -148,8 +152,13 @@ async function createServer(t, {minSoc = 80, omitMinSoc = false} = {}) {
         initializeDevices, assertDevicesOff, assertRequestedPowerOff};
 }
 
-function status(enabled, reason, socPercent, minSocPercent = 80) {
-    return {enabled, reason, minSocPercent, socPercent};
+function status(enabled, reason, socPercent, fullSocPercent = 100, maxChargingPowerW = 800) {
+    return {enabled, reason, socPercent, fullSocPercent, maxChargingPowerW};
+}
+
+async function assertDevicesOn(app) {
+    assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
+    assert.ok((await app.request('/api/device/advanced/advanced/')).json.alpha < 128);
 }
 
 test('battery gating keeps devices off at startup until both readings are known', async (t) => {
@@ -157,37 +166,48 @@ test('battery gating keeps devices off at startup until both readings are known'
     assert.equal(app.main.getDeviceChargingStatus().enabled, false);
     await app.assertDevicesOff();
     const battery = await app.request('/api/battery');
-    assert.deepEqual(battery.json.device_charging, status(false, 'power-unavailable', 81));
+    assert.deepEqual(battery.json.device_charging, status(false, 'power-unavailable', 100));
     await app.assertDevicesOff();
     const power = await app.request('/api/data');
-    assert.deepEqual(power.json.device_charging, status(true, 'soc-above-threshold', 81));
+    assert.deepEqual(power.json.device_charging, status(true, 'battery-full', 100));
 });
 
-test('surplus enables both device modes only strictly above the configured battery threshold', async (t) => {
-    const app = await createServer(t, {minSoc: 65});
-    app.readings.battery.socPercent = 66;
+test('devices run only while the battery is full or charging at its maximum power', async (t) => {
+    const app = await createServer(t);
     await app.initializeDevices();
     app.controlTick();
-    for (const route of ['/api/device/normal/', '/api/device/id/normal-id/']) {
-        assert.equal((await app.request(route)).json.toggle, true);
-    }
-    for (const route of ['/api/device/advanced/advanced/', '/api/device/id/advanced-id/advanced/']) {
-        assert.ok((await app.request(route)).json.alpha < 128);
-    }
-    for (const soc of [65, 64]) {
-        app.readings.battery.socPercent = soc;
-        const battery = await app.request('/api/battery');
-        assert.deepEqual(battery.json.device_charging,
-            status(false, 'soc-at-or-below-threshold', soc, 65));
+    await assertDevicesOn(app);
+
+    const blocked = [
+        [{socPercent: 100, state: 'discharging', chargingPowerW: 0, dischargingPowerW: 400}, 'battery-discharging', 100],
+        [{socPercent: 60, state: 'charging', chargingPowerW: 300, dischargingPowerW: 0}, 'battery-charging-below-max', 60],
+        [{socPercent: 99, state: 'standby', chargingPowerW: 0, dischargingPowerW: 0}, 'battery-not-full', 99]
+    ];
+    for (const [reading, reason, soc] of blocked) {
+        app.readings.battery = reading;
+        assert.deepEqual((await app.request('/api/battery')).json.device_charging, status(false, reason, soc));
         app.controlTick();
         await app.assertRequestedPowerOff();
         await app.assertDevicesOff();
     }
-    app.readings.battery.socPercent = 66;
+
+    app.readings.battery = {socPercent: 60, state: 'charging', chargingPowerW: 800, dischargingPowerW: 0};
+    assert.deepEqual((await app.request('/api/battery')).json.device_charging,
+        status(true, 'battery-charging-at-max', 60));
+    app.controlTick();
+    await assertDevicesOn(app);
+
+    // Once running, the devices take surplus away from the battery. Their draw is
+    // added back so the battery still counts as charging at its maximum.
+    app.readings.battery = {socPercent: 61, state: 'charging', chargingPowerW: 300, dischargingPowerW: 0};
+    assert.equal((await app.request('/api/battery')).json.device_charging.reason, 'battery-charging-at-max');
+    app.controlTick();
+    await assertDevicesOn(app);
+
+    app.readings.battery = {...fullBattery};
     await app.request('/api/battery');
     app.controlTick();
-    assert.equal((await app.request('/api/device/id/normal-id/')).json.toggle, true);
-    assert.ok((await app.request('/api/device/id/advanced-id/advanced/')).json.alpha < 128);
+    await assertDevicesOn(app);
 });
 
 test('battery gating overrides forced operation and clears pending device power', async (t) => {
@@ -202,9 +222,8 @@ test('battery gating overrides forced operation and clears pending device power'
         assert.deepEqual(forced.json, {force_mode: true, percent: 1});
     }
     app.controlTick();
-    assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
-    assert.ok((await app.request('/api/device/advanced/advanced/')).json.alpha < 128);
-    app.readings.battery.socPercent = 80;
+    await assertDevicesOn(app);
+    app.readings.battery = {socPercent: 80, state: 'standby', chargingPowerW: 0, dischargingPowerW: 0};
     await app.request('/api/battery');
     await app.assertDevicesOff();
     app.controlTick();
@@ -219,8 +238,7 @@ test('unavailable battery stops previously enabled devices and reports the same 
     const app = await createServer(t);
     await app.initializeDevices();
     app.controlTick();
-    assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
-    assert.ok((await app.request('/api/device/advanced/advanced/')).json.alpha < 128);
+    await assertDevicesOn(app);
     app.readings.batteryError = new Error('battery offline');
     const battery = await app.request('/api/battery');
     assert.equal(battery.status, 503);
@@ -237,7 +255,7 @@ test('invalid battery percentages cannot enable devices', async (t) => {
     const app = await createServer(t);
     await app.initializeDevices();
     for (const soc of [undefined, null, '90', NaN, Infinity, -1, 101]) {
-        app.readings.battery = {socPercent: soc};
+        app.readings.battery = {...fullBattery, socPercent: soc};
         await app.request('/api/battery');
         assert.deepEqual(JSON.parse(JSON.stringify(app.main.getDeviceChargingStatus())),
             status(false, 'battery-unavailable', null));
@@ -247,7 +265,7 @@ test('invalid battery percentages cannot enable devices', async (t) => {
     }
 });
 
-test('house power errors disable devices even when the battery is above threshold', async (t) => {
+test('house power errors disable devices even when the battery is full', async (t) => {
     const app = await createServer(t);
     await app.initializeDevices();
     app.controlTick();
@@ -256,7 +274,7 @@ test('house power errors disable devices even when the battery is above threshol
     const power = await app.request('/api/data');
     assert.equal(power.status, 503);
     assert.deepEqual(power.json, {error: 'Zendure house power data is unavailable.',
-        device_charging: status(false, 'power-unavailable', 81)});
+        device_charging: status(false, 'power-unavailable', 100)});
     app.controlTick();
     await app.assertDevicesOff();
     app.readings.powerError = null;
@@ -278,25 +296,32 @@ test('expired cached battery readings stop devices until a fresh reading arrives
     }
     app.readings.battery.time = Math.floor(Date.now() / 1000);
     assert.deepEqual((await app.request('/api/battery')).json.device_charging,
-        status(true, 'soc-above-threshold', 81));
+        status(true, 'battery-full', 100));
     app.controlTick();
     assert.equal((await app.request('/api/device/normal/')).json.toggle, true);
 });
 
-test('omitting the battery threshold uses 80 percent', async (t) => {
-    const app = await createServer(t, {omitMinSoc: true});
+test('omitting the battery settings requires 100 percent and never treats charging as at max', async (t) => {
+    const app = await createServer(t, {omitBatterySettings: true});
     await app.request('/api/data');
     assert.deepEqual((await app.request('/api/battery')).json.device_charging,
-        status(true, 'soc-above-threshold', 81));
-    app.readings.battery.socPercent = 80;
+        status(true, 'battery-full', 100, 100, null));
+    app.readings.battery = {socPercent: 99, state: 'standby'};
     assert.deepEqual((await app.request('/api/battery')).json.device_charging,
-        status(false, 'soc-at-or-below-threshold', 80));
+        status(false, 'battery-not-full', 99, 100, null));
+    app.readings.battery = {socPercent: 99, state: 'charging', chargingPowerW: 5000};
+    assert.deepEqual((await app.request('/api/battery')).json.device_charging,
+        status(false, 'battery-charging-below-max', 99, 100, null));
 });
 
-test('invalid battery thresholds fail startup with a configuration error', async (t) => {
-    for (const minSoc of [-1, 101, '80', null, NaN, Infinity]) {
-        await assert.rejects(createServer(t, {minSoc}),
-            /zendure_battery_min_soc must be a number between 0 and 100/);
+test('invalid battery settings fail startup with a configuration error', async (t) => {
+    for (const fullSoc of [-1, 101, '80', NaN, Infinity]) {
+        await assert.rejects(createServer(t, {fullSoc}),
+            /zendure_battery_full_soc must be a number between 0 and 100/);
+    }
+    for (const maxChargingPower of [0, -1, '800', NaN]) {
+        await assert.rejects(createServer(t, {maxChargingPower}),
+            /zendure_battery_max_charging_power must be a positive number of watts/);
     }
 });
 
@@ -344,7 +369,7 @@ test('battery history rejects invalid periods before querying InfluxDB and repor
 });
 
 test('background battery polling records successful readings independently of house power and device gating', async (t) => {
-    const app = await createServer(t, {minSoc: 100});
+    const app = await createServer(t);
     app.readings.powerError = new Error('house meter offline');
     const firstBattery = {...app.readings.battery, time: Math.floor(Date.now() / 1000),
         outputHomePowerW: 600, gridInputPowerW: 0, chargingPowerW: 0, dischargingPowerW: 550};

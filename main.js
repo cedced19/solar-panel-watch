@@ -15,16 +15,14 @@ const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const computeEnergy = require('./lib/compute-energy.js');
 const computeConsumptionPower = require('./lib/compute-consumption-power.js');
 const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate-params.js');
+const batteryLogic = require('./lib/battery-logic.js');
 
 
 const JSONStore = require('json-store-list');
 
 const config = require('./config.json');
 
-const batteryMinSoc = config.zendure_battery_min_soc === undefined ? 80 : config.zendure_battery_min_soc;
-if (!Number.isFinite(batteryMinSoc) || batteryMinSoc < 0 || batteryMinSoc > 100) {
-    throw new Error('zendure_battery_min_soc must be a number between 0 and 100.');
-}
+const batterySettings = batteryLogic.readSettings(config);
 
 const db_energy = JSONStore('./energy-query-save.json');
 
@@ -38,22 +36,15 @@ let batteryData = null;
 let batteryReceivedAt = 0;
 const batteryRequestTimeout = Number.isFinite(config.zendure_request_timeout) && config.zendure_request_timeout > 0 ? config.zendure_request_timeout : 3000;
 
+// The battery is served first; see lib/battery-logic.js for the activation rules.
 function getDeviceChargingStatus() {
-    const soc = batteryData && batteryData.socPercent;
     const readingAge = Date.now() - batteryReceivedAt;
-    const socAvailable = Number.isFinite(soc) && soc >= 0 && soc <= 100 &&
-        readingAge >= 0 && readingAge <= getPowerData.batteryRequestThreshold + batteryRequestTimeout;
-    let reason = 'battery-unavailable';
-    if (socAvailable) {
-        reason = !powerDataAvailable ? 'power-unavailable' :
-            soc > batteryMinSoc ? 'soc-above-threshold' : 'soc-at-or-below-threshold';
-    }
-    return {
-        enabled: reason === 'soc-above-threshold',
-        reason,
-        minSocPercent: batteryMinSoc,
-        socPercent: socAvailable ? soc : null
-    };
+    const batteryFresh = readingAge >= 0 && readingAge <= getPowerData.batteryRequestThreshold + batteryRequestTimeout;
+    return batteryLogic.getDeviceActivation({
+        battery: batteryFresh ? batteryData : null,
+        powerAvailable: powerDataAvailable,
+        devicesPowerW: get_power_from_activated_devices()
+    }, batterySettings);
 }
 
 function disableDeviceCharging(state) {
@@ -1126,6 +1117,8 @@ setInterval(function () {
                 
             }
             //print("Power available: " + power);
+            // Battery first: devices only share surplus once the battery allows it.
+            const devices_allowed = getDeviceChargingStatus().enabled;
             const devices_to_consider = include_elements(devices_to_activate_priority_list,Object.keys(devices_to_activate_state));
             //print("Devices to consider: ",devices_to_consider);
             for (let i = 0; i < devices_to_consider.length; i++) {
@@ -1133,7 +1126,7 @@ setInterval(function () {
                     return value.uri == devices_to_consider[i];
                 })[0];
                 // Check for connection
-                if (getDeviceChargingStatus().enabled && is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
+                if (devices_allowed && is_device_connected(device.time_limit, devices_to_activate_state[device.uri].last_call, 20)) {
                     // Normal mode
                     if (devices_to_activate_state[device.uri].type == 'normal') {
                         let to_activate = normalDecision(device, power);

@@ -6,13 +6,15 @@ const vm = require('node:vm');
 const main = require('../main');
 const getPowerData = require('../lib/get-power-data');
 const config = require('../config.json');
-const minSocPercent = config.zendure_battery_min_soc ?? 80;
-const healthyBatteryDecision = {
-    enabled: 86 > minSocPercent,
-    reason: 86 > minSocPercent ? 'soc-above-threshold' : 'soc-at-or-below-threshold',
-    minSocPercent,
-    socPercent: 86
-};
+const batteryLogic = require('../lib/battery-logic');
+const batterySettings = batteryLogic.readSettings(config);
+const batteryLimits = {fullSocPercent: batterySettings.fullSocPercent, maxChargingPowerW: batterySettings.maxChargingPowerW};
+// The fixture battery charges at 345 W with no device running.
+const healthyBatteryDecision = batteryLogic.getDeviceActivation({
+    battery: {socPercent: 86, state: 'charging', chargingPowerW: 345, dischargingPowerW: 300},
+    powerAvailable: true,
+    devicesPowerW: 0
+}, batterySettings);
 
 function request(server, path, headers = {}) {
     return new Promise((resolve, reject) => {
@@ -73,7 +75,7 @@ test('the dashboard reports Zendure house power and battery availability indepen
     assert.deepEqual(JSON.parse(dataResponse.body), {
         error: 'Zendure house power data is unavailable.',
         device_charging: {
-            enabled: false, reason: 'power-unavailable', minSocPercent, socPercent: 86
+            enabled: false, reason: 'power-unavailable', socPercent: 86, ...batteryLimits
         }
     });
 
@@ -143,7 +145,7 @@ test('the dashboard reports Zendure house power and battery availability indepen
     assert.deepEqual(JSON.parse(unavailableBattery.body), {
         error: 'Zendure battery data is unavailable.',
         device_charging: {
-            enabled: false, reason: 'battery-unavailable', minSocPercent, socPercent: null
+            enabled: false, reason: 'battery-unavailable', socPercent: null, ...batteryLimits
         }
     });
     const pageWithoutBattery = await request(server, '/');
