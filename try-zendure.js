@@ -13,13 +13,24 @@ const {readFile} = require('node:fs/promises');
 const {promisify} = require('node:util');
 const runFile = promisify(execFile);
 
+function loadConfig() {
+    try {
+        return JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname, 'config.json'), 'utf8'));
+    } catch {
+        return {};
+    }
+}
+
+const config = loadConfig();
+const meter = config.zendure_meter || {};
+
 const DEFAULTS = {
-    host: '192.168.0.48',
-    serial: 'TEE1NJP7P341978',
-    mac: 'E0:72:A1:85:24:48',
-    macFallback: true,
+    host: meter.host || '192.168.0.48',
+    serial: meter.serial || 'TEE1NJP7P341978',
+    mac: meter.mac_address || 'E0:72:A1:85:24:48',
+    macFallback: meter.recover_by_mac ?? true,
     id: '492848',
-    timeout: 3000,
+    timeout: config.zendure_request_timeout || 3000,
     ports: [80, 443, 8000, 8080, 1883, 8883, 502],
     cloud: false
 };

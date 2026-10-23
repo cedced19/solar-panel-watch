@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="/assets/styles.css">
+    <link rel="stylesheet" href="/assets/main_page.css">
+    <link rel="stylesheet" href="/assets/pages.css">
+    <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <title>Solar Panel Watch | <%= __('Battery settings') %></title>
+  </head>
+  <body class="dashboard-page subpage">
+    <main class="dashboard-shell" id="battery-settings-page" data-error-label="<%= __('Battery settings unavailable') %>" data-unavailable-label="<%= __('Unavailable') %>" data-updated-label="<%= __('Last updated') %>">
+      <header class="dashboard-header">
+        <div class="header-title">
+          <h1><a href="/" style="color:inherit;text-decoration:none;">Solar Panel Watch</a></h1>
+          <nav class="header-nav" aria-label="Navigation">
+            <a class="nav-btn" href="/" title="<%= __('Home') %>">
+              <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span class="nav-label"><%= __('Home') %></span>
+            </a>
+            <button class="nav-btn" id="nav-back" type="button" title="<%= __('Back') %>">
+              <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+              <span class="nav-label"><%= __('Back') %></span>
+            </button>
+          </nav>
+        </div>
+      </header>
+      <div class="graph-shell">
+        <div class="battery-graph-toolbar">
+          <h2 class="battery-graph-title"><%= __('Battery settings') %></h2>
+          <button class="nav-btn" id="settings-load" type="button"><%= __('Load battery settings') %></button>
+        </div>
+        <div id="loader" class="loader" aria-hidden="true" hidden></div>
+        <div class="battery-graph-status" id="settings-status" role="status" aria-live="polite" hidden></div>
+        <section class="card" data-section hidden>
+          <h2 class="card-heading"><%= __('Battery limits') %></h2>
+          <table class="settings-table"><tbody>
+            <tr><th scope="row"><%= __('Charge target (socSet)') %></th><td data-field="limits.chargeTargetPercent" data-unit="%">–</td></tr>
+            <tr><th scope="row"><%= __('Minimum charge (minSoc)') %></th><td data-field="limits.minimumSocPercent" data-unit="%">–</td></tr>
+            <tr><th scope="row"><%= __('Grid input limit') %></th><td data-field="limits.gridChargeInputLimitW" data-unit="W">–</td></tr>
+            <tr><th scope="row"><%= __('Home output limit') %></th><td data-field="limits.homeOutputLimitW" data-unit="W">–</td></tr>
+            <tr><th scope="row"><%= __('Maximum charge power') %></th><td data-field="limits.maxChargePowerW" data-unit="W">–</td></tr>
+            <tr><th scope="row"><%= __('Inverter maximum power') %></th><td data-field="limits.inverterMaxPowerW" data-unit="W">–</td></tr>
+          </tbody></table>
+        </section>
+        <section class="card" data-section hidden>
+          <h2 class="card-heading"><%= __('Battery modes') %></h2>
+          <table class="settings-table"><tbody>
+            <tr><th scope="row"><%= __('AC mode') %></th><td data-field="modes.acModeName">–</td></tr>
+            <tr><th scope="row"><%= __('Smart mode (raw)') %></th><td data-field="modes.smartMode">–</td></tr>
+            <tr><th scope="row"><%= __('Grid standard (raw)') %></th><td data-field="modes.gridStandard">–</td></tr>
+            <tr><th scope="row"><%= __('Grid reverse (raw)') %></th><td data-field="modes.gridReverse">–</td></tr>
+            <tr><th scope="row"><%= __('Off-grid mode (raw)') %></th><td data-field="modes.offGridMode">–</td></tr>
+          </tbody></table>
+        </section>
+        <section class="card" data-section hidden>
+          <h2 class="card-heading"><%= __('Solar input') %></h2>
+          <table class="settings-table"><tbody>
+            <tr><th scope="row"><%= __('Solar input power') %></th><td data-field="solar.inputPowerW" data-unit="W">–</td></tr>
+            <tr><th scope="row"><%= __('Solar input 1') %></th><td data-field="solar.input1W" data-unit="W">–</td></tr>
+            <tr><th scope="row"><%= __('Solar input 2') %></th><td data-field="solar.input2W" data-unit="W">–</td></tr>
+          </tbody></table>
+        </section>
+        <section class="card" data-section hidden>
+          <h2 class="card-heading"><%= __('Battery status') %></h2>
+          <table class="settings-table"><tbody>
+            <tr><th scope="row"><%= __('Battery level') %></th><td data-field="status.socPercent" data-unit="%">–</td></tr>
+            <tr><th scope="row"><%= __('Charge limit state') %></th><td data-field="status.socLimit">–</td></tr>
+            <tr><th scope="row"><%= __('Remaining output time') %></th><td data-field="status.remainingOutputMinutes" data-unit="min">–</td></tr>
+            <tr><th scope="row"><%= __('Battery packs') %></th><td data-field="status.packCount">–</td></tr>
+            <tr><th scope="row"><%= __('Battery voltage') %></th><td data-field="status.batteryVoltageV" data-unit="V">–</td></tr>
+            <tr><th scope="row"><%= __('Inverter temperature') %></th><td data-field="status.inverterTemperatureC" data-unit="°C">–</td></tr>
+            <tr><th scope="row"><%= __('WiFi signal') %></th><td data-field="status.wifiRssiDbm" data-unit="dBm">–</td></tr>
+            <tr><th scope="row"><%= __('Fault level') %></th><td data-field="status.faultLevel">–</td></tr>
+          </tbody></table>
+        </section>
+        <section class="card" id="settings-packs" hidden>
+          <h2 class="card-heading"><%= __('Battery packs') %></h2>
+          <table class="settings-table"><tbody id="settings-packs-body"></tbody></table>
+        </section>
+      </div>
+    </main>
+    <script src="/assets/battery-settings.js"></script>
+    <script src="/assets/nav.js"></script>
+  </body>
+</html>

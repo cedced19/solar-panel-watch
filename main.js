@@ -338,6 +338,10 @@ app.get('/force/', function(req, res) {
     });
 });
 
+app.get('/battery/settings/', function(req, res) {
+    res.render('battery-settings');
+});
+
 app.get('/nomenclature/', function(req, res) {
     if (req.query.lang === 'en' || req.query.lang === 'fr') {
         req.setLocale(req.query.lang);
@@ -436,6 +440,16 @@ app.get('/api/battery', function(req, res) {
             return res.status(503).json({error: 'Zendure battery data is unavailable.', device_charging: getDeviceChargingStatus()});
         }
         res.json({...battery, device_charging: getDeviceChargingStatus()});
+    });
+});
+
+// Read on demand only: the settings are not polled in the background.
+app.get('/api/battery/settings', function(req, res) {
+    getPowerData.reqBatterySettings(function (err, settings) {
+        if (err) {
+            return res.status(503).json({error: 'Zendure battery settings are unavailable.'});
+        }
+        res.json(settings);
     });
 });
 
