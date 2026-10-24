@@ -94,6 +94,22 @@ test('invalid pack SOC uses a valid aggregate but never another pack or a charge
     assert.equal(invalidOptionalFields.dischargingPowerW, null);
 });
 
+test('battery validation reads the charge target and maximum charge power from the report', () => {
+    // socSet is in tenths of a percent.
+    const reading = validateBatteryReport({...batteryReport, properties: {...batteryReport.properties, socSet: 900, chargeMaxLimit: 2500}});
+    assert.equal(reading.chargeTargetPercent, 90);
+    assert.equal(reading.maxChargePowerW, 2500);
+    assert.equal(validateBatteryReport({electricLevel: 50, socSet: 1000, chargeMaxLimit: 800}).chargeTargetPercent, 100);
+    assert.equal(validateBatteryReport(batteryReport).chargeTargetPercent, null);
+    assert.equal(validateBatteryReport(batteryReport).maxChargePowerW, null);
+    for (const value of ['900', null, false, 0, -10, NaN, Infinity]) {
+        const invalid = validateBatteryReport({electricLevel: 50, socSet: value, chargeMaxLimit: value});
+        assert.equal(invalid.chargeTargetPercent, null);
+        assert.equal(invalid.maxChargePowerW, null);
+    }
+    assert.equal(validateBatteryReport({electricLevel: 50, socSet: 1001}).chargeTargetPercent, null); // above 100 %
+});
+
 test('battery power fields support flat and nested reports, preserve zero and reject invalid values', () => {
     const properties = {electricLevel: 80, outputHomePower: 750, gridInputPower: 0,
         outputPackPower: 0, packInputPower: 700};

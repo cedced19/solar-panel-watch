@@ -90,3 +90,41 @@ test('unavailable battery or house power never activates devices', () => {
     assert.equal(decision.reason, 'power-unavailable');
     assert.equal(decision.socPercent, 100);
 });
+
+test('limits reported by Zendure take precedence over the configured ones', () => {
+    // Zendure's charge target (90 %) and maximum charge power (2500 W) replace 100 % and 800 W.
+    const reported = {chargeTargetPercent: 90, maxChargePowerW: 2500};
+    assert.deepEqual(decide({socPercent: 90, state: 'standby', ...reported}), {
+        enabled: true, reason: 'battery-full', socPercent: 90, fullSocPercent: 90, maxChargingPowerW: 2500
+    });
+    assert.equal(decide({socPercent: 89, state: 'standby', ...reported}).reason, 'battery-not-full');
+    // 800 W is the configured maximum, but Zendure says 2500 W.
+    assert.equal(decide({socPercent: 40, state: 'charging', chargingPowerW: 800, ...reported}).reason, 'battery-charging-below-max');
+    assert.equal(decide({socPercent: 40, state: 'charging', chargingPowerW: 2450, ...reported}).reason, 'battery-charging-at-max');
+    // They also apply when nothing is configured.
+    const unconfigured = {config: readSettings({})};
+    assert.equal(decide({socPercent: 90, state: 'standby', ...reported}, unconfigured).reason, 'battery-full');
+    assert.equal(decide({socPercent: 40, state: 'charging', chargingPowerW: 2500, ...reported}, unconfigured).reason,
+        'battery-charging-at-max');
+});
+
+test('each limit falls back to the configuration when Zendure does not report a valid one', () => {
+    const onlyTarget = decide({socPercent: 90, state: 'charging', chargingPowerW: 800, chargeTargetPercent: 90});
+    assert.equal(onlyTarget.reason, 'battery-charging-at-max'); // maximum power from config
+    assert.deepEqual([onlyTarget.fullSocPercent, onlyTarget.maxChargingPowerW], [90, 800]);
+    const onlyMax = decide({socPercent: 90, state: 'standby', maxChargePowerW: 2500});
+    assert.equal(onlyMax.reason, 'battery-not-full'); // full level from config
+    assert.deepEqual([onlyMax.fullSocPercent, onlyMax.maxChargingPowerW], [100, 2500]);
+    for (const invalid of [null, undefined, 0, -5, '90', NaN, Infinity]) {
+        const decision = decide({socPercent: 40, state: 'standby', chargeTargetPercent: invalid, maxChargePowerW: invalid});
+        assert.deepEqual([decision.fullSocPercent, decision.maxChargingPowerW], [100, 800]);
+    }
+    // Above 100 % is not a valid charge target; any positive wattage is a valid maximum.
+    assert.equal(decide({socPercent: 40, state: 'standby', chargeTargetPercent: 101}).fullSocPercent, 100);
+});
+
+test('an unavailable battery reports the configured limits', () => {
+    const decision = decide({chargeTargetPercent: 90, maxChargePowerW: 2500, socPercent: null});
+    assert.equal(decision.reason, 'battery-unavailable');
+    assert.deepEqual([decision.fullSocPercent, decision.maxChargingPowerW], [100, 800]);
+});

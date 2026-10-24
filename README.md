@@ -171,8 +171,8 @@ Configure these settings in `config.json` and restart the application:
 | `zendure_meter.power_field` | Field to read from `/properties/report`; default `total_power`. |
 | `zendure_meter.power_scale` | Multiply the raw field to obtain signed watts; default `1`. Positive means grid import, negative means export. Set a negative scale if the CT orientation reverses the sign. |
 | `zendure_battery_req_threshold` | Independent battery polling/cache interval; configured as `20000` ms. |
-| `zendure_battery_full_soc` | Charge percentage from which an idle battery counts as full and devices may run; default `100` (a number from `0` to `100`). |
-| `zendure_battery_max_charging_power` | Maximum battery charging power in watts. While the battery charges at this power, devices may use the extra surplus. Unset by default, so devices only run once the battery is full. |
+| `zendure_battery_full_soc` | Fallback for the charge percentage from which an idle battery counts as full and devices may run; default `100` (a number from `0` to `100`). Used only when Zendure does not report its charge target (`socSet`). |
+| `zendure_battery_max_charging_power` | Fallback for the maximum battery charging power in watts. While the battery charges at this power, devices may use the extra surplus. Used only when Zendure does not report its maximum charge power (`chargeMaxLimit`). Unset by default, so without either value devices only run once the battery is full. |
 | `zendure_battery_max_charging_tolerance` | How many watts below the maximum still count as "at max"; default `50`. |
 | `zendure_battery` | SolarFlow `host`, device `serial`, expected `battery_serial`, `mac_address`, and `recover_by_mac`. |
 
@@ -198,10 +198,15 @@ activated only when the battery cannot take more power
 | Battery | Devices |
 | --- | --- |
 | Discharging | Off |
-| Charging at `zendure_battery_max_charging_power` | Allowed |
+| Charging at the maximum charging power | Allowed |
 | Charging below that power | Off |
-| Idle and at or above `zendure_battery_full_soc` | Allowed |
+| Idle and at or above the full level | Allowed |
 | Anything else | Off |
+
+The maximum charging power is `chargeMaxLimit` and the full level is `socSet`
+(the charge target), both read from the same Zendure report. The configured
+`zendure_battery_max_charging_power` and `zendure_battery_full_soc` only apply
+when Zendure does not report a valid value. `device_charging` shows the values in use.
 
 Forcing is decided before the battery: a forced device runs at its forced
 level whatever the battery reports. It still stops when house power is
@@ -210,7 +215,7 @@ limit is reached.
 
 For devices that are not forced, this battery check is evaluated before their
 surplus logic and only uses the battery's own readings: "at maximum" compares the charging power
-reported by Zendure with `zendure_battery_max_charging_power`, and running
+reported by Zendure with the maximum charging power, and running
 devices are not taken into account. Devices also stay off while battery status is unavailable or stale,
 or while house power is unavailable. When allowed, the existing surplus,
 priority, energy and temperature limits still apply. A small status below the
