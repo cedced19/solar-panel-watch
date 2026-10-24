@@ -7,18 +7,19 @@ const vm = require('node:vm');
 const plain = value => JSON.parse(JSON.stringify(value));
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-function load({reply = {ok: false, status: 500}, dataset = {}} = {}) {
+function load({reply = {ok: false, status: 500}, dataset = {}, storage} = {}) {
     const nodes = new Map();
     const plots = new Map();
     const requests = [];
     function element() {
         return {children: [], style: {setProperty(key, value) { this[key] = value; }}, dataset: {}, hidden: false,
-            textContent: '', innerHTML: '', attributes: {},
+            textContent: '', innerHTML: '', attributes: {}, listeners: {},
+            addEventListener(type, listener) { (this.listeners[type] = this.listeners[type] || []).push(listener); },
             appendChild(child) { this.children.push(child); },
             setAttribute(key, value) { this.attributes[key] = String(value); }};
     }
     const context = vm.createContext({
-        window: {}, console: {error() {}},
+        window: storage ? {localStorage: storage} : {}, console: {error() {}},
         document: {
             createElement: element,
             createTextNode: text => ({textContent: String(text)}),
@@ -210,4 +211,42 @@ test('the household use splits into the devices and the rest in the flows, only 
     const asBefore = withoutPlots.get('energy-flow').traces[0];
     assert.ok(!Array.from(asBefore.node.label).some(label => label.startsWith('Devices')));
     assert.equal(asBefore.link.value.length, 5, 'the diagram is as before');
+});
+
+test('the energy flow button hides and shows the activated devices and remembers the choice', async () => {
+    const saved = new Map();
+    const storage = {getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value)};
+    const dataset = {intraday: 'false', devices: 'Activated device', otherHouse: 'Other household use',
+        hideDevices: 'Hide activated devices', showDevices: 'Show activated devices'};
+    const deviceNodes = plots => Array.from(plots.get('energy-flow').traces[0].node.label)
+        .filter(label => /^(Activated device|Other household use)/.test(label)).length;
+
+    const {visuals, nodes, plots} = load({dataset, storage});
+    await visuals.render({...day, devices_consumption: 3});
+    const toggle = nodes.get('energy-devices-toggle');
+    assert.equal(toggle.hidden, false);
+    assert.equal(toggle.textContent, 'Hide activated devices');
+    assert.equal(deviceNodes(plots), 2);
+
+    toggle.listeners.click[0]();
+    assert.equal(deviceNodes(plots), 0, 'the household use is no longer split');
+    assert.equal(plots.get('energy-flow').traces[0].link.value.length, 5);
+    assert.equal(toggle.textContent, 'Show activated devices');
+    assert.equal(saved.get('energy-flow-devices'), 'hidden');
+    assert.equal(toggle.listeners.click.length, 1, 'the button is wired once');
+
+    // The next day drawn, and the next page, keep the choice.
+    await visuals.render({...day, devices_consumption: 2});
+    assert.equal(deviceNodes(plots), 0);
+    const {visuals: next, plots: nextPlots} = load({dataset, storage});
+    await next.render({...day, devices_consumption: 3});
+    assert.equal(deviceNodes(nextPlots), 0);
+
+    toggle.listeners.click[0]();
+    assert.equal(deviceNodes(plots), 2);
+    assert.equal(saved.get('energy-flow-devices'), 'shown');
+
+    // A day without activated devices has nothing to hide.
+    await visuals.render(day);
+    assert.equal(toggle.hidden, true);
 });

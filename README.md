@@ -251,7 +251,8 @@ computed before it ended).
   writes its power when it changes, so each value holds until the next one
   (the power at midnight is the last value of the week before). It is part of
   the household use: the energy flow diagram splits the household use into
-  the devices and the rest.
+  the devices and the rest. A button on the diagram hides that split (the
+  choice is kept in the browser); the table always shows the figure.
 - `GET /api/data/energy/days?start=YYYY-MM-DD&end=YYYY-MM-DD` returns
   `{days, stale}`; `GET /api/data/energy/day/<date>` returns one day;
   `POST /api/data/energy/day/<date>/recompute` forces a calculation.

@@ -10,7 +10,29 @@
     const WINDOW_MS = 5 * 60 * 1000;
     const HOUR_MS = 60 * 60 * 1000;
     const PLOT_CONFIG = {responsive: true, displaylogo: false, displayModeBar: false};
+    const DEVICES_KEY = 'energy-flow-devices';
     let requestId = 0;
+    // The energy flow can leave the activated devices out; the choice is kept
+    // in the browser. The last drawn flows are kept to redraw it on a toggle.
+    let showDevices = readShowDevices();
+    let drawnFlow = null;
+    let toggleBound = false;
+
+    function readShowDevices() {
+        try {
+            return window.localStorage.getItem(DEVICES_KEY) !== 'hidden';
+        } catch (error) {
+            return true;
+        }
+    }
+
+    function saveShowDevices() {
+        try {
+            window.localStorage.setItem(DEVICES_KEY, showDevices ? 'shown' : 'hidden');
+        } catch (error) {
+            // Storage unavailable: the choice lasts for this page only.
+        }
+    }
 
     const finite = value => Number.isFinite(value) ? value : null;
     const positive = value => Number.isFinite(value) && value > 0 ? value : 0;
@@ -203,12 +225,14 @@
     }
 
     function renderFlow(target, flows, labels) {
+        // On a phone the node labels leave out the kWh, shown on tap instead.
+        const narrow = document.getElementById(target).offsetWidth < 560;
         const nodes = [];
         const index = {};
         function node(key, label, color, value) {
             if (!(key in index)) {
                 index[key] = nodes.length;
-                nodes.push({label: label + ' · ' + kwh(value) + ' kWh', color});
+                nodes.push({label: narrow ? label : label + ' · ' + kwh(value) + ' kWh', color});
             }
             return index[key];
         }
@@ -233,7 +257,7 @@
             link.value.push(value);
             link.color.push(alpha(COLORS[from], 0.35));
         });
-        if (flows.houseToDevices > 0.0005 && 'house' in index) {
+        if (showDevices && flows.houseToDevices > 0.0005 && 'house' in index) {
             [[node('devices', labels.devices, COLORS.devices, flows.houseToDevices), flows.houseToDevices],
                 [node('house-other', labels.otherHouse, COLORS.house, flows.houseToOther), flows.houseToOther]]
                 .forEach(([target, value]) => {
@@ -249,13 +273,13 @@
             type: 'sankey', orientation: 'h', valueformat: '.2f', valuesuffix: ' kWh',
             node: {label: nodes.map(item => item.label), color: nodes.map(item => item.color),
                 pad: 22, thickness: 16, line: {width: 0},
-                hovertemplate: '%{label}<extra></extra>'},
+                hovertemplate: narrow ? '%{label}<br><b>%{value:.2f} kWh</b><extra></extra>' : '%{label}<extra></extra>'},
             link: Object.assign(link, {
                 hovertemplate: '%{source.label} → %{target.label}<br><b>%{value:.2f} kWh</b><extra></extra>'
             })
         }], {
-            margin: {l: 8, r: 8, t: 8, b: 8}, height: 340,
-            font: {family: 'Arial, Helvetica, sans-serif', size: 13, color: '#1f2937'}
+            margin: {l: 8, r: 8, t: 8, b: 8}, height: narrow ? 420 : 340,
+            font: {family: 'Arial, Helvetica, sans-serif', size: narrow ? 11 : 13, color: '#1f2937'}
         }, PLOT_CONFIG);
         return true;
     }
@@ -350,6 +374,23 @@
         document.getElementById(id).hidden = !visible;
     }
 
+    // Button of the energy flow that shows or hides the activated devices,
+    // offered only when the day has some.
+    function renderDevicesToggle() {
+        const toggle = document.getElementById('energy-devices-toggle');
+        const {flows, labels} = drawnFlow;
+        toggle.hidden = !(flows.houseToDevices > 0.0005);
+        toggle.textContent = showDevices ? labels.hideDevices : labels.showDevices;
+        if (toggleBound) return;
+        toggleBound = true;
+        toggle.addEventListener('click', () => {
+            showDevices = !showDevices;
+            saveShowDevices();
+            renderFlow('energy-flow', drawnFlow.flows, drawnFlow.labels);
+            renderDevicesToggle();
+        });
+    }
+
     function renderTotals(entry, labels) {
         const hasDay = Boolean(entry && entry.start_date);
         show('energy-glance-card', hasDay);
@@ -365,7 +406,9 @@
         show('energy-flow-card', Boolean(flows));
         show('energy-donuts', Boolean(flows));
         if (!flows) return;
+        drawnFlow = {flows, labels};
         if (!renderFlow('energy-flow', flows, labels)) show('energy-flow-card', false);
+        renderDevicesToggle();
         show('energy-house-sources-card', true);
         show('energy-solar-uses-card', true);
         const houseSources = [

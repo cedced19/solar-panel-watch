@@ -519,7 +519,9 @@
 	"Energy data unavailable": "Données énergétiques indisponibles",
 	"Battery charging energy from network": "Charge de la batterie depuis le réseau (22 h–6 h)",
 	"from the grid at night": "du réseau la nuit",
-	"Devices energy": "Énergie des appareils",
-	"Devices": "Appareils",
-	"Other household use": "Autres usages de la maison"
+	"Devices energy": "Énergie des appareils activés",
+	"Devices": "Appareil activé",
+	"Other household use": "Consommation de la maison",
+	"Hide activated devices": "Masquer les appareils activés",
+	"Show activated devices": "Afficher les appareils activés"
 }

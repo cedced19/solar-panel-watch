@@ -8,6 +8,7 @@
      data-battery-discharging="<%= __('Battery discharge') %>" data-battery-charging="<%= __('Battery charge') %>"
      data-from-grid-at-night="<%= __('from the grid at night') %>"
      data-devices="<%= __('Devices') %>" data-other-house="<%= __('Other household use') %>"
+     data-hide-devices="<%= __('Hide activated devices') %>" data-show-devices="<%= __('Show activated devices') %>"
      data-grid-signed="<%= __('Grid signed') %>" data-battery-signed="<%= __('Battery signed') %>"
      data-self-sufficiency="<%= __('Self-sufficiency') %>" data-self-sufficiency-hint="<%= __('Self-sufficiency hint') %>"
      data-self-consumption="<%= __('Self-consumption') %>" data-self-consumption-hint="<%= __('Self-consumption hint') %>"
@@ -20,7 +21,10 @@
     <div class="energy-tiles" id="energy-tiles"></div>
   </section>
   <section class="card" id="energy-flow-card">
-    <h2 class="card-heading"><%= __('Energy flow')%></h2>
+    <div class="energy-card-head">
+      <h2 class="card-heading"><%= __('Energy flow')%></h2>
+      <button class="nav-btn" id="energy-devices-toggle" type="button" hidden></button>
+    </div>
     <p class="energy-visual-note"><%= __('Energy flow note')%></p>
     <div id="energy-flow" class="energy-plot"></div>
   </section>
