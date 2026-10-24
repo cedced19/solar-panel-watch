@@ -20,6 +20,8 @@ const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate
 const batteryLogic = require('./lib/battery-logic.js');
 const { createAuth, readOptions } = require('./lib/auth.js');
 const { createConfigPanel } = require('./lib/config-panel.js');
+const { createEnergyDayStore } = require('./lib/energy-day-store.js');
+const { createEnergyDays, isValidDay } = require('./lib/energy-days.js');
 
 
 const JSONStore = require('json-store-list');
@@ -31,7 +33,12 @@ const batterySettings = batteryLogic.readSettings(config);
 // Login (emails in config.auth.mails) guarding the configuration panel and the force page.
 const auth = createAuth(readOptions(config));
 
-const db_energy = JSONStore('./energy-query-save.json');
+// One energy summary per local day; see lib/energy-days.js.
+const energyDays = createEnergyDays({
+    store: createEnergyDayStore(path.join(__dirname, 'energy-days.sqlite')),
+    influx: influxLib,
+    computeEnergy
+});
 
 const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
@@ -382,17 +389,18 @@ app.get('/graph/power/:period/activation-hist-plot/', validatePeriod, function(r
     });
 });
 
-app.get('/energy/:period', validatePeriod, function(req, res) {
+app.get('/energy/current-day', function(req, res) {
     res.render('energy', {
-        period: req.params.period,
+        day: energyDays.today(),
         timezone: config.timezone
     });
 });
 
-app.get('/energy-hist/', function(req, res) {
-    res.render('energy-request-hist', {
-        timezone: config.timezone
-    });
+// Former period summaries now live in the energy graph.
+app.get('/energy/:period', function(req, res, next) {
+    const match = /^(\d{1,4})d$/.exec(req.params.period);
+    if (!match) return next();
+    res.redirect('/energy-graph/#duration=' + parseInt(match[1], 10));
 });
 
 app.get('/energy-graph/', function(req, res) {
@@ -534,94 +542,61 @@ app.get('/api/data/consumption/:period', validatePeriod, (req, res) => {
     });
 });
 
-app.get('/api/data/energy/:period', validatePeriod, (req, res, next) => {
-    // Integrate raw meter and pack readings together, independently of graph resolution.
-    influxLib.requestConsumptionOverPeriod(req.params.period).then(function (data) {
-        try {
-            let energy_data = computeEnergy(data.power1, data.power2, data.battery);
-            res.json(energy_data);
-            db_energy.post({date: new Date(), period: req.params.period, result: energy_data}, function (error) {
-                if (error) return console.error(error)
-            });
-        } catch (error) {
-            error.status = 500;
-            res.status(500);
-            next(error);
-        }
-    }, function (error) {
-        error.status = 500;
-        res.status(500);
-        next(error);
-    });
-});
-
-app.get('/api/data/energy-request-hist/', (req, res) => {
-    db_energy.save(function () {
-        res.json(db_energy.getAll());
-    });
-});
-
-function padTwo(n) {
-    return (n < 10 ? '0' : '') + n;
+function energyDayError(message) {
+    const err = new Error(message);
+    err.status = 400;
+    return err;
 }
 
-// Local calendar day key (YYYY-MM-DD) in the server's timezone, matching the
-// day boundaries used by computeEnergy().
-function localDayKey(date) {
-    return date.getFullYear() + '-' + padTwo(date.getMonth() + 1) + '-' + padTwo(date.getDate());
-}
-
-// Days for which at least one energy request already produced a result,
-// derived from the saved history of energy queries.
-app.get('/api/data/energy-calendar/', (req, res) => {
-    db_energy.save(function () {
-        const days = new Set();
-        db_energy.getAll().forEach(function (entry) {
-            (entry.result || []).forEach(function (r) {
-                if (r && r.start_date) {
-                    days.add(localDayKey(new Date(r.start_date)));
-                }
-            });
-        });
-        res.json(Array.from(days));
-    });
-});
-
-const VALID_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-// Compute energy for one specific local calendar day (YYYY-MM-DD) and record
-// it in the energy request history. Returns the per-day energy result.
-app.get('/api/data/energy/day/:date', (req, res, next) => {
-    if (!VALID_DATE_REGEX.test(req.params.date)) {
-        const err = new Error('Invalid "date" parameter. Expected a date like "2026-08-24".');
-        err.status = 400;
-        return next(err);
+// Validates a local day (YYYY-MM-DD) that is not after today.
+function validateDay(req, res, next) {
+    if (!isValidDay(req.params.date)) {
+        return next(energyDayError('Invalid "date" parameter. Expected a date like "2026-08-24".'));
     }
-    const parts = req.params.date.split('-');
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    const start = new Date(year, month, day);
-    const stop = new Date(year, month, day + 1);
-    influxLib.requestConsumptionOverRange(start, stop).then(function (data) {
-        try {
-            const energy_data = computeEnergy(data.power1, data.power2, data.battery);
-            res.json(energy_data);
-            db_energy.post({date: new Date(), period: req.params.date, result: energy_data}, function (error) {
-                if (error) return console.error(error);
-            });
-        } catch (error) {
-            error.status = 500;
-            res.status(500);
-            next(error);
-        }
+    if (req.params.date > energyDays.today()) {
+        return next(energyDayError('Invalid "date" parameter. Days after today have no energy data.'));
+    }
+    next();
+}
+
+function sendEnergyDay(promise, res, next) {
+    promise.then(function (row) {
+        res.json(row);
     }, function (error) {
         error.status = 500;
         res.status(500);
         next(error);
     });
+}
+
+// Stored summaries of an inclusive range of local days, plus the days that
+// still need a calculation. Without bounds: first stored day to today.
+app.get('/api/data/energy/days', (req, res, next) => {
+    const today = energyDays.today();
+    for (const bound of ['start', 'end']) {
+        if (req.query[bound] !== undefined && !isValidDay(req.query[bound])) {
+            return next(energyDayError('Invalid "' + bound + '" parameter. Expected a date like "2026-08-24".'));
+        }
+    }
+    const days = energyDays.store.range(req.query.start, req.query.end);
+    const start = req.query.start || (days.length ? days[0].day : today);
+    const end = req.query.end || today;
+    res.json({days, stale: start <= end ? energyDays.staleDays(start, end) : []});
 });
 
+// Energy of one local day: the stored summary, computed when missing or partial.
+app.get('/api/data/energy/day/:date', validateDay, (req, res, next) => {
+    sendEnergyDay(energyDays.getDay(req.params.date), res, next);
+});
+
+app.post('/api/data/energy/day/:date/recompute', validateDay, (req, res, next) => {
+    sendEnergyDay(energyDays.getDay(req.params.date, {force: true}), res, next);
+});
+
+// Stored days with their state, for the calendar colours.
+app.get('/api/data/energy-calendar/', (req, res) => {
+    res.json(energyDays.store.days());
+});
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', validatePeriod, validateGroup, (req, res, next) => {
     influxLib.requestPowerOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {

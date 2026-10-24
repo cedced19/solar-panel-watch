@@ -446,6 +446,11 @@ body.graph-page .graph-card {
   border: 1px solid #ef4444;
 }
 
+.legend-dot.partial {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+}
+
 .calendar {
   width: 100%;
   overflow-x: auto;
@@ -498,6 +503,12 @@ body.graph-page .graph-card {
   border-color: #fca5a5;
 }
 
+.calendar-day.partial {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
 .calendar-day.loading {
   opacity: .5;
   cursor: progress;
@@ -520,6 +531,15 @@ body.graph-page .graph-card {
   margin: 0 0 10px;
   color: #111827;
   font-size: 1.1rem;
+}
+
+.energy-partial-note {
+  margin: 0 0 10px;
+  color: #92400e;
+}
+
+.energy-recompute {
+  margin-top: 12px;
 }
 
 /* ---- Login (configuration panel, force page) and configuration panel ---- */

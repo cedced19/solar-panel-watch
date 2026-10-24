@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Watch over electricity consumption from my house.",
   "main": "main.js",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node main.js",
     "dev": "nodemon main.js",

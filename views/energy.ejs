@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/assets/main_page.css">
     <link rel="stylesheet" href="/assets/pages.css">
     <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
-    <title>Solar panel watch | <%= __('Energy')%></title>
+    <title>Solar panel watch | <%= __('Current day energy')%></title>
   </head>
   <body class="dashboard-page subpage">
     <main class="dashboard-shell">
@@ -29,75 +29,24 @@
       </header>
       <div id="loader" class="loader"></div>
       <section class="card">
-        <h2 class="card-heading"><%= __('Energy')%></h2>
+        <h2 class="card-heading"><%= __('Current day energy')%></h2>
         <div id="table"></div>
       </section>
     </main>
     <script src="/assets/energy-consumption.js"></script>
+    <%- include('partials/energy-day-table') %>
     <script>
-        const prettyDate = (date, bold) => {
-            date = new Date(date);
-            return ((bold) ? '<b>': '') + ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth()+1 < 10) ? '0': '') +  (date.getMonth()+1) + '/' + date.getFullYear() + ((bold) ? '</b>': '') +  ' ' + ((date.getHours() < 10) ? '0': '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0': '') + date.getMinutes();
-        }
-        const energyValue = (value) => Number.isFinite(value) ? value : '<%= __("Unavailable")%>';
-        const energyWithRatio = (value, total) => {
-            if (!Number.isFinite(value)) return '<%= __("Unavailable")%>';
-            return value + (Number.isFinite(total) && total > 0 ?
-                ' (' + Math.floor(value / total * 100) + '%)' : '');
+        const showDay = (row) => {
+            renderEnergyDay(document.getElementById('table'), row, showDay);
+            document.getElementById('loader').style.display = 'none';
         };
         const loadData = () => {
-
-            const fetchData = fetch('/api/data/energy/<%= period%>')
+            fetch('/api/data/energy/day/<%= day%>')
                 .then(response => response.json())
-                .then(data => {
-                    return data
-                }).catch((error) => {
+                .then(showDay)
+                .catch((error) => {
                     console.error('Error:', error);
                 });
-            
-            fetchData.then((value) => {
-                
-                const table = document.createElement('table');
-                const thead = document.createElement('thead');
-                const header = document.createElement('tr');
-                ['<%= __("Date Begin")%>', '<%= __("Date End")%>',
-                    '<%= __("Consumption on network")%> (kWh)',
-                    '<%= __("Solar panel production energy")%> (kWh)',
-                    '<%= __("Battery discharging energy")%> (kWh)',
-                    '<%= __("Battery charging energy")%> (kWh)',
-                    '<%= __("Total energy used")%> (kWh)',
-                    '<%= __("Energy Introduced")%> (kWh)',
-                    '<%= __("Energy Saved")%> (kWh)'].forEach(label => {
-                    const th = document.createElement('th');
-                    th.textContent = label;
-                    header.appendChild(th);
-                });
-                thead.appendChild(header);
-                table.appendChild(thead);
-
-                const tbody = document.createElement('tbody');
-                for (const entry of value.slice().reverse()) {
-                    const r = window.energyConsumption.normalizeEntry(entry);
-                    const tr = document.createElement('tr');
-                    const energySaved = window.energyConsumption.savedEnergy(r);
-                    const cells = [prettyDate(r.start_date), prettyDate(r.end_date),
-                        energyWithRatio(r.consumption_on_network, r.house_consumption),
-                        energyValue(r.solar_panel), energyValue(r.battery_discharging),
-                        energyValue(r.battery_charging), energyValue(r.house_consumption),
-                        energyValue(r.introduced_on_network), energyWithRatio(energySaved, r.house_consumption)];
-                    cells.forEach((text, index) => {
-                        const td = document.createElement('td');
-                        if (index === 0) td.innerHTML = prettyDate(r.start_date, true);
-                        else td.appendChild(document.createTextNode(text));
-                        tr.appendChild(td);
-                    });
-                    tbody.appendChild(tr);
-                }
-                table.appendChild(tbody);
-                document.getElementById('table').appendChild(table);
-
-                document.getElementById('loader').style.display = 'none';
-            });   
         }
         window.addEventListener('load', loadData);
     </script>

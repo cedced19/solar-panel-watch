@@ -68,8 +68,8 @@ test('the public nomenclature page follows i18n and switches languages without n
             new vm.Script(inline[1]);
         }
     }
-    for (const route of ['/graph/power/24h', '/device/list/graph/24h', '/energy/24h',
-        '/energy-graph/', '/energy-calendar/', '/energy-hist/']) {
+    for (const route of ['/graph/power/24h', '/device/list/graph/24h', '/energy/current-day',
+        '/energy-graph/', '/energy-calendar/']) {
         const response = await request(server, route, 'fr');
         assert.equal(response.status, 200);
         assert.match(response.body, /href="\/nomenclature\/"/);

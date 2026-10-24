@@ -219,11 +219,33 @@ after the battery polling interval plus the Zendure request timeout.
 
 `GET /api/data` retains `power1` (house) and `power2` (solar) and includes
 `house_power_source`. Unavailable solar power is `null`, never a fabricated zero.
-Calendar-day and period energy queries integrate network and solar readings on
+Calendar-day energy queries integrate network and solar readings on
 their own timelines, holding each reading until the next reading within that day.
 Gaps or differing timestamps do not discard the day's solar production or combined
 house consumption. Those totals are `null` only for days with no usable solar
 readings, and are displayed as unavailable in the energy views.
+
+### Energy summaries
+
+Energy is stored once per local day in `energy-days.sqlite` (built-in
+`node:sqlite`, Node 22.13 or later). A day is computed from its raw readings
+the first time it is requested, and again while it is partial (today, or a day
+computed before it ended).
+
+- `/energy-graph/#duration=N`: the last N days, computing missing days on load.
+  Clicking a bar in the day view shows that day with a "Recompute" button.
+- `/energy-calendar/`: stored days by month; a click shows or computes a day.
+- `/energy/current-day`: today's figures.
+- `GET /api/data/energy/days?start=YYYY-MM-DD&end=YYYY-MM-DD` returns
+  `{days, stale}`; `GET /api/data/energy/day/<date>` returns one day;
+  `POST /api/data/energy/day/<date>/recompute` forces a calculation.
+
+To import the former request history (`energy-query-save.json`) once, with
+the server's timezone:
+
+```
+sudo docker compose run --rm node node lab/convert-legacy/convert.js energy-query-save.json energy-days.sqlite
+```
 `GET /api/battery` returns charge/status data or HTTP 503 when unavailable.
 Both power and battery responses include `device_charging` with the current
 permission (`enabled`), `reason`, measured `socPercent`, `fullSocPercent` and

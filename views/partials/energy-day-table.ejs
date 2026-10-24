@@ -1,0 +1,91 @@
+<script>
+    // Table of one stored energy day (GET /api/data/energy/day/<day>), shared by
+    // the current-day, calendar and graph pages. Needs /assets/energy-consumption.js.
+    const energyDayDate = (date, bold) => {
+        date = new Date(date);
+        return ((bold) ? '<b>': '') + ((date.getDate() < 10) ? '0': '') + date.getDate() + '/' + ((date.getMonth()+1 < 10) ? '0': '') +  (date.getMonth()+1) + '/' + date.getFullYear() + ((bold) ? '</b>': '') +  ' ' + ((date.getHours() < 10) ? '0': '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0': '') + date.getMinutes();
+    };
+    const energyDayValue = (value) => Number.isFinite(value) ? value : '<%= __("Unavailable")%>';
+    const energyDayRatio = (value, total) => {
+        if (!Number.isFinite(value)) return '<%= __("Unavailable")%>';
+        return value + (Number.isFinite(total) && total > 0 ?
+            ' (' + Math.floor(value / total * 100) + '%)' : '');
+    };
+
+    const recomputeEnergyDay = (day) =>
+        fetch('/api/data/energy/day/' + day + '/recompute', {method: 'POST'})
+            .then(response => response.json());
+
+    // onRecompute(row) is called with the new figures; without it no button is shown.
+    const renderEnergyDay = (container, row, onRecompute) => {
+        container.innerHTML = '';
+        const heading = document.createElement('h3');
+        heading.textContent = row.day;
+        container.appendChild(heading);
+
+        if (!row.start_date) {
+            const p = document.createElement('p');
+            p.className = 'calendar-empty-result';
+            p.textContent = '<%= __("No energy data")%> (' + row.day + ')';
+            container.appendChild(p);
+        } else {
+            if (!row.complete) {
+                const p = document.createElement('p');
+                p.className = 'energy-partial-note';
+                p.textContent = '<%= __("Partial day")%>';
+                container.appendChild(p);
+            }
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const header = document.createElement('tr');
+            ['<%= __("Date Begin")%>', '<%= __("Date End")%>',
+                '<%= __("Consumption on network")%> (kWh)',
+                '<%= __("Solar panel production energy")%> (kWh)',
+                '<%= __("Battery discharging energy")%> (kWh)',
+                '<%= __("Battery charging energy")%> (kWh)',
+                '<%= __("Total energy used")%> (kWh)',
+                '<%= __("Energy Introduced")%> (kWh)',
+                '<%= __("Energy Saved")%> (kWh)'].forEach(label => {
+                const th = document.createElement('th');
+                th.textContent = label;
+                header.appendChild(th);
+            });
+            thead.appendChild(header);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            const r = window.energyConsumption.normalizeEntry(row);
+            const tr = document.createElement('tr');
+            const energySaved = window.energyConsumption.savedEnergy(r);
+            const cells = [energyDayDate(r.start_date), energyDayDate(r.end_date),
+                energyDayRatio(r.consumption_on_network, r.house_consumption),
+                energyDayValue(r.solar_panel), energyDayValue(r.battery_discharging),
+                energyDayValue(r.battery_charging), energyDayValue(r.house_consumption),
+                energyDayValue(r.introduced_on_network), energyDayRatio(energySaved, r.house_consumption)];
+            cells.forEach((text, index) => {
+                const td = document.createElement('td');
+                if (index === 0) td.innerHTML = energyDayDate(r.start_date, true);
+                else td.appendChild(document.createTextNode(text));
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+            table.appendChild(tbody);
+            container.appendChild(table);
+        }
+
+        if (onRecompute) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'energy-recompute';
+            button.textContent = '<%= __("Recompute")%>';
+            button.addEventListener('click', () => {
+                button.disabled = true;
+                recomputeEnergyDay(row.day).then(onRecompute).catch(error => {
+                    button.disabled = false;
+                    console.error('Error:', error);
+                });
+            });
+            container.appendChild(button);
+        }
+    };
+</script>

@@ -37,6 +37,7 @@
         </div>
         <div class="calendar-legend">
           <span class="legend-item"><span class="legend-dot has-data"></span><%= __('Energy data available')%></span>
+          <span class="legend-item"><span class="legend-dot partial"></span><%= __('Partial day')%></span>
           <span class="legend-item"><span class="legend-dot no-data"></span><%= __('No energy data')%></span>
         </div>
         <div id="calendar" class="calendar"></div>
@@ -45,8 +46,11 @@
       </section>
     </main>
     <script src="/assets/energy-consumption.js"></script>
+    <%- include('partials/energy-day-table') %>
     <script>
-        const coveredDays = new Set();
+        // Stored days: 'has-data', 'partial' or 'no-data' (computed, without readings).
+        const coveredDays = new Map();
+        const dayState = (row) => !row.has_data ? 'no-data' : row.complete ? 'has-data' : 'partial';
         let viewYear, viewMonth;
 
         const months = ['<%= __("January")%>', '<%= __("February")%>', '<%= __("March")%>', '<%= __("April")%>', '<%= __("May")%>', '<%= __("June")%>', '<%= __("July")%>', '<%= __("August")%>', '<%= __("September")%>', '<%= __("October")%>', '<%= __("November")%>', '<%= __("December")%>'];
@@ -56,7 +60,7 @@
             fetch('/api/data/energy-calendar/')
                 .then(response => response.json())
                 .then(days => {
-                    days.forEach(d => coveredDays.add(d));
+                    days.forEach(row => coveredDays.set(row.day, dayState(row)));
                     document.getElementById('loader').style.display = 'none';
                     renderCalendar();
                 })
@@ -85,64 +89,19 @@
             }
             for (let day = 1; day <= daysInMonth; day++) {
                 const key = isoDate(viewYear, viewMonth, day);
-                const has = coveredDays.has(key);
-                html += '<div class="calendar-day' + (has ? ' has-data' : ' no-data') + '" data-date="' + key + '">' + day + '</div>';
+                html += '<div class="calendar-day ' + (coveredDays.get(key) || 'no-data') + '" data-date="' + key + '">' + day + '</div>';
             }
             html += '</div>';
             document.getElementById('calendar').innerHTML = html;
         };
 
-        const prettyDate = (date) => {
-            date = new Date(date);
-            return ((date.getDate() < 10) ? '0' : '') + date.getDate() + '/' + ((date.getMonth()+1 < 10) ? '0' : '') + (date.getMonth()+1) + '/' + date.getFullYear() + ' ' + ((date.getHours() < 10) ? '0' : '') + date.getHours() + ':'  + ((date.getMinutes() < 10) ? '0' : '') + date.getMinutes();
+        const showDay = (row) => {
+            coveredDays.set(row.day, dayState({has_data: !!row.start_date, complete: row.complete}));
+            renderCalendar();
+            renderEnergyDay(document.getElementById('day-result'), row, showDay);
         };
 
-        const renderDay = (dateKey, value) => {
-            const container = document.getElementById('day-result');
-            container.innerHTML = '';
-
-            if (!value || value.length === 0) {
-                const p = document.createElement('p');
-                p.className = 'calendar-empty-result';
-                p.textContent = '<%= __("No energy data")%> (' + dateKey + ')';
-                container.appendChild(p);
-                return;
-            }
-
-            const h3 = document.createElement('h3');
-            h3.textContent = dateKey;
-            container.appendChild(h3);
-
-            const table = document.createElement('table');
-            const thead = document.createElement('thead');
-            const hr = document.createElement('tr');
-            ['<%= __("Date Begin")%>', '<%= __("Date End")%>', '<%= __("Consumption on network")%> (kWh)', '<%= __("Solar panel production energy")%> (kWh)', '<%= __("Battery discharging energy")%> (kWh)', '<%= __("Battery charging energy")%> (kWh)', '<%= __("Total energy used")%> (kWh)', '<%= __("Energy Introduced")%> (kWh)', '<%= __("Energy Saved")%> (kWh)'].forEach(text => {
-                const th = document.createElement('th');
-                th.textContent = text;
-                hr.appendChild(th);
-            });
-            thead.appendChild(hr);
-            table.appendChild(thead);
-
-            const tbody = document.createElement('tbody');
-            value.forEach(entry => {
-                const r = window.energyConsumption.normalizeEntry(entry);
-                const tr = document.createElement('tr');
-                const energySaved = window.energyConsumption.savedEnergy(r);
-                const cells = [prettyDate(r.start_date), prettyDate(r.end_date), r.consumption_on_network,
-                    r.solar_panel, r.battery_discharging, r.battery_charging, r.house_consumption,
-                    r.introduced_on_network, energySaved];
-                cells.forEach((text, index) => {
-                    const td = document.createElement('td');
-                    td.textContent = index < 2 || Number.isFinite(text) ? text : '<%= __("Unavailable")%>';
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
-            });
-            table.appendChild(tbody);
-            container.appendChild(table);
-        };
-
+        // Shows the stored figures of the day, computing them when missing or partial.
         const computeDay = (cell) => {
             const dateKey = cell.getAttribute('data-date');
             cell.classList.add('loading');
@@ -150,10 +109,7 @@
                 .then(response => response.json())
                 .then(data => {
                     cell.classList.remove('loading');
-                    coveredDays.add(dateKey);
-                    cell.classList.add('has-data');
-                    cell.classList.remove('no-data');
-                    renderDay(dateKey, data);
+                    showDay(data);
                 })
                 .catch(error => {
                     cell.classList.remove('loading');
