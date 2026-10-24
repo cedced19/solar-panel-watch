@@ -1,9 +1,19 @@
-version: '3'
 services:
   node: 
     image: node:24
     network_mode: host
-    command: node main.js
+    # Wait until InfluxDB answers: after a reboot, Docker restarts both
+    # containers at once (depends_on is not applied), so node would otherwise
+    # hit ECONNREFUSED on 127.0.0.1:8086 and lose its first writes.
+    command:
+      - sh
+      - -c
+      - |
+        until node -e "fetch('http://127.0.0.1:8086/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"; do
+          echo 'Waiting for InfluxDB...'
+          sleep 2
+        done
+        exec node main.js
     restart: always
     working_dir: /app
     init: true
