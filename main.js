@@ -21,7 +21,7 @@ const batteryLogic = require('./lib/battery-logic.js');
 const { createAuth, readOptions } = require('./lib/auth.js');
 const { createConfigPanel } = require('./lib/config-panel.js');
 const { createEnergyDayStore } = require('./lib/energy-day-store.js');
-const { createEnergyDays, isValidDay } = require('./lib/energy-days.js');
+const { createEnergyDays, isValidDay, dayBounds } = require('./lib/energy-days.js');
 
 
 const JSONStore = require('json-store-list');
@@ -390,8 +390,10 @@ app.get('/graph/power/:period/activation-hist-plot/', validatePeriod, function(r
 });
 
 app.get('/energy/current-day', function(req, res) {
+    const day = energyDays.today();
     res.render('energy', {
-        day: energyDays.today(),
+        day,
+        day_start: dayBounds(day).start.toISOString(),
         timezone: config.timezone
     });
 });

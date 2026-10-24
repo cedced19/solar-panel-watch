@@ -8,13 +8,15 @@ const ejs = require('ejs');
 function page(name, data, locals) {
     const filename = path.resolve(__dirname, '../views', name + '.ejs');
     const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
-        __: label => label, day: '2026-10-13', timezone: 'Europe/Vienna', config: {}, ...locals
+        __: label => label, day: '2026-10-13', day_start: '2026-10-12T22:00:00.000Z', timezone: 'Europe/Vienna',
+        config: {}, ...locals
     }, {filename});
     const nodes = new Map();
     const cells = [];
     const plots = new Map();
     function element(tag) {
-        const node = {children: [], style: {}, textContent: '', value: '', checked: false, listeners: {},
+        const node = {children: [], style: {setProperty() {}}, dataset: {}, textContent: '', value: '', checked: false,
+            listeners: {}, setAttribute() {},
             appendChild(child) { this.children.push(child); },
             addEventListener(type, listener) { (this.listeners[type] = this.listeners[type] || []).push(listener); },
             closest() { return {offsetWidth: 1000}; }};
@@ -35,7 +37,7 @@ function page(name, data, locals) {
         fetch: async () => ({json: async () => data})
     });
     for (const script of html.matchAll(/<script(?: src="([^"]+)")?>([\s\S]*?)<\/script>/g)) {
-        if (script[1] === '/assets/energy-consumption.js') {
+        if (script[1] === '/assets/energy-consumption.js' || script[1] === '/assets/energy-day-visuals.js') {
             vm.runInContext(fs.readFileSync(path.resolve(__dirname, '..' + script[1]), 'utf8'), context,
                 {filename: script[1]});
         } else if (!script[1]) {
