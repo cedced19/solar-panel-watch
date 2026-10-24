@@ -21,7 +21,8 @@ const batteryLogic = require('./lib/battery-logic.js');
 const { createAuth, readOptions } = require('./lib/auth.js');
 const { createConfigPanel } = require('./lib/config-panel.js');
 const { createEnergyDayStore } = require('./lib/energy-day-store.js');
-const { createEnergyDays, isValidDay, dayBounds } = require('./lib/energy-days.js');
+const { createEnergyDays, isValidDay, dayBounds, previousDay } = require('./lib/energy-days.js');
+const { Cron } = require('croner');
 
 
 const JSONStore = require('json-store-list');
@@ -1042,6 +1043,25 @@ function pollBattery() {
 }
 pollBattery();
 setInterval(pollBattery, getPowerData.batteryRequestThreshold);
+
+// Every day at 00:30 (server time, like the energy days), compute and store the
+// energy of the day that just ended; a complete stored day is kept as is. It also
+// runs at startup, for a night the server missed. A failed calculation is tried
+// again at the next 5-minute mark. unref: the HTTP server keeps the process running.
+function saveEnergy(day) {
+    energyDays.getDay(day).then(function () {
+        console.log('Energy of ' + day + ' saved.');
+    }, function (error) {
+        console.log(error);
+        console.error('Cannot save the energy of ' + day + ', trying again within 5 minutes.');
+        new Cron('*/5 * * * *', {maxRuns: 1, unref: true}, () => saveEnergy(day));
+    });
+}
+function saveYesterdayEnergy() {
+    saveEnergy(previousDay(energyDays.today()));
+}
+new Cron('30 0 * * *', {unref: true}, saveYesterdayEnergy);
+saveYesterdayEnergy();
 // Write data to influx
 setInterval(function () {
     influxLib.daemon(app.get('env') === 'development', config.save_network_data);

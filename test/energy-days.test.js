@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const computeEnergy = require('../lib/compute-energy.js');
 const {createEnergyDayStore} = require('../lib/energy-day-store.js');
-const {createEnergyDays, isValidDay, localDayKey} = require('../lib/energy-days.js');
+const {createEnergyDays, isValidDay, localDayKey, previousDay} = require('../lib/energy-days.js');
 
 function setup(nowDate, devices) {
     const store = createEnergyDayStore(':memory:');
@@ -99,6 +99,14 @@ test('day keys are validated as real local calendar days', () => {
         assert.equal(isValidDay(day), false, String(day));
     }
     assert.equal(localDayKey(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
+});
+
+test('the previous day crosses month, year and daylight saving changes', () => {
+    assert.equal(previousDay('2026-10-13'), '2026-10-12');
+    assert.equal(previousDay('2026-03-01'), '2026-02-28');
+    assert.equal(previousDay('2026-01-01'), '2025-12-31');
+    assert.equal(previousDay('2026-03-30'), '2026-03-29');
+    assert.equal(previousDay('2026-10-26'), '2026-10-25');
 });
 
 test('the configured devices are summed into one figure, counted up to now for today', async () => {

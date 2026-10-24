@@ -232,6 +232,11 @@ Energy is stored once per local day in `energy-days.sqlite` (built-in
 the first time it is requested, and again while it is partial (today, or a day
 computed before it ended).
 
+- Every day at 00:30 (server time), the day that just ended is computed and
+  stored, so the pages find it ready. A day already stored complete is kept.
+  It also runs at startup, for a night the server missed, and a failed
+  calculation (InfluxDB unreachable) is tried again at the next 5-minute mark.
+  The schedule uses [croner](https://croner.56k.guru/), in `main.js`.
 - `/energy-graph/#duration=N`: the last N days, computing missing days on load.
   Clicking a bar in the day view shows that day with a "Recompute" button.
 - `/energy-calendar/`: stored days by month; a click shows or computes a day,

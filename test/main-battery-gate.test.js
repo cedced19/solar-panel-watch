@@ -7,6 +7,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const {createAuth, readOptions} = require('../lib/auth');
+const {createEnergyDayStore} = require('../lib/energy-day-store.js');
 
 const mainPath = path.resolve(__dirname, '../main.js');
 const requireFromMain = createRequire(mainPath);
@@ -66,7 +67,19 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
         getAll: () => []
     };
     const batteryHistory = {points: [], queries: [], writes: [], csvCalls: [], csvColumns: []};
+    const energyStore = createEnergyDayStore(':memory:');
+    const energyQueries = [];
+    const energyFailure = {error: null};
     const influx = {
+        async requestConsumptionOverRange(start, stop) {
+            energyQueries.push({start, stop});
+            if (energyFailure.error) throw energyFailure.error;
+            return {power1: [
+                {_time: new Date(start.getTime() + 12 * 3600 * 1000).toISOString(), _value: 600},
+                {_time: new Date(start.getTime() + 12 * 3600 * 1000 + 60 * 1000).toISOString(), _value: 600}
+            ], power2: [], battery: []};
+        },
+        async requestDevicePowerOverRange() { return {}; },
         daemon() {}, writePower() {}, writePowerRaw() {}, writeNetworkData() {},
         writeVar() {}, requestLastVar: async () => [], requestVarOverPeriod: async () => [],
         getMaxValueOverData: () => 0,
@@ -94,6 +107,7 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
         require(name) {
             if (name === './lib/get-power-data.js') return powerData;
             if (name === './lib/influx-lib.js') return influx;
+            if (name === './lib/energy-day-store.js') return {createEnergyDayStore: () => energyStore};
             if (name === './lib/compute-energy-device.js') return (_period, _uri, cb) => cb(null, 0);
             if (name === './config.json') return config;
             if (name === './devices-to-activate.json') return devices;
@@ -170,8 +184,8 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
             assert.equal(debug.requested_alpha, 128);
         }
     }
-    return {main, readings, batteryHistory, request, token, force, startBackgroundTasks, controlTick, batteryTick,
-        initializeDevices, assertDevicesOff, assertRequestedPowerOff};
+    return {main, readings, batteryHistory, energyStore, energyQueries, energyFailure, request, token, force, startBackgroundTasks,
+        controlTick, batteryTick, initializeDevices, assertDevicesOff, assertRequestedPowerOff};
 }
 
 function status(enabled, reason, socPercent, fullSocPercent = 100, maxChargingPowerW = 800) {
@@ -492,6 +506,56 @@ test('background battery polling records successful readings independently of ho
     app.batteryTick();
     assert.equal(app.batteryHistory.writes.length, 3);
     assert.equal(app.batteryHistory.writes[2].battery.socPercent, 0);
+});
+
+test('the energy of the previous day is saved at startup and every day at 00:30', async (t) => {
+    const app = await createServer(t);
+    t.mock.timers.enable({apis: ['setTimeout', 'Date'], now: new Date(2026, 9, 23, 23)});
+    // Moves the clock to date, running the jobs due, and waits for the days they save.
+    async function advanceTo(date) {
+        t.mock.timers.tick(date.getTime() - Date.now());
+        await new Promise(setImmediate);
+    }
+    const queriedDays = () => app.energyQueries.map(({start, stop}) => [start, stop]);
+    app.startBackgroundTasks();
+    await new Promise(setImmediate);
+    assert.deepEqual(queriedDays(), [[new Date(2026, 9, 22), new Date(2026, 9, 23)]]);
+
+    await advanceTo(new Date(2026, 9, 24, 0, 29, 59));
+    assert.equal(app.energyQueries.length, 1);
+    await advanceTo(new Date(2026, 9, 24, 0, 30));
+    assert.deepEqual(queriedDays()[1], [new Date(2026, 9, 23), new Date(2026, 9, 24)]);
+    const saved = app.energyStore.get('2026-10-23');
+    assert.equal(saved.complete, true);
+    assert.equal(saved.consumption_on_network, 0.012);
+    await advanceTo(new Date(2026, 9, 24, 23, 59));
+    assert.equal(app.energyQueries.length, 2);
+
+    // 25 October has 25 hours in Europe/Paris; the job still runs at 00:30.
+    await advanceTo(new Date(2026, 9, 25, 0, 30));
+    assert.deepEqual(queriedDays()[2], [new Date(2026, 9, 24), new Date(2026, 9, 25)]);
+    await advanceTo(new Date(2026, 9, 26, 0, 30));
+    assert.deepEqual(queriedDays()[3], [new Date(2026, 9, 25), new Date(2026, 9, 26)]);
+    assert.equal(app.energyStore.get('2026-10-25').complete, true);
+});
+
+test('a failed energy calculation is tried again at the next 5-minute mark', async (t) => {
+    const app = await createServer(t);
+    t.mock.timers.enable({apis: ['setTimeout', 'Date'], now: new Date(2026, 9, 24, 12, 2)});
+    app.energyFailure.error = new Error('influx unavailable');
+    app.startBackgroundTasks();
+    await new Promise(setImmediate);
+    assert.equal(app.energyQueries.length, 1);
+    assert.equal(app.energyStore.get('2026-10-23'), null);
+
+    app.energyFailure.error = null;
+    t.mock.timers.tick(3 * 60 * 1000 - 1);
+    await new Promise(setImmediate);
+    assert.equal(app.energyQueries.length, 1);
+    t.mock.timers.tick(1);
+    await new Promise(setImmediate);
+    assert.equal(app.energyQueries.length, 2);
+    assert.equal(app.energyStore.get('2026-10-23').complete, true);
 });
 
 test('dashboard and battery HTTP requests do not duplicate background battery history', async (t) => {
