@@ -250,3 +250,30 @@ test('the energy flow button hides and shows the activated devices and remembers
     await visuals.render(day);
     assert.equal(toggle.hidden, true);
 });
+
+test('the solar energy donut gives the activated devices their share of the solar, solar first', async () => {
+    const {visuals, nodes, plots} = load({dataset: {intraday: 'false', devices: 'Activated device',
+        otherHouse: 'Other household use', hideDevices: 'Hide', showDevices: 'Show'}});
+    // 4.5 kWh of solar reach the household: the devices take 3 of them, at most all of them.
+    assert.equal(plain(visuals.dayFlows({...day, devices_consumption: 3})).solarToDevices, 3);
+    assert.equal(plain(visuals.dayFlows({...day, devices_consumption: 6})).solarToDevices, 4.5);
+    assert.equal(plain(visuals.dayFlows(day)).solarToDevices, 0);
+
+    const slices = () => {
+        const trace = plots.get('energy-solar-uses').traces[0];
+        return Array.from(trace.labels).map((label, i) => label + ' ' + trace.values[i]);
+    };
+    await visuals.render({...day, devices_consumption: 3});
+    assert.deepEqual(slices(), ['Other household use 1.5', 'Activated device 3', 'Battery 2.5', 'Grid 3']);
+    assert.equal(nodes.get('energy-solar-uses-note').hidden, false);
+
+    nodes.get('energy-devices-toggle').listeners.click[0]();
+    assert.deepEqual(slices(), ['Home 4.5', 'Battery 2.5', 'Grid 3'], 'hidden like in the energy flow');
+    assert.equal(nodes.get('energy-solar-uses-note').hidden, true);
+    nodes.get('energy-devices-toggle').listeners.click[0]();
+    assert.equal(slices().length, 4);
+
+    await visuals.render(day);
+    assert.deepEqual(slices(), ['Home 4.5', 'Battery 2.5', 'Grid 3']);
+    assert.equal(nodes.get('energy-solar-uses-note').hidden, true);
+});

@@ -48,7 +48,8 @@
     // Charging between 22:00 and 06:00 (charging_energy_from_network) cannot
     // be solar, so it comes from the grid; without that figure it is ignored.
     // The household use then splits into the devices (devices_consumption,
-    // part of it) and the rest.
+    // part of it) and the rest. The devices run on the solar surplus, so they
+    // take the household's solar first.
     function dayFlows(entry) {
         const row = window.energyConsumption.normalizeEntry(entry);
         if (!Number.isFinite(row.solar_panel) || !Number.isFinite(row.consumption_on_network)) return null;
@@ -66,12 +67,14 @@
         const gridToBattery = charging - solarToBattery;
         const house = positive(row.house_consumption);
         const houseToDevices = Math.min(positive(row.devices_consumption), house);
+        const solarToHouse = solar - solarToGrid - solarToBattery;
         return {
             battery,
             solar, gridImport, gridExport, discharging, charging,
             house, houseToDevices,
             houseToOther: house - houseToDevices,
-            solarToHouse: solar - solarToGrid - solarToBattery,
+            solarToHouse,
+            solarToDevices: Math.min(houseToDevices, solarToHouse),
             solarToGrid, solarToBattery,
             batteryToHouse: positive(discharging - batteryToGrid),
             batteryToGrid,
@@ -387,8 +390,22 @@
             showDevices = !showDevices;
             saveShowDevices();
             renderFlow('energy-flow', drawnFlow.flows, drawnFlow.labels);
+            renderSolarUses(drawnFlow.flows, drawnFlow.labels);
             renderDevicesToggle();
         });
+    }
+
+    // Where the solar energy went. The devices' share of the household's
+    // solar gets its own slice while they are shown.
+    function renderSolarUses(flows, labels) {
+        const devices = showDevices && flows.solarToDevices > 0.0005 ? flows.solarToDevices : 0;
+        show('energy-solar-uses-note', devices > 0);
+        return renderDonut('energy-solar-uses', [
+            {label: devices ? labels.otherHouse : labels.house, value: flows.solarToHouse - devices, color: COLORS.house},
+            {label: labels.devices, value: devices, color: COLORS.devices},
+            {label: labels.battery, value: flows.solarToBattery, color: COLORS.battery},
+            {label: labels.grid, value: flows.solarToGrid, color: COLORS.grid}
+        ], flows.solar, labels.solar);
     }
 
     function renderTotals(entry, labels) {
@@ -416,13 +433,8 @@
             {label: labels.battery, value: flows.batteryToHouse, color: COLORS.battery},
             {label: labels.grid, value: flows.gridToHouse, color: COLORS.grid}
         ];
-        const solarUses = [
-            {label: labels.house, value: flows.solarToHouse, color: COLORS.house},
-            {label: labels.battery, value: flows.solarToBattery, color: COLORS.battery},
-            {label: labels.grid, value: flows.solarToGrid, color: COLORS.grid}
-        ];
         const houseShown = renderDonut('energy-house-sources', houseSources, flows.house, labels.house);
-        const solarShown = renderDonut('energy-solar-uses', solarUses, flows.solar, labels.solar);
+        const solarShown = renderSolarUses(flows, labels);
         show('energy-house-sources-card', houseShown);
         show('energy-solar-uses-card', solarShown);
         show('energy-donuts', houseShown || solarShown);

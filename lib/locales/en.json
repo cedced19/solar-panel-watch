@@ -517,5 +517,6 @@
 	"Devices": "Activated device",
 	"Other household use": "Other household use",
 	"Hide activated devices": "Hide activated devices",
-	"Show activated devices": "Show activated devices"
+	"Show activated devices": "Show activated devices",
+	"Solar uses devices note": "Estimated: the activated devices are counted as running on solar first."
 }
