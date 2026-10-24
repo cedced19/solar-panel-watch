@@ -509,9 +509,15 @@ body.graph-page .graph-card {
   border-color: #fcd34d;
 }
 
-.calendar-day.loading {
-  opacity: .5;
-  cursor: progress;
+.calendar-day.selected {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.calendar-day.future {
+  color: #94a3b8;
+  background: #f8fafc;
+  cursor: default;
 }
 
 .calendar-empty-result {
@@ -540,6 +546,83 @@ body.graph-page .graph-card {
 
 .energy-recompute {
   margin-top: 12px;
+}
+
+/* ---- Day navigation: arrows and swipe between days --------------------- */
+
+.nav-btn:disabled,
+.nav-btn:disabled:hover {
+  color: #2563eb;
+  border-color: #e5e7eb;
+  background: #ffffff;
+  opacity: .4;
+  cursor: default;
+}
+
+.day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 14px;
+}
+
+.day-nav-btn {
+  justify-content: center;
+  min-width: 48px;
+}
+
+.day-nav-label {
+  color: #111827;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* The wide day table scrolls inside its card instead of widening the page. */
+.day-nav + #day-result {
+  margin-top: 0;
+  overflow-x: auto;
+}
+
+/* Horizontal drags belong to the swipe (assets/day-swipe.js), not to the page
+   scroll or the browser's back gesture; a scrolling table keeps its own. */
+.day-swipe {
+  touch-action: pan-y pinch-zoom;
+  transition: transform .2s ease, opacity .2s ease;
+}
+
+.day-swipe.is-loading {
+  opacity: .5;
+}
+
+@keyframes day-slide-prev {
+  from { opacity: 0; transform: translateX(-32px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes day-slide-next {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: none; }
+}
+
+.day-slide-prev {
+  animation: day-slide-prev .25s ease-out;
+}
+
+.day-slide-next {
+  animation: day-slide-next .25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-swipe {
+    transition: none;
+  }
+
+  .day-slide-prev,
+  .day-slide-next {
+    animation: none;
+  }
 }
 
 /* ---- Login (configuration panel, force page) and configuration panel ---- */

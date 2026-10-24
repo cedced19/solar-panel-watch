@@ -418,6 +418,7 @@ app.get('/energy-graph/', function(req, res) {
 
 app.get('/energy-calendar/', function(req, res) {
     res.render('energy-calendar', {
+        today: energyDays.today(),
         timezone: config.timezone
     });
 });

@@ -78,7 +78,7 @@
 	"Energy Saved": "Energy saved",
 	"Energy graph": "Energy plot summary",
 	"Energy calendar": "Energy calendar",
-	"Calendar hint": "Click a day to show its energy, computed when it is not stored yet. Days in red have no stored energy data; days in orange were stored before the day ended.",
+	"Calendar hint": "Click a day to show its energy, computed when it is not stored yet. Days in red have no stored energy data; days in orange were stored before the day ended. Use the arrows or swipe to move to the previous or next day.",
 	"Partial day": "Partial day",
 	"Recompute": "Recompute",
 	"Computing missing days": "Computing missing days",
@@ -507,5 +507,8 @@
 	"Grid signed": "Grid (+ import / − export)",
 	"Battery signed": "Battery (+ discharge / − charge)",
 	"Hourly energy": "Hourly energy",
-	"Hourly energy note": "Sources above zero, grid export and battery charging below (lighter, outlined). The line is the household use."
+	"Hourly energy note": "Sources above zero, grid export and battery charging below (lighter, outlined). The line is the household use.",
+	"Previous day": "Previous day",
+	"Next day": "Next day",
+	"Energy data unavailable": "Energy data unavailable"
 }

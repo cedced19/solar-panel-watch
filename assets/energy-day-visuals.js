@@ -1,7 +1,9 @@
-// Charts shown under the current-day energy table: day totals as gauges,
-// tiles, an energy flow and two donuts, then the power profile and hourly
-// energy since midnight from /api/data/consumption/. Needs Plotly and
-// /assets/energy-consumption.js; labels come from the container's data-*.
+// Charts shown under an energy day table: day totals as gauges, tiles, an
+// energy flow and two donuts, then the power profile and hourly energy since
+// midnight from /api/data/consumption/ (only while the container's
+// data-intraday is not "false": the calendar shows past days without them).
+// Needs Plotly and /assets/energy-consumption.js; labels come from the
+// container's data-*.
 (function () {
     const COLORS = {solar: '#2ecc71', grid: '#c0392b', battery: '#8e44ad', house: '#2980b9'};
     const WINDOW = '5m';
@@ -399,7 +401,7 @@
         const labels = Object.assign({}, root.dataset);
         root.hidden = false;
         renderTotals(entry, labels);
-        return renderIntraday(root, labels);
+        return root.dataset.intraday === 'false' ? Promise.resolve() : renderIntraday(root, labels);
     }
 
     window.energyDayVisuals = {render, dayFlows, dayRatios, hourlyEnergy, samples, zoneClock};

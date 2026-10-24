@@ -234,8 +234,13 @@ computed before it ended).
 
 - `/energy-graph/#duration=N`: the last N days, computing missing days on load.
   Clicking a bar in the day view shows that day with a "Recompute" button.
-- `/energy-calendar/`: stored days by month; a click shows or computes a day.
-- `/energy/current-day`: today's figures.
+- `/energy-calendar/`: stored days by month; a click shows or computes a day,
+  with the same charts as the current day (except the power since midnight and
+  the hourly energy). `/energy-calendar/#day=YYYY-MM-DD` opens a given day.
+  Two arrows, or a swipe on a touch screen, move to the previous or next day,
+  up to today.
+- `/energy/current-day`: today's figures and charts. Its previous-day arrow or a
+  swipe right opens `/energy-calendar/#day=<yesterday>`.
 - `GET /api/data/energy/days?start=YYYY-MM-DD&end=YYYY-MM-DD` returns
   `{days, stale}`; `GET /api/data/energy/day/<date>` returns one day;
   `POST /api/data/energy/day/<date>/recompute` forces a calculation.

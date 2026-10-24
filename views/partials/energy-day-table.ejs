@@ -17,11 +17,14 @@
             .then(response => response.json());
 
     // onRecompute(row) is called with the new figures; without it no button is shown.
-    const renderEnergyDay = (container, row, onRecompute) => {
+    // options.heading: false leaves out the day heading, when the page shows the day itself.
+    const renderEnergyDay = (container, row, onRecompute, options) => {
         container.innerHTML = '';
-        const heading = document.createElement('h3');
-        heading.textContent = row.day;
-        container.appendChild(heading);
+        if (!options || options.heading !== false) {
+            const heading = document.createElement('h3');
+            heading.textContent = row.day;
+            container.appendChild(heading);
+        }
 
         if (!row.start_date) {
             const p = document.createElement('p');

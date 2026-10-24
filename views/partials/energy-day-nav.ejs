@@ -1,0 +1,10 @@
+<%# Arrows to the previous and next day around the day label. The page scripts fill the label and wire the buttons. %>
+<div class="day-nav" id="day-nav">
+  <button class="nav-btn day-nav-btn" id="day-prev" type="button" title="<%= __('Previous day')%>" aria-label="<%= __('Previous day')%>">
+    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+  </button>
+  <span class="day-nav-label" id="day-nav-label" role="status"></span>
+  <button class="nav-btn day-nav-btn" id="day-next" type="button" title="<%= __('Next day')%>" aria-label="<%= __('Next day')%>">
+    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+  </button>
+</div>

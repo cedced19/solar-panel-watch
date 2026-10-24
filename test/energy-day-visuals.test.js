@@ -144,3 +144,13 @@ test('a day without data or power history hides the charts and reports the failu
     assert.equal(nodes.get('energy-profile-status').textContent, 'Power history unavailable');
     assert.equal(plots.size, 0);
 });
+
+test('a container without intraday charts draws only the day totals and never requests the power history', async () => {
+    const {visuals, nodes, plots, requests} = load({dataset: {intraday: 'false'}});
+    await visuals.render(day);
+    assert.deepEqual(requests, []);
+    assert.deepEqual([...plots.keys()], ['energy-flow', 'energy-house-sources', 'energy-solar-uses']);
+    assert.equal(nodes.get('energy-tiles').children.length, 6);
+    assert.equal(nodes.get('energy-day-visuals').hidden, false);
+    assert.equal(nodes.has('energy-profile-status'), false);
+});

@@ -42,16 +42,28 @@
         </div>
         <div id="calendar" class="calendar"></div>
         <div id="loader" class="loader"></div>
-        <div id="day-result"></div>
       </section>
+      <div id="day-swipe" class="day-swipe" hidden>
+        <section class="card">
+          <%- include('partials/energy-day-nav') %>
+          <div id="day-result"></div>
+        </section>
+        <%- include('partials/energy-day-visuals', {intraday: false}) %>
+      </div>
     </main>
+    <script src="/assets/plotly.js"></script>
     <script src="/assets/energy-consumption.js"></script>
+    <script src="/assets/energy-day-visuals.js"></script>
+    <script src="/assets/day-swipe.js"></script>
     <%- include('partials/energy-day-table') %>
     <script>
         // Stored days: 'has-data', 'partial' or 'no-data' (computed, without readings).
         const coveredDays = new Map();
         const dayState = (row) => !row.has_data ? 'no-data' : row.complete ? 'has-data' : 'partial';
+        const todayKey = '<%= today %>';
         let viewYear, viewMonth;
+        let selectedDay = null;
+        let dayRequest = 0; // only the latest requested day is shown
 
         const months = ['<%= __("January")%>', '<%= __("February")%>', '<%= __("March")%>', '<%= __("April")%>', '<%= __("May")%>', '<%= __("June")%>', '<%= __("July")%>', '<%= __("August")%>', '<%= __("September")%>', '<%= __("October")%>', '<%= __("November")%>', '<%= __("December")%>'];
         const weekdays = ['<%= __("Sun")%>', '<%= __("Mon")%>', '<%= __("Tue")%>', '<%= __("Wed")%>', '<%= __("Thu")%>', '<%= __("Fri")%>', '<%= __("Sat")%>'];
@@ -89,38 +101,96 @@
             }
             for (let day = 1; day <= daysInMonth; day++) {
                 const key = isoDate(viewYear, viewMonth, day);
-                html += '<div class="calendar-day ' + (coveredDays.get(key) || 'no-data') + '" data-date="' + key + '">' + day + '</div>';
+                if (key > todayKey) {
+                    html += '<div class="calendar-day future">' + day + '</div>';
+                    continue;
+                }
+                html += '<div class="calendar-day ' + (coveredDays.get(key) || 'no-data') +
+                    (key === selectedDay ? ' selected' : '') + '" data-date="' + key + '">' + day + '</div>';
             }
             html += '</div>';
             document.getElementById('calendar').innerHTML = html;
         };
 
+        const updateDayNav = () => {
+            document.getElementById('day-nav-label').textContent = selectedDay;
+            document.getElementById('day-next').disabled = selectedDay >= todayKey;
+        };
+
         const showDay = (row) => {
+            selectedDay = row.day;
             coveredDays.set(row.day, dayState({has_data: !!row.start_date, complete: row.complete}));
             renderCalendar();
-            renderEnergyDay(document.getElementById('day-result'), row, showDay);
+            updateDayNav();
+            document.getElementById('day-swipe').hidden = false;
+            // A recomputation that ends after the user moved to another day is dropped.
+            renderEnergyDay(document.getElementById('day-result'), row,
+                updated => { if (updated.day === selectedDay) showDay(updated); }, {heading: false});
+            window.energyDayVisuals.render(row);
+        };
+
+        const showDayError = () => {
+            const message = document.createElement('p');
+            message.className = 'calendar-empty-result';
+            message.textContent = '<%= __("Energy data unavailable")%> (' + selectedDay + ')';
+            const result = document.getElementById('day-result');
+            result.innerHTML = '';
+            result.appendChild(message);
+            document.getElementById('energy-day-visuals').hidden = true;
         };
 
         // Shows the stored figures of the day, computing them when missing or partial.
-        const computeDay = (cell) => {
-            const dateKey = cell.getAttribute('data-date');
-            cell.classList.add('loading');
-            fetch('/api/data/energy/day/' + dateKey)
-                .then(response => response.json())
-                .then(data => {
-                    cell.classList.remove('loading');
-                    showDay(data);
+        // The new day slides in from the side it lies on, relative to the previous one.
+        const selectDay = (day) => {
+            const direction = selectedDay && day !== selectedDay ? (day < selectedDay ? 'prev' : 'next') : null;
+            const request = ++dayRequest;
+            const area = document.getElementById('day-swipe');
+            selectedDay = day;
+            viewYear = parseInt(day.slice(0, 4), 10);
+            viewMonth = parseInt(day.slice(5, 7), 10) - 1;
+            window.history.replaceState(null, '', '#day=' + day);
+            renderCalendar();
+            updateDayNav();
+            area.hidden = false;
+            area.classList.add('is-loading');
+            fetch('/api/data/energy/day/' + day)
+                .then(response => {
+                    if (!response.ok) throw new Error('Energy day request failed: ' + response.status);
+                    return response.json();
+                })
+                .then(row => {
+                    if (request !== dayRequest) return;
+                    area.classList.remove('is-loading');
+                    showDay(row);
+                    if (direction) window.daySwipe.slideIn(area, direction);
                 })
                 .catch(error => {
-                    cell.classList.remove('loading');
+                    if (request !== dayRequest) return;
+                    area.classList.remove('is-loading');
                     console.error('Error:', error);
+                    showDayError();
                 });
+        };
+
+        const stepDay = (direction) => {
+            const day = window.daySwipe.shiftDay(selectedDay, direction === 'prev' ? -1 : 1);
+            if (day <= todayKey) selectDay(day);
+        };
+
+        // #day=YYYY-MM-DD selects a day; anything else (or a day after today) is ignored.
+        const dayFromHash = () => {
+            const match = /^#(?:.*&)?day=(\d{4}-\d{2}-\d{2})(?:&|$)/.exec(window.location.hash || '');
+            return match && window.daySwipe.isDay(match[1]) && match[1] <= todayKey ? match[1] : null;
+        };
+        const loadHashDay = () => {
+            const day = dayFromHash();
+            if (day && day !== selectedDay) selectDay(day);
         };
 
         document.getElementById('calendar').addEventListener('click', (event) => {
             const cell = event.target.closest('.calendar-day');
             if (cell && cell.hasAttribute('data-date')) {
-                computeDay(cell);
+                selectDay(cell.getAttribute('data-date'));
             }
         });
 
@@ -135,10 +205,21 @@
             renderCalendar();
         });
 
+        document.getElementById('day-prev').addEventListener('click', () => stepDay('prev'));
+        document.getElementById('day-next').addEventListener('click', () => stepDay('next'));
+        window.daySwipe.attach(document.getElementById('day-swipe'), {
+            canSwipe: direction => direction === 'prev' || selectedDay < todayKey,
+            onSwipe: stepDay
+        });
+
         const now = new Date();
         viewYear = now.getFullYear();
         viewMonth = now.getMonth();
-        window.addEventListener('load', loadCovered);
+        window.addEventListener('hashchange', loadHashDay);
+        window.addEventListener('load', () => {
+            loadCovered();
+            loadHashDay();
+        });
     </script>
       <script src="/assets/nav.js"></script>
 </body>

@@ -9,19 +9,29 @@ function page(name, data, locals) {
     const filename = path.resolve(__dirname, '../views', name + '.ejs');
     const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
         __: label => label, day: '2026-10-13', day_start: '2026-10-12T22:00:00.000Z', timezone: 'Europe/Vienna',
-        config: {}, ...locals
+        today: '2026-10-24', config: {}, ...locals
     }, {filename});
     const nodes = new Map();
     const cells = [];
     const plots = new Map();
     function element(tag) {
+        const classes = new Set();
         const node = {children: [], style: {setProperty() {}}, dataset: {}, textContent: '', value: '', checked: false,
-            listeners: {}, setAttribute() {},
+            listeners: {}, setAttribute() {}, offsetWidth: 0, classes,
+            classList: {add: (...names) => names.forEach(name => classes.add(name)),
+                remove: (...names) => names.forEach(name => classes.delete(name))},
             appendChild(child) { this.children.push(child); },
             addEventListener(type, listener) { (this.listeners[type] = this.listeners[type] || []).push(listener); },
             closest() { return {offsetWidth: 1000}; }};
         if (tag === 'td') cells.push(node);
         return node;
+    }
+    // The visuals read their labels and options from the data-* attributes of their container.
+    const visuals = element();
+    nodes.set('energy-day-visuals', visuals);
+    for (const [, name, value] of (/<div id="energy-day-visuals"([^>]*)>/.exec(html) || ['', ''])[1]
+        .matchAll(/data-([\w-]+)="([^"]*)"/g)) {
+        visuals.dataset[name.replace(/-(\w)/g, (_, letter) => letter.toUpperCase())] = value;
     }
     const context = vm.createContext({
         document: {
@@ -37,7 +47,7 @@ function page(name, data, locals) {
         fetch: async () => ({json: async () => data})
     });
     for (const script of html.matchAll(/<script(?: src="([^"]+)")?>([\s\S]*?)<\/script>/g)) {
-        if (script[1] === '/assets/energy-consumption.js' || script[1] === '/assets/energy-day-visuals.js') {
+        if (['/assets/energy-consumption.js', '/assets/energy-day-visuals.js', '/assets/day-swipe.js'].includes(script[1])) {
             vm.runInContext(fs.readFileSync(path.resolve(__dirname, '..' + script[1]), 'utf8'), context,
                 {filename: script[1]});
         } else if (!script[1]) {
@@ -329,4 +339,155 @@ test('energy graph without #duration loads the whole stored period up to today',
         context.window.location.hash = hash;
         assert.equal(vm.runInContext('durationFromHash()', context), days, hash);
     }
+});
+
+// ---- Day navigation: calendar days, arrows and swipes -----------------------
+
+const fullDay = key => ({day: key, complete: true, start_date: key + 'T00:00:00.000Z', end_date: key + 'T23:59:00.000Z',
+    consumption_on_network: 4, introduced_on_network: -3, solar_panel: 10,
+    battery_discharging: 2, battery_charging: 2.5, house_consumption: 10.5});
+const settle = async () => { for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve)); };
+
+// Fakes the touch events of a horizontal swipe of `dx` pixels on a page element.
+function swipe(node, dx) {
+    const point = x => ({clientX: x, clientY: 100});
+    node.listeners.touchstart[0]({touches: [point(200)], target: {}});
+    node.listeners.touchmove[0]({changedTouches: [point(200 + dx / 2)]});
+    node.listeners.touchend[0]({changedTouches: [point(200 + dx)]});
+}
+
+// The calendar page with its API answered from `rows` (a missing day fails).
+function calendarPage(rows, deferred) {
+    const result = page('energy-calendar');
+    const urls = [];
+    const hashes = [];
+    result.context.window.history = {replaceState: (_state, _title, hash) => hashes.push(hash)};
+    result.context.fetch = async url => {
+        urls.push(url);
+        const row = rows[url.split('/').pop()];
+        if (deferred) await deferred(url);
+        return {ok: Boolean(row), status: row ? 200 : 500, json: async () => row};
+    };
+    const select = hash => {
+        result.context.window.location.hash = hash;
+        vm.runInContext('loadHashDay()', result.context);
+    };
+    return {...result, urls, hashes, select};
+}
+
+test('calendar #day= selects the day, shows its figures and visuals without the intraday charts', async () => {
+    const {nodes, plots, urls, hashes, select, context} = calendarPage({'2026-10-13': fullDay('2026-10-13')});
+    assert.equal(nodes.get('day-swipe').hidden, undefined);
+    select('#day=2026-10-13');
+    await settle();
+    assert.deepEqual(urls, ['/api/data/energy/day/2026-10-13'], 'no power history is requested');
+    assert.deepEqual(hashes, ['#day=2026-10-13']);
+    assert.equal(nodes.get('day-swipe').hidden, false);
+    assert.equal(nodes.get('day-nav-label').textContent, '2026-10-13');
+    assert.equal(nodes.get('day-next').disabled, false);
+    assert.equal(nodes.get('month-label').textContent, 'October 2026');
+    assert.match(nodes.get('calendar').innerHTML,
+        /calendar-day has-data selected" data-date="2026-10-13"/);
+    assert.equal(nodes.get('energy-tiles').children.length, 6);
+    assert.deepEqual([...plots.keys()], ['energy-flow', 'energy-house-sources', 'energy-solar-uses']);
+    assert.ok(!nodes.get('day-result').children.some(child => child.textContent === '2026-10-13'),
+        'the day label is shown by the arrows, not repeated as a heading');
+    assert.equal(nodes.get('day-swipe').classes.has('is-loading'), false);
+    assert.equal(vm.runInContext('selectedDay', context), '2026-10-13');
+});
+
+test('calendar arrows and swipes move to the previous and next day and stop at today', async () => {
+    const rows = {};
+    for (const key of ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-23', '2026-10-24']) rows[key] = fullDay(key);
+    const {nodes, urls, hashes, select} = calendarPage(rows);
+    select('#day=2026-10-13');
+    await settle();
+
+    nodes.get('day-next').listeners.click[0]();
+    await settle();
+    assert.equal(urls.at(-1), '/api/data/energy/day/2026-10-14');
+    assert.equal(hashes.at(-1), '#day=2026-10-14');
+    assert.equal(nodes.get('day-nav-label').textContent, '2026-10-14');
+    assert.ok(nodes.get('day-swipe').classes.has('day-slide-next'), 'the next day slides in from the right');
+
+    swipe(nodes.get('day-swipe'), 120); // swipe right: previous day
+    await settle();
+    swipe(nodes.get('day-swipe'), 120);
+    await settle();
+    assert.equal(urls.at(-1), '/api/data/energy/day/2026-10-12');
+    assert.ok(nodes.get('day-swipe').classes.has('day-slide-prev'));
+    assert.ok(!nodes.get('day-swipe').classes.has('day-slide-next'));
+
+    nodes.get('day-prev').listeners.click[0]();
+    await settle();
+    assert.equal(urls.at(-1), '/api/data/energy/day/2026-10-11');
+});
+
+test('calendar cannot go past today and ignores invalid or future #day= values', async () => {
+    const rows = {'2026-10-23': fullDay('2026-10-23'), '2026-10-24': fullDay('2026-10-24')};
+    const {nodes, urls, select, context} = calendarPage(rows);
+    for (const hash of ['#day=2026-10-25', '#day=2026-02-30', '#day=yesterday', '#x', '']) {
+        select(hash);
+        await settle();
+    }
+    assert.deepEqual(urls, [], 'nothing is loaded for an unusable hash');
+    assert.equal(nodes.get('day-swipe').hidden, undefined);
+
+    select('#a=1&day=2026-10-23');
+    await settle();
+    assert.equal(nodes.get('day-next').disabled, false);
+    swipe(nodes.get('day-swipe'), -120); // swipe left: next day, which is today
+    await settle();
+    assert.equal(urls.at(-1), '/api/data/energy/day/2026-10-24');
+    assert.equal(nodes.get('day-next').disabled, true);
+
+    const count = urls.length;
+    nodes.get('day-next').listeners.click[0]();
+    swipe(nodes.get('day-swipe'), -120);
+    await settle();
+    assert.equal(urls.length, count, 'there is no day after today');
+    assert.match(nodes.get('calendar').innerHTML, /calendar-day future">25</);
+    assert.doesNotMatch(nodes.get('calendar').innerHTML, /data-date="2026-10-25"/);
+    assert.equal(vm.runInContext('selectedDay', context), '2026-10-24');
+});
+
+test('calendar shows only the latest requested day and reports a day that cannot be loaded', async () => {
+    const rows = {'2026-10-12': fullDay('2026-10-12'), '2026-10-13': fullDay('2026-10-13')};
+    const releases = {};
+    const {nodes, select, context} = calendarPage(rows, url => new Promise(resolve => { releases[url.split('/').pop()] = resolve; }));
+    select('#day=2026-10-12');
+    select('#day=2026-10-13');
+    await settle();
+    releases['2026-10-13']();
+    await settle();
+    releases['2026-10-12']();
+    await settle();
+    assert.equal(vm.runInContext('selectedDay', context), '2026-10-13');
+    assert.equal(nodes.get('day-nav-label').textContent, '2026-10-13');
+    assert.equal(vm.runInContext('coveredDays.has("2026-10-12")', context), false, 'the late answer is dropped');
+    assert.equal(nodes.get('day-swipe').classes.has('is-loading'), false);
+
+    select('#day=2026-10-11');
+    await settle();
+    releases['2026-10-11']();
+    await settle();
+    const message = nodes.get('day-result').children.at(-1); // the fake innerHTML does not drop earlier children
+    assert.equal(message.className, 'calendar-empty-result');
+    assert.equal(message.textContent, 'Energy data unavailable (2026-10-11)');
+    assert.equal(nodes.get('energy-day-visuals').hidden, true);
+    assert.equal(nodes.get('day-swipe').classes.has('is-loading'), false);
+});
+
+test('current-day arrows and swipes lead to the calendar of the previous day, and there is no next day', () => {
+    const {nodes, context} = page('energy');
+    assert.equal(nodes.get('day-nav-label').textContent, '2026-10-13');
+    assert.equal(nodes.get('day-next').disabled, true);
+    nodes.get('day-prev').listeners.click[0]();
+    assert.equal(context.window.location.href, '/energy-calendar/#day=2026-10-12');
+
+    context.window.location.href = '';
+    swipe(nodes.get('day-swipe'), -120);
+    assert.equal(context.window.location.href, '', 'swiping left has no day to show');
+    swipe(nodes.get('day-swipe'), 120);
+    assert.equal(context.window.location.href, '/energy-calendar/#day=2026-10-12');
 });

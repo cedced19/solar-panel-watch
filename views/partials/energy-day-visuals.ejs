@@ -1,0 +1,48 @@
+<%# Charts of one energy day, drawn by /assets/energy-day-visuals.js. With intraday, the power profile and hourly energy since midnight are added (they need day and day_start). %>
+<div id="energy-day-visuals" class="energy-visuals" hidden
+     data-intraday="<%= intraday %>"<% if (intraday) { %> data-day="<%= day %>" data-day-start="<%= day_start %>"<% } %> data-timezone="<%= timezone %>"
+     data-solar="<%= __('Nomenclature solar short') %>" data-grid="<%= __('Nomenclature grid short') %>"
+     data-battery="<%= __('Nomenclature battery short') %>" data-house="<%= __('Nomenclature household use') %>"
+     data-solar-produced="<%= __('Solar production') %>" data-house-consumption="<%= __('Nomenclature household use') %>"
+     data-grid-import="<%= __('Grid import') %>" data-grid-export="<%= __('Grid export') %>"
+     data-battery-discharging="<%= __('Battery discharge') %>" data-battery-charging="<%= __('Battery charge') %>"
+     data-grid-signed="<%= __('Grid signed') %>" data-battery-signed="<%= __('Battery signed') %>"
+     data-self-sufficiency="<%= __('Self-sufficiency') %>" data-self-sufficiency-hint="<%= __('Self-sufficiency hint') %>"
+     data-self-consumption="<%= __('Self-consumption') %>" data-self-consumption-hint="<%= __('Self-consumption hint') %>"
+     data-of-house="<%= __('of household use') %>" data-unavailable="<%= __('Unavailable') %>"
+     data-time="<%= __('Time') %>" data-profile-error="<%= __('Power history unavailable') %>"
+     data-profile-empty="<%= __('No power readings') %>">
+  <section class="card energy-glance" id="energy-glance-card">
+    <h2 class="card-heading"><%= __('Day at a glance')%></h2>
+    <div class="energy-rings" id="energy-rings"></div>
+    <div class="energy-tiles" id="energy-tiles"></div>
+  </section>
+  <section class="card" id="energy-flow-card">
+    <h2 class="card-heading"><%= __('Energy flow')%></h2>
+    <p class="energy-visual-note"><%= __('Energy flow note')%></p>
+    <div id="energy-flow" class="energy-plot"></div>
+  </section>
+  <div class="energy-visual-grid" id="energy-donuts">
+    <section class="card" id="energy-house-sources-card">
+      <h2 class="card-heading"><%= __('House supplied by')%></h2>
+      <div id="energy-house-sources" class="energy-plot"></div>
+    </section>
+    <section class="card" id="energy-solar-uses-card">
+      <h2 class="card-heading"><%= __('Solar energy used for')%></h2>
+      <div id="energy-solar-uses" class="energy-plot"></div>
+    </section>
+  </div>
+<% if (intraday) { %>
+  <section class="card">
+    <h2 class="card-heading"><%= __('Power since midnight')%></h2>
+    <p class="energy-visual-note"><%= __('Power since midnight note')%></p>
+    <p id="energy-profile-status" class="energy-visual-status" role="status" hidden></p>
+    <div id="energy-profile" class="energy-plot"></div>
+  </section>
+  <section class="card" id="energy-hourly-card">
+    <h2 class="card-heading"><%= __('Hourly energy')%></h2>
+    <p class="energy-visual-note"><%= __('Hourly energy note')%></p>
+    <div id="energy-hourly" class="energy-plot"></div>
+  </section>
+<% } %>
+</div>

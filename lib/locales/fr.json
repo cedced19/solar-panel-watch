@@ -165,7 +165,7 @@
 	"Home": "Accueil",
 	"Back": "Retour",
 	"Energy calendar": "Calendrier énergétique",
-	"Calendar hint": "Cliquez sur un jour pour afficher son énergie, calculée si elle n'est pas encore enregistrée. Les jours en rouge n'ont pas de données enregistrées ; les jours en orange ont été enregistrés avant la fin de la journée.",
+	"Calendar hint": "Cliquez sur un jour pour afficher son énergie, calculée si elle n'est pas encore enregistrée. Les jours en rouge n'ont pas de données enregistrées ; les jours en orange ont été enregistrés avant la fin de la journée. Utilisez les flèches ou balayez l'écran pour passer au jour précédent ou suivant.",
 	"Partial day": "Journée partielle",
 	"Recompute": "Recalculer",
 	"Computing missing days": "Calcul des jours manquants",
@@ -513,5 +513,8 @@
 	"Grid signed": "Réseau (+ achat / − injection)",
 	"Battery signed": "Batterie (+ décharge / − charge)",
 	"Hourly energy": "Énergie par heure",
-	"Hourly energy note": "Sources au-dessus de zéro, injection et charge de la batterie en dessous (plus claires, contour). La courbe est la consommation de la maison."
+	"Hourly energy note": "Sources au-dessus de zéro, injection et charge de la batterie en dessous (plus claires, contour). La courbe est la consommation de la maison.",
+	"Previous day": "Jour précédent",
+	"Next day": "Jour suivant",
+	"Energy data unavailable": "Données énergétiques indisponibles"
 }
