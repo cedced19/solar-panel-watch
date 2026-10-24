@@ -241,6 +241,11 @@ computed before it ended).
   up to today.
 - `/energy/current-day`: today's figures and charts. Its previous-day arrow or a
   swipe right opens `/energy-calendar/#day=<yesterday>`.
+- Each day also has `charging_energy_from_network`: the battery charging
+  between 22:00 and 06:00 local time, which cannot come from the solar panels.
+  The energy flow diagram draws it as grid → battery. Days stored before this
+  field have it empty (the diagram then counts charging as solar first) until
+  they are recomputed with "Recompute".
 - `GET /api/data/energy/days?start=YYYY-MM-DD&end=YYYY-MM-DD` returns
   `{days, stale}`; `GET /api/data/energy/day/<date>` returns one day;
   `POST /api/data/energy/day/<date>/recompute` forces a calculation.

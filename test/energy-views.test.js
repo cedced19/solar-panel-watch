@@ -87,26 +87,27 @@ for (const name of ['energy-calendar', 'energy']) {
     test(`${name} displays unavailable solar, house and savings while retaining grid totals`, async () => {
         const text = await renderTable(name, [day]);
         assert.deepEqual(text.slice(2), ['0.012', 'Unavailable', 'Unavailable',
-            'Unavailable', 'Unavailable', '0', 'Unavailable']);
+            'Unavailable', 'Unavailable', 'Unavailable', '0', 'Unavailable']);
     });
 
-    test(`${name} shows battery energy and uses house consumption for totals and savings`, async () => {
+    test(`${name} shows battery energy, its charging from the grid and uses house consumption for totals and savings`, async () => {
         const text = await renderTable(name, [{...day, consumption_on_network: 2, solar_panel: 6,
-            battery_discharging: 4, battery_charging: 3, introduced_on_network: -1, house_consumption: 8}]);
-        assert.deepEqual(text.slice(2), ['2 (25%)', '6', '4', '3', '8', '-1', '6 (75%)']);
+            battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1,
+            introduced_on_network: -1, house_consumption: 8}]);
+        assert.deepEqual(text.slice(2), ['2 (25%)', '6', '4', '3', '1', '8', '-1', '6 (75%)']);
     });
 
     test(`${name} preserves recorded legacy totals without inventing battery energy`, async () => {
         const text = await renderTable(name, [{...day, solar_panel: 0.013, house_consumption: 0.025}]);
         assert.equal(text[3], '0.013');
-        assert.deepEqual(text.slice(4, 7), ['Unavailable', 'Unavailable', '0.025']);
+        assert.deepEqual(text.slice(4, 8), ['Unavailable', 'Unavailable', 'Unavailable', '0.025']);
     });
 
     test(`${name} recovers old unavailable totals and savings without battery history`, async () => {
         const text = await renderTable(name, [{...day, consumption_on_network: 2,
             introduced_on_network: -1, solar_panel: 6,
             battery_discharging: null, battery_charging: null}]);
-        assert.deepEqual(text.slice(2), ['2 (28%)', '6', 'Unavailable', 'Unavailable', '7', '-1', '5 (71%)']);
+        assert.deepEqual(text.slice(2), ['2 (28%)', '6', 'Unavailable', 'Unavailable', 'Unavailable', '7', '-1', '5 (71%)']);
     });
 
     test(`${name} ignores both battery adjustments when either direction is missing`, async () => {
@@ -115,16 +116,16 @@ for (const name of ['energy-calendar', 'energy']) {
                 solar_panel: 6, battery_discharging: 4, battery_charging: 3};
             delete row[unavailable];
             const text = await renderTable(name, [row]);
-            assert.equal(text[6], '7');
-            assert.equal(text[8], '5 (71%)');
+            assert.equal(text[7], '7');
+            assert.equal(text[9], '5 (71%)');
         }
     });
 
     test(`${name} preserves the published decimal precision of totals and savings`, async () => {
         const text = await renderTable(name, [{...day, solar_panel: 0.025,
             battery_discharging: null, battery_charging: null}]);
-        assert.equal(text[6], '0.037');
-        assert.equal(text[8], '0.025 (67%)');
+        assert.equal(text[7], '0.037');
+        assert.equal(text[9], '0.025 (67%)');
     });
 
     test(`${name} ignores invalid negative battery data without replacing recorded totals`, async () => {
@@ -132,9 +133,9 @@ for (const name of ['energy-calendar', 'energy']) {
             const row = {...day, consumption_on_network: 2, introduced_on_network: -1,
                 solar_panel: 6, battery_discharging: 4, battery_charging: 3, [invalid]: -1};
             const text = await renderTable(name, [row]);
-            assert.equal(text[6], '7');
+            assert.equal(text[7], '7');
             const recorded = await renderTable(name, [{...row, house_consumption: 5}]);
-            assert.equal(recorded[6], '5');
+            assert.equal(recorded[7], '5');
         }
     });
 
@@ -143,12 +144,12 @@ for (const name of ['energy-calendar', 'energy']) {
             const row = {...day, consumption_on_network: 2, introduced_on_network: -1, solar_panel: 6};
             delete row[unavailable];
             const text = await renderTable(name, [row]);
-            assert.equal(text[6], 'Unavailable');
-            assert.equal(text[8], 'Unavailable');
+            assert.equal(text[7], 'Unavailable');
+            assert.equal(text[9], 'Unavailable');
         }
         const text = await renderTable(name, [{...day, solar_panel: 6,
             battery_discharging: 4, battery_charging: 3}]);
-        assert.equal(text[6], 'Unavailable', 'complete battery data does not repair an unrelated missing total');
+        assert.equal(text[7], 'Unavailable', 'complete battery data does not repair an unrelated missing total');
     });
 
     test(`${name} handles missing fields and zero consumption without invalid percentages`, async () => {
@@ -156,13 +157,13 @@ for (const name of ['energy-calendar', 'energy']) {
         delete missing.solar_panel;
         delete missing.house_consumption;
         const text = await renderTable(name, [missing]);
-        assert.deepEqual(text.slice(3, 7), ['Unavailable', 'Unavailable', 'Unavailable', 'Unavailable']);
+        assert.deepEqual(text.slice(3, 8), ['Unavailable', 'Unavailable', 'Unavailable', 'Unavailable', 'Unavailable']);
         const zero = await renderTable(name, [{...day, consumption_on_network: 0, solar_panel: 0,
-            battery_discharging: 0, battery_charging: 0, house_consumption: 0}]);
-        assert.deepEqual(zero.slice(2), ['0', '0', '0', '0', '0', '0', '0']);
+            battery_discharging: 0, battery_charging: 0, charging_energy_from_network: 0, house_consumption: 0}]);
+        assert.deepEqual(zero.slice(2), ['0', '0', '0', '0', '0', '0', '0', '0']);
         const withoutBattery = await renderTable(name, [{...day, consumption_on_network: 0,
             solar_panel: 0, battery_discharging: null, battery_charging: null}]);
-        assert.deepEqual(withoutBattery.slice(2), ['0', '0', 'Unavailable', 'Unavailable', '0', '0', '0']);
+        assert.deepEqual(withoutBattery.slice(2), ['0', '0', 'Unavailable', 'Unavailable', 'Unavailable', '0', '0', '0']);
     });
 }
 

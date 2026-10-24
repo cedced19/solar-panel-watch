@@ -505,7 +505,7 @@
 	"Battery discharge": "Décharge batterie",
 	"Battery charge": "Charge batterie",
 	"Energy flow": "Flux d’énergie",
-	"Energy flow note": "Estimation à partir des totaux du jour : l’injection et la charge de la batterie sont d’abord attribuées au solaire.",
+	"Energy flow note": "Estimation à partir des totaux du jour : la charge de la batterie entre 22 h et 6 h vient du réseau ; le reste de la charge et l’injection sont d’abord attribués au solaire.",
 	"House supplied by": "D’où vient l’énergie de la maison",
 	"Solar energy used for": "Où va l’énergie solaire",
 	"Power since midnight": "Puissance depuis minuit",
@@ -516,5 +516,7 @@
 	"Hourly energy note": "Sources au-dessus de zéro, injection et charge de la batterie en dessous (plus claires, contour). La courbe est la consommation de la maison.",
 	"Previous day": "Jour précédent",
 	"Next day": "Jour suivant",
-	"Energy data unavailable": "Données énergétiques indisponibles"
+	"Energy data unavailable": "Données énergétiques indisponibles",
+	"Battery charging energy from network": "Charge de la batterie depuis le réseau (22 h–6 h)",
+	"from the grid at night": "du réseau la nuit"
 }

@@ -20,7 +20,7 @@ test('aligned readings preserve grid import/export, solar, house and the 15-seco
     assert.deepEqual(computeEnergy(network, points([1200, 1800, 2400]), batteryPoints([0, 0, 0])), [{
         start_date: new Date(network[0]._time), end_date: new Date(network[2]._time),
         consumption_on_network: 0.015, introduced_on_network: -0.005,
-        solar_panel: 0.06, battery_discharging: 0, battery_charging: 0,
+        solar_panel: 0.06, battery_discharging: 0, battery_charging: 0, charging_energy_from_network: 0,
         house_consumption: 0.07
     }]);
 });
@@ -218,4 +218,26 @@ test('battery energy preserves local-midnight boundaries and marks missing bound
         assert.equal(day.battery_charging, null);
         assert.equal(day.house_consumption, i === 0 ? 0.027 : 0.007);
     }
+});
+
+test('battery charging between 22:00 and 06:00 local time is counted as charging from the grid', () => {
+    const at = (hour, value) => ({_time: new Date(2026, 9, 13, hour).toISOString(), packInputPower: 0, outputPackPower: value});
+    // 05:00-07:00 at 600 W (one hour before 06:00), 07:00-21:00 at 1200 W,
+    // 21:00-23:00 at 400 W (one hour after 22:00), then the 15 s tail at 300 W.
+    const battery = [at(5, 600), at(7, 1200), at(21, 400), at(23, 300)];
+    const network = battery.map(point => ({_time: point._time, _value: 600}));
+    const [day] = computeEnergy(network, network, battery);
+    assert.equal(day.battery_charging, 18.801);
+    assert.equal(day.charging_energy_from_network, 1.001);
+});
+
+test('charging from the grid is unavailable whenever battery charging is', () => {
+    const network = points([600, 600]);
+    for (const battery of [[], points([50, 49])]) {
+        const [day] = computeEnergy(network, network, battery);
+        assert.equal(day.charging_energy_from_network, null);
+    }
+    const battery = batteryPoints([0, 0], [300, 300]);
+    delete battery[1].outputPackPower;
+    assert.equal(computeEnergy(network, network, battery)[0].charging_energy_from_network, null);
 });

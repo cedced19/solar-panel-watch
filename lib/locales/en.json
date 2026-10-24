@@ -499,7 +499,7 @@
 	"Battery discharge": "Battery discharge",
 	"Battery charge": "Battery charge",
 	"Energy flow": "Energy flow",
-	"Energy flow note": "Estimated from the day totals: grid export and battery charging are counted as solar first.",
+	"Energy flow note": "Estimated from the day totals: battery charging between 22:00 and 06:00 comes from the grid; the other charging and the grid export are counted as solar first.",
 	"House supplied by": "Where the household energy came from",
 	"Solar energy used for": "Where the solar energy went",
 	"Power since midnight": "Power since midnight",
@@ -510,5 +510,7 @@
 	"Hourly energy note": "Sources above zero, grid export and battery charging below (lighter, outlined). The line is the household use.",
 	"Previous day": "Previous day",
 	"Next day": "Next day",
-	"Energy data unavailable": "Energy data unavailable"
+	"Energy data unavailable": "Energy data unavailable",
+	"Battery charging energy from network": "Battery charging from the grid (22:00–06:00)",
+	"from the grid at night": "from the grid at night"
 }

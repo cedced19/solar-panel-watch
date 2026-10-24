@@ -154,3 +154,34 @@ test('a container without intraday charts draws only the day totals and never re
     assert.equal(nodes.get('energy-day-visuals').hidden, false);
     assert.equal(nodes.has('energy-profile-status'), false);
 });
+
+test('battery charging at night comes from the grid in the flows, and is ignored when unknown', () => {
+    const {visuals} = load();
+    const flows = plain(visuals.dayFlows({...day, charging_energy_from_network: 1.5}));
+    assert.equal(flows.gridToBattery, 1.5);
+    assert.equal(flows.solarToBattery, 1);
+    assert.equal(flows.solarToHouse, 6);
+    assert.equal(flows.gridToHouse, 2.5);
+    assert.equal(flows.solarToHouse + flows.batteryToHouse + flows.gridToHouse, day.house_consumption);
+    for (const value of [null, undefined, -1]) {
+        assert.deepEqual(plain(visuals.dayFlows({...day, charging_energy_from_network: value})),
+            plain(visuals.dayFlows(day)), String(value));
+    }
+    // Never more than the battery charging or the grid import.
+    const capped = plain(visuals.dayFlows({...day, charging_energy_from_network: 9}));
+    assert.equal(capped.gridToBattery, 2.5);
+    assert.equal(capped.solarToBattery, 0);
+});
+
+test('the battery charge tile notes the charging from the grid at night when there is some', async () => {
+    const dataset = {intraday: 'false', fromGridAtNight: 'from the grid at night'};
+    const {visuals, nodes} = load({dataset});
+    await visuals.render({...day, charging_energy_from_network: 1.5});
+    const charging = nodes.get('energy-tiles').children[5];
+    assert.equal(charging.children.at(-1).textContent, '1.50 kWh from the grid at night');
+    for (const value of [0, null]) {
+        const {visuals: other, nodes: otherNodes} = load({dataset});
+        await other.render({...day, charging_energy_from_network: value});
+        assert.equal(otherNodes.get('energy-tiles').children[5].children.length, 2, String(value));
+    }
+});

@@ -23,6 +23,8 @@
     // Split the day totals into source -> use flows. Daily totals cannot say
     // when each kWh moved, so exports and battery charging are taken from
     // solar first: the figures are an estimate of the flows, not a measure.
+    // Charging between 22:00 and 06:00 (charging_energy_from_network) cannot
+    // be solar, so it comes from the grid; without that figure it is ignored.
     function dayFlows(entry) {
         const row = window.energyConsumption.normalizeEntry(entry);
         if (!Number.isFinite(row.solar_panel) || !Number.isFinite(row.consumption_on_network)) return null;
@@ -32,10 +34,11 @@
         const battery = window.energyConsumption.hasBatteryData(row);
         const discharging = battery ? row.battery_discharging : 0;
         const charging = battery ? row.battery_charging : 0;
+        const nightCharging = Math.min(positive(row.charging_energy_from_network), charging, gridImport);
 
         const solarToGrid = Math.min(gridExport, solar);
         const batteryToGrid = Math.min(discharging, gridExport - solarToGrid);
-        const solarToBattery = Math.min(charging, solar - solarToGrid);
+        const solarToBattery = Math.min(charging - nightCharging, solar - solarToGrid);
         const gridToBattery = charging - solarToBattery;
         return {
             battery,
@@ -172,7 +175,9 @@
             {key: 'grid', label: labels.gridExport, outflow: true,
                 value: Number.isFinite(row.introduced_on_network) ? Math.abs(row.introduced_on_network) : null},
             {key: 'battery', label: labels.batteryDischarging, value: row.battery_discharging},
-            {key: 'battery', label: labels.batteryCharging, value: row.battery_charging, outflow: true}
+            {key: 'battery', label: labels.batteryCharging, value: row.battery_charging, outflow: true,
+                note: row.charging_energy_from_network > 0 ?
+                    kwh(row.charging_energy_from_network) + ' kWh ' + labels.fromGridAtNight : ''}
         ];
         container.innerHTML = '';
         tiles.forEach(tile => {
