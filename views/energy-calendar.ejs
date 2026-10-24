@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name=viewport content="width=device-width,initial-scale=1">
-    <link rel="stylesheet" href="/assets/styles.css">
-    <link rel="stylesheet" href="/assets/main_page.css">
-    <link rel="stylesheet" href="/assets/pages.css">
+    <link rel="stylesheet" href="<%= asset('/assets/styles.css') %>">
+    <link rel="stylesheet" href="<%= asset('/assets/main_page.css') %>">
+    <link rel="stylesheet" href="<%= asset('/assets/pages.css') %>">
     <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
     <title>Solar panel watch | <%= __('Energy calendar')%></title>
   </head>
@@ -51,10 +51,10 @@
         <%- include('partials/energy-day-visuals', {intraday: false}) %>
       </div>
     </main>
-    <script src="/assets/plotly.js"></script>
-    <script src="/assets/energy-consumption.js"></script>
-    <script src="/assets/energy-day-visuals.js"></script>
-    <script src="/assets/day-swipe.js"></script>
+    <script src="<%= asset('/assets/plotly.js') %>"></script>
+    <script src="<%= asset('/assets/energy-consumption.js') %>"></script>
+    <script src="<%= asset('/assets/energy-day-visuals.js') %>"></script>
+    <script src="<%= asset('/assets/day-swipe.js') %>"></script>
     <%- include('partials/energy-day-table') %>
     <script>
         // Stored days: 'has-data', 'partial' or 'no-data' (computed, without readings).
@@ -221,6 +221,6 @@
             loadHashDay();
         });
     </script>
-      <script src="/assets/nav.js"></script>
+      <script src="<%= asset('/assets/nav.js') %>"></script>
 </body>
 </html>

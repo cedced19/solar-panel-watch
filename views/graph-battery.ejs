@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="stylesheet" href="/assets/styles.css">
-    <link rel="stylesheet" href="/assets/main_page.css">
-    <link rel="stylesheet" href="/assets/pages.css">
+    <link rel="stylesheet" href="<%= asset('/assets/styles.css') %>">
+    <link rel="stylesheet" href="<%= asset('/assets/main_page.css') %>">
+    <link rel="stylesheet" href="<%= asset('/assets/pages.css') %>">
     <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon">
     <title>Solar Panel Watch | <%= __('Battery history') %></title>
   </head>
@@ -46,8 +46,8 @@
         </div>
       </div>
     </main>
-    <script src="/assets/plotly.js"></script>
-    <script src="/assets/battery-graph.js"></script>
-    <script src="/assets/nav.js"></script>
+    <script src="<%= asset('/assets/plotly.js') %>"></script>
+    <script src="<%= asset('/assets/battery-graph.js') %>"></script>
+    <script src="<%= asset('/assets/nav.js') %>"></script>
   </body>
 </html>

@@ -19,7 +19,7 @@ function createPage(name, reply, {devices = [], language, labels = {}} = {}) {
     const translations = language && require('../lib/locales/' + language + '.json');
     const filename = path.resolve(__dirname, '../views', name + '.ejs');
     const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
-        period: '24h', timezone: 'Europe/Vienna', list_devices: devices,
+        period: '24h', timezone: 'Europe/Vienna', list_devices: devices, asset: url => url,
         __: label => labels[label] || (translations ? translations[label] : label)
     }, {filename});
     const nodes = {};

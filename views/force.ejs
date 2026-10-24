@@ -12,9 +12,9 @@
 <head>
   <meta charset="utf-8"/>
   <meta name=viewport content="width=device-width,initial-scale=1">
-  <link rel="stylesheet" href="/assets/styles.css">
-  <link rel="stylesheet" href="/assets/main_page.css">
-  <link rel="stylesheet" href="/assets/pages.css">
+  <link rel="stylesheet" href="<%= asset('/assets/styles.css') %>">
+  <link rel="stylesheet" href="<%= asset('/assets/main_page.css') %>">
+  <link rel="stylesheet" href="<%= asset('/assets/pages.css') %>">
   <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
   <link rel=manifest href=/assets/manifest.json>
   <title>Solar Panel Watch</title>
@@ -73,8 +73,8 @@
     <% } %>
   </div>
   </main>
-  <script src="/assets/nav.js"></script>
-  <script src="/assets/login.js"></script>
-  <script src="/assets/force.js"></script>
+  <script src="<%= asset('/assets/nav.js') %>"></script>
+  <script src="<%= asset('/assets/login.js') %>"></script>
+  <script src="<%= asset('/assets/force.js') %>"></script>
 </body>
 </html>

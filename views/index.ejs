@@ -30,14 +30,14 @@
 <head>
   <meta charset="utf-8"/>
   <meta name=viewport content="width=device-width,initial-scale=1">
-  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="<%= asset('/assets/styles.css') %>">
   <link href=/favicon.ico rel="shortcut icon" type=image/x-icon>
   <title>Solar Panel Watch<% if(error){ %> | <%= __(unavailableKey)%><% } %></title>
   <link rel=manifest href=/assets/manifest.json>
   <% if(error){ %>
-  <link rel="stylesheet" href="/assets/error_page.css">
+  <link rel="stylesheet" href="<%= asset('/assets/error_page.css') %>">
   <% } else { %>
-  <link rel="stylesheet" href="/assets/main_page.css">
+  <link rel="stylesheet" href="<%= asset('/assets/main_page.css') %>">
   <% } %>
 </head>
 <body<% if(error){ %> class="unavailable-page"<% } else { %> class="dashboard-page"<% } %>>

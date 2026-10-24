@@ -8,7 +8,7 @@ const ejs = require('ejs');
 function page(name, data, locals) {
     const filename = path.resolve(__dirname, '../views', name + '.ejs');
     const html = ejs.render(fs.readFileSync(filename, 'utf8'), {
-        __: label => label, day: '2026-10-13', day_start: '2026-10-12T22:00:00.000Z', timezone: 'Europe/Vienna',
+        __: label => label, asset: url => url, day: '2026-10-13', day_start: '2026-10-12T22:00:00.000Z', timezone: 'Europe/Vienna',
         today: '2026-10-24', config: {}, ...locals
     }, {filename});
     const nodes = new Map();

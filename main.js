@@ -17,6 +17,7 @@ const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const computeEnergy = require('./lib/compute-energy.js');
 const computeConsumptionPower = require('./lib/compute-consumption-power.js');
 const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate-params.js');
+const { createAssetUrl } = require('./lib/asset-url.js');
 const batteryLogic = require('./lib/battery-logic.js');
 const { createAuth, readOptions } = require('./lib/auth.js');
 const { createConfigPanel } = require('./lib/config-panel.js');
@@ -293,6 +294,8 @@ app.use(favicon(path.join(__dirname, 'assets','favicon.ico')));
 
 app.set('view engine', 'ejs');
 app.set('views', __dirname + '/views');
+// asset(url) in the views appends the start time of the app: ?cache=<time>.
+app.locals.asset = createAssetUrl(Date.now());
 app.use(i18n.init);
 
 if (app.get('env') === 'development') {

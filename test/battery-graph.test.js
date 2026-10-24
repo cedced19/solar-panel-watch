@@ -158,7 +158,9 @@ test('battery graph provides English and French legend and watt axis labels thro
     const template = fs.readFileSync(path.resolve(__dirname, '../views/graph-battery.ejs'), 'utf8');
     for (const language of ['en', 'fr']) {
         const translations = require('../lib/locales/' + language + '.json');
-        const html = ejs.render(template, {period: '24h', timezone: 'Europe/Vienna', __: (key) => translations[key]});
+        const html = ejs.render(template, {
+            period: '24h', timezone: 'Europe/Vienna', asset: url => url, __: (key) => translations[key]
+        });
         for (const [attribute, key] of [
             ['home-power-label', 'Output to home'],
             ['grid-power-label', 'Grid input'],

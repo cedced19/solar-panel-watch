@@ -82,7 +82,7 @@ test('all educational copy and accessible diagram labels have English and French
     const copies = [];
     for (const locale of ['en', 'fr']) {
         const labels = require('../lib/locales/' + locale + '.json');
-        const html = ejs.render(template, {locale, __: key => {
+        const html = ejs.render(template, {locale, asset: url => url, __: key => {
             assert.equal(typeof labels[key], 'string', locale + ' defines ' + key);
             assert.ok(labels[key].trim(), locale + ' has copy for ' + key);
             if (key.startsWith('Nomenclature ')) {
