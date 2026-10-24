@@ -79,3 +79,38 @@ test('aggregated battery means preserve unavailable windows and complete measure
         {_time: at(60), _value: 80, packInputPower: 0, outputPackPower: 300}
     ]);
 });
+
+test('device power query reads each device over the range after its last value of the week before', async () => {
+    const queries = [];
+    const rows = [
+        {_time: at(30), _field: 'water-heater', _value: 0},
+        {_time: at(10), _field: 'water-heater', _value: 2000},
+        {_time: at(5), _field: 'power1', _value: 400},
+        {_time: at(0), _field: 'heat-pump', _value: 1500}
+    ];
+    const api = createConsumptionHistory({config, queryApi: {
+        queryRows(text, observer) {
+            queries.push(text);
+            rows.forEach(row => observer.next(row, tableMeta));
+            observer.complete();
+        }
+    }});
+    const start = new Date(Date.UTC(2026, 9, 13));
+    const stop = new Date(Date.UTC(2026, 9, 14));
+    assert.deepEqual(await api.requestDevicePowerOverRange(start, stop, ['water-heater', 'heat-pump', 'off']), {
+        'water-heater': [{_time: at(10), _value: 2000}, {_time: at(30), _value: 0}],
+        'heat-pump': [{_time: at(0), _value: 1500}],
+        off: []
+    });
+    const [query] = queries;
+    assert.ok(query.includes('range(start: 2026-10-06T00:00:00.000Z, stop: 2026-10-13T00:00:00.000Z)'));
+    assert.match(query, /stop: 2026-10-13T00:00:00\.000Z\)[\s\S]*\|> last\(\)/);
+    assert.ok(query.includes('range(start: 2026-10-13T00:00:00.000Z, stop: 2026-10-14T00:00:00.000Z)'));
+    assert.ok(query.includes('r["home"] == "test-home"'));
+    for (const device of ['water-heater', 'heat-pump', 'off']) assert.ok(query.includes(`r["_field"] == "${device}"`));
+
+    assert.deepEqual(await api.requestDevicePowerOverRange(start, stop, []), {});
+    assert.equal(queries.length, 1, 'no device, no query');
+    await api.requestDevicePowerOverRange(start, stop, ['say "hi"']);
+    assert.ok(queries.at(-1).includes(String.raw`r["_field"] == "say \"hi\""`));
+});

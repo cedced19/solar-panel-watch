@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const computeEnergy = require('../lib/compute-energy');
+const {devicesEnergy} = computeEnergy;
 
 function points(values, day = 13) {
     return values.map((value, i) => ({
@@ -240,4 +241,31 @@ test('charging from the grid is unavailable whenever battery charging is', () =>
     const battery = batteryPoints([0, 0], [300, 300]);
     delete battery[1].outputPackPower;
     assert.equal(computeEnergy(network, network, battery)[0].charging_energy_from_network, null);
+});
+
+test('device energy holds each power until the next value, from the last value before the day to its end', () => {
+    const at = (date, hour, minute = 0) => new Date(2026, 9, date, hour, minute).toISOString();
+    const power = {
+        // On since the evening before, then two runs; the last one goes past midnight.
+        'water-heater': [{_time: at(12, 23), _value: 1000}, {_time: at(13, 1), _value: 0},
+            {_time: at(13, 12), _value: 2000}, {_time: at(13, 13, 30), _value: 0},
+            {_time: at(13, 23), _value: 500}, {_time: at(14, 1), _value: 0}],
+        // Normal mode writes on every call.
+        'heat-pump': [{_time: at(13, 10), _value: 2600}, {_time: at(13, 10, 15), _value: 2600},
+            {_time: at(13, 10, 30), _value: 0}],
+        'never-called': []
+    };
+    // 1 + 3 + 0.5 kWh for the water heater, 1.3 kWh for the heat pump.
+    assert.equal(devicesEnergy(power, new Date(2026, 9, 13), new Date(2026, 9, 14)), 5.8);
+    // Today is counted up to now: 1 + 1.5 + 1.3 kWh at 12:45.
+    assert.equal(devicesEnergy(power, new Date(2026, 9, 13), new Date(2026, 9, 13, 12, 45)), 3.8);
+    assert.equal(devicesEnergy({}, new Date(2026, 9, 13), new Date(2026, 9, 14)), 0);
+});
+
+test('device energy skips invalid readings and never counts negative power', () => {
+    const at = hour => new Date(2026, 9, 13, hour).toISOString();
+    const power = {device: [{_time: at(1), _value: 1000}, {_time: 'not a date', _value: 5000},
+        {_time: at(2), _value: null}, {_time: at(3), _value: -500}, {_time: at(4), _value: 0}]};
+    // 1000 W from 01:00 to 03:00 (the null reading does not change it), nothing below zero.
+    assert.equal(devicesEnergy(power, new Date(2026, 9, 13), new Date(2026, 9, 14)), 2);
 });

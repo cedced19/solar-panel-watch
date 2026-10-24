@@ -185,3 +185,29 @@ test('the battery charge tile notes the charging from the grid at night when the
         assert.equal(otherNodes.get('energy-tiles').children[5].children.length, 2, String(value));
     }
 });
+
+test('the household use splits into the devices and the rest in the flows, only when the devices are known', async () => {
+    const dataset = {intraday: 'false', devices: 'Devices', otherHouse: 'Other household use'};
+    const {visuals, plots} = load({dataset});
+    const flows = plain(visuals.dayFlows({...day, devices_consumption: 3}));
+    assert.deepEqual([flows.houseToDevices, flows.houseToOther], [3, 7.5]);
+    assert.equal(plain(visuals.dayFlows({...day, devices_consumption: 20})).houseToDevices, 10.5,
+        'never more than the household use');
+    for (const value of [null, undefined, -1]) {
+        assert.equal(plain(visuals.dayFlows({...day, devices_consumption: value})).houseToDevices, 0, String(value));
+    }
+
+    await visuals.render({...day, devices_consumption: 3});
+    const flow = plots.get('energy-flow').traces[0];
+    const labels = Array.from(flow.node.label);
+    const house = labels.findIndex(label => label.startsWith('Home'));
+    const fromHouse = Array.from(flow.link.source).flatMap((source, i) => source === house ?
+        [labels[flow.link.target[i]] + ' ' + flow.link.value[i]] : []);
+    assert.deepEqual(fromHouse, ['Devices · 3.00 kWh 3', 'Other household use · 7.50 kWh 7.5']);
+
+    const {visuals: without, plots: withoutPlots} = load({dataset});
+    await without.render(day);
+    const asBefore = withoutPlots.get('energy-flow').traces[0];
+    assert.ok(!Array.from(asBefore.node.label).some(label => label.startsWith('Devices')));
+    assert.equal(asBefore.link.value.length, 5, 'the diagram is as before');
+});

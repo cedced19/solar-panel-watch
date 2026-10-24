@@ -5,7 +5,7 @@
 // Needs Plotly and /assets/energy-consumption.js; labels come from the
 // container's data-*.
 (function () {
-    const COLORS = {solar: '#2ecc71', grid: '#c0392b', battery: '#8e44ad', house: '#2980b9'};
+    const COLORS = {solar: '#2ecc71', grid: '#c0392b', battery: '#8e44ad', house: '#2980b9', devices: '#e67e22'};
     const WINDOW = '5m';
     const WINDOW_MS = 5 * 60 * 1000;
     const HOUR_MS = 60 * 60 * 1000;
@@ -25,6 +25,8 @@
     // solar first: the figures are an estimate of the flows, not a measure.
     // Charging between 22:00 and 06:00 (charging_energy_from_network) cannot
     // be solar, so it comes from the grid; without that figure it is ignored.
+    // The household use then splits into the devices (devices_consumption,
+    // part of it) and the rest.
     function dayFlows(entry) {
         const row = window.energyConsumption.normalizeEntry(entry);
         if (!Number.isFinite(row.solar_panel) || !Number.isFinite(row.consumption_on_network)) return null;
@@ -40,10 +42,13 @@
         const batteryToGrid = Math.min(discharging, gridExport - solarToGrid);
         const solarToBattery = Math.min(charging - nightCharging, solar - solarToGrid);
         const gridToBattery = charging - solarToBattery;
+        const house = positive(row.house_consumption);
+        const houseToDevices = Math.min(positive(row.devices_consumption), house);
         return {
             battery,
             solar, gridImport, gridExport, discharging, charging,
-            house: positive(row.house_consumption),
+            house, houseToDevices,
+            houseToOther: house - houseToDevices,
             solarToHouse: solar - solarToGrid - solarToBattery,
             solarToGrid, solarToBattery,
             batteryToHouse: positive(discharging - batteryToGrid),
@@ -228,6 +233,17 @@
             link.value.push(value);
             link.color.push(alpha(COLORS[from], 0.35));
         });
+        if (flows.houseToDevices > 0.0005 && 'house' in index) {
+            [[node('devices', labels.devices, COLORS.devices, flows.houseToDevices), flows.houseToDevices],
+                [node('house-other', labels.otherHouse, COLORS.house, flows.houseToOther), flows.houseToOther]]
+                .forEach(([target, value]) => {
+                    if (!(value > 0.0005)) return;
+                    link.source.push(index.house);
+                    link.target.push(target);
+                    link.value.push(value);
+                    link.color.push(alpha(COLORS.house, 0.35));
+                });
+        }
         if (!link.value.length) return false;
         Plotly.newPlot(target, [{
             type: 'sankey', orientation: 'h', valueformat: '.2f', valuesuffix: ' kWh',

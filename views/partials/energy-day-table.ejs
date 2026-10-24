@@ -48,6 +48,7 @@
                 '<%= __("Battery charging energy")%> (kWh)',
                 '<%= __("Battery charging energy from network")%> (kWh)',
                 '<%= __("Total energy used")%> (kWh)',
+                '<%= __("Devices energy")%> (kWh)',
                 '<%= __("Energy Introduced")%> (kWh)',
                 '<%= __("Energy Saved")%> (kWh)'].forEach(label => {
                 const th = document.createElement('th');
@@ -65,7 +66,7 @@
                 energyDayRatio(r.consumption_on_network, r.house_consumption),
                 energyDayValue(r.solar_panel), energyDayValue(r.battery_discharging),
                 energyDayValue(r.battery_charging), energyDayValue(r.charging_energy_from_network),
-                energyDayValue(r.house_consumption),
+                energyDayValue(r.house_consumption), energyDayRatio(r.devices_consumption, r.house_consumption),
                 energyDayValue(r.introduced_on_network), energyDayRatio(energySaved, r.house_consumption)];
             cells.forEach((text, index) => {
                 const td = document.createElement('td');

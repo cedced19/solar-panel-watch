@@ -17,7 +17,15 @@ test('energy day endpoints compute missing days once, store them and recompute o
         {_time: new Date(2026, 9, 13, 12, 1).toISOString(), _value: 600}
     ], power2: [], battery: []};
     let failure;
+    const deviceQueries = [];
     const influx = {
+        async requestDevicePowerOverRange(start, stop, devices) {
+            deviceQueries.push({start, stop, devices});
+            return {[devices[0]]: [
+                {_time: new Date(2026, 9, 13, 12).toISOString(), _value: 2000},
+                {_time: new Date(2026, 9, 13, 12, 30).toISOString(), _value: 0}
+            ]};
+        },
         async requestConsumptionOverRange(start, stop) {
             queries.push({start, stop});
             if (failure) throw failure;
@@ -77,6 +85,11 @@ test('energy day endpoints compute missing days once, store them and recompute o
     assert.equal(day.battery_charging, null);
     assert.equal(day.complete, true);
     assert.equal(day.source, 'influx');
+    // Every configured device is queried for the day; 2000 W for 30 minutes.
+    assert.equal(day.devices_consumption, 1);
+    assert.deepEqual(deviceQueries[0].devices,
+        require('../devices-to-activate.json').map(device => device.uri));
+    assert.equal(deviceQueries[0].start.getTime(), new Date(2026, 9, 13).getTime());
     assert.equal(queries[0].start.getTime(), new Date(2026, 9, 13).getTime());
     assert.equal(queries[0].stop.getTime(), new Date(2026, 9, 14).getTime());
     assert.deepEqual(store.get('2026-10-13'), day);

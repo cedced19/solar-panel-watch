@@ -9,7 +9,8 @@ const {createEnergyDayStore} = require('../lib/energy-day-store.js');
 const summary = {
     start_date: new Date(2026, 9, 13, 0, 0, 5), end_date: new Date(2026, 9, 13, 23, 59, 50),
     consumption_on_network: 2, introduced_on_network: -1, solar_panel: 6,
-    battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1, house_consumption: 8
+    battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1, house_consumption: 8,
+    devices_consumption: 2
 };
 
 test('the energy day store keeps one summary per day and upserts it', () => {
@@ -20,7 +21,7 @@ test('the energy day store keeps one summary per day and upserts it', () => {
         day: '2026-10-13', start_date: summary.start_date.toISOString(), end_date: summary.end_date.toISOString(),
         consumption_on_network: 2, introduced_on_network: -1, solar_panel: 6,
         battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1, house_consumption: 8,
-        complete: true, computed_at: computedAt.toISOString(), source: 'influx'
+        devices_consumption: 2, complete: true, computed_at: computedAt.toISOString(), source: 'influx'
     });
     const updated = store.put('2026-10-13', {...summary, solar_panel: null, house_consumption: undefined},
         {complete: false, source: 'influx'});

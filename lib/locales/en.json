@@ -512,5 +512,8 @@
 	"Next day": "Next day",
 	"Energy data unavailable": "Energy data unavailable",
 	"Battery charging energy from network": "Battery charging from the grid (22:00–06:00)",
-	"from the grid at night": "from the grid at night"
+	"from the grid at night": "from the grid at night",
+	"Devices energy": "Devices energy",
+	"Devices": "Devices",
+	"Other household use": "Other household use"
 }

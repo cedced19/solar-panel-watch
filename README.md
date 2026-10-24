@@ -246,6 +246,12 @@ computed before it ended).
   The energy flow diagram draws it as grid → battery. Days stored before this
   field have it empty (the diagram then counts charging as solar first) until
   they are recomputed with "Recompute".
+- `devices_consumption` is the energy of all the devices of
+  `devices-to-activate.json` together, from their power in InfluxDB. A device
+  writes its power when it changes, so each value holds until the next one
+  (the power at midnight is the last value of the week before). It is part of
+  the household use: the energy flow diagram splits the household use into
+  the devices and the rest.
 - `GET /api/data/energy/days?start=YYYY-MM-DD&end=YYYY-MM-DD` returns
   `{days, stale}`; `GET /api/data/energy/day/<date>` returns one day;
   `POST /api/data/energy/day/<date>/recompute` forces a calculation.

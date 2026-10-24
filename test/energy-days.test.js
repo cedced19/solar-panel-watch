@@ -4,7 +4,7 @@ const computeEnergy = require('../lib/compute-energy.js');
 const {createEnergyDayStore} = require('../lib/energy-day-store.js');
 const {createEnergyDays, isValidDay, localDayKey} = require('../lib/energy-days.js');
 
-function setup(nowDate) {
+function setup(nowDate, devices) {
     const store = createEnergyDayStore(':memory:');
     const queries = [];
     let current = nowDate;
@@ -18,9 +18,13 @@ function setup(nowDate) {
         async requestConsumptionOverRange(start, stop) {
             queries.push({start, stop});
             return state.data;
+        },
+        async requestDevicePowerOverRange(start, stop, names) {
+            queries.push({start, stop, devices: names});
+            return state.devicePower;
         }
     };
-    const energyDays = createEnergyDays({store, influx, computeEnergy, now: () => current});
+    const energyDays = createEnergyDays({store, influx, computeEnergy, devices, now: () => current});
     return {store, queries, state, energyDays, setNow(date) { current = date; }};
 }
 
@@ -95,4 +99,25 @@ test('day keys are validated as real local calendar days', () => {
         assert.equal(isValidDay(day), false, String(day));
     }
     assert.equal(localDayKey(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
+});
+
+test('the configured devices are summed into one figure, counted up to now for today', async () => {
+    const {queries, state, energyDays, setNow} = setup(new Date(2026, 9, 13, 18), ['water-heater', 'heat-pump']);
+    state.devicePower = {
+        'water-heater': [{_time: new Date(2026, 9, 13, 12).toISOString(), _value: 2000}],
+        'heat-pump': [{_time: new Date(2026, 9, 13, 11).toISOString(), _value: 1000},
+            {_time: new Date(2026, 9, 13, 12).toISOString(), _value: 0}]
+    };
+    // 2000 W from 12:00 to 18:00 plus 1000 W for one hour.
+    assert.equal((await energyDays.getDay('2026-10-13')).devices_consumption, 13);
+    assert.deepEqual(queries.find(query => query.devices).devices, ['water-heater', 'heat-pump']);
+    setNow(new Date(2026, 9, 14, 1));
+    // Once the day is over, the water heater counts until midnight.
+    assert.equal((await energyDays.getDay('2026-10-13')).devices_consumption, 25);
+});
+
+test('without devices the figure stays empty and no device power is queried', async () => {
+    const {queries, energyDays} = setup(new Date(2026, 9, 20));
+    assert.equal((await energyDays.getDay('2026-10-13')).devices_consumption, null);
+    assert.ok(queries.every(query => !query.devices));
 });

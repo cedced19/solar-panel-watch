@@ -518,5 +518,8 @@
 	"Next day": "Jour suivant",
 	"Energy data unavailable": "Données énergétiques indisponibles",
 	"Battery charging energy from network": "Charge de la batterie depuis le réseau (22 h–6 h)",
-	"from the grid at night": "du réseau la nuit"
+	"from the grid at night": "du réseau la nuit",
+	"Devices energy": "Énergie des appareils",
+	"Devices": "Appareils",
+	"Other household use": "Autres usages de la maison"
 }

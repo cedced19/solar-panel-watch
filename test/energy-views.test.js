@@ -87,14 +87,14 @@ for (const name of ['energy-calendar', 'energy']) {
     test(`${name} displays unavailable solar, house and savings while retaining grid totals`, async () => {
         const text = await renderTable(name, [day]);
         assert.deepEqual(text.slice(2), ['0.012', 'Unavailable', 'Unavailable',
-            'Unavailable', 'Unavailable', 'Unavailable', '0', 'Unavailable']);
+            'Unavailable', 'Unavailable', 'Unavailable', 'Unavailable', '0', 'Unavailable']);
     });
 
-    test(`${name} shows battery energy, its charging from the grid and uses house consumption for totals and savings`, async () => {
+    test(`${name} shows battery energy, its charging from the grid, the devices and uses house consumption for totals and savings`, async () => {
         const text = await renderTable(name, [{...day, consumption_on_network: 2, solar_panel: 6,
             battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1,
-            introduced_on_network: -1, house_consumption: 8}]);
-        assert.deepEqual(text.slice(2), ['2 (25%)', '6', '4', '3', '1', '8', '-1', '6 (75%)']);
+            introduced_on_network: -1, house_consumption: 8, devices_consumption: 2}]);
+        assert.deepEqual(text.slice(2), ['2 (25%)', '6', '4', '3', '1', '8', '2 (25%)', '-1', '6 (75%)']);
     });
 
     test(`${name} preserves recorded legacy totals without inventing battery energy`, async () => {
@@ -107,7 +107,8 @@ for (const name of ['energy-calendar', 'energy']) {
         const text = await renderTable(name, [{...day, consumption_on_network: 2,
             introduced_on_network: -1, solar_panel: 6,
             battery_discharging: null, battery_charging: null}]);
-        assert.deepEqual(text.slice(2), ['2 (28%)', '6', 'Unavailable', 'Unavailable', 'Unavailable', '7', '-1', '5 (71%)']);
+        assert.deepEqual(text.slice(2), ['2 (28%)', '6', 'Unavailable', 'Unavailable', 'Unavailable', '7',
+            'Unavailable', '-1', '5 (71%)']);
     });
 
     test(`${name} ignores both battery adjustments when either direction is missing`, async () => {
@@ -117,7 +118,7 @@ for (const name of ['energy-calendar', 'energy']) {
             delete row[unavailable];
             const text = await renderTable(name, [row]);
             assert.equal(text[7], '7');
-            assert.equal(text[9], '5 (71%)');
+            assert.equal(text[10], '5 (71%)');
         }
     });
 
@@ -125,7 +126,7 @@ for (const name of ['energy-calendar', 'energy']) {
         const text = await renderTable(name, [{...day, solar_panel: 0.025,
             battery_discharging: null, battery_charging: null}]);
         assert.equal(text[7], '0.037');
-        assert.equal(text[9], '0.025 (67%)');
+        assert.equal(text[10], '0.025 (67%)');
     });
 
     test(`${name} ignores invalid negative battery data without replacing recorded totals`, async () => {
@@ -145,7 +146,7 @@ for (const name of ['energy-calendar', 'energy']) {
             delete row[unavailable];
             const text = await renderTable(name, [row]);
             assert.equal(text[7], 'Unavailable');
-            assert.equal(text[9], 'Unavailable');
+            assert.equal(text[10], 'Unavailable');
         }
         const text = await renderTable(name, [{...day, solar_panel: 6,
             battery_discharging: 4, battery_charging: 3}]);
@@ -159,11 +160,13 @@ for (const name of ['energy-calendar', 'energy']) {
         const text = await renderTable(name, [missing]);
         assert.deepEqual(text.slice(3, 8), ['Unavailable', 'Unavailable', 'Unavailable', 'Unavailable', 'Unavailable']);
         const zero = await renderTable(name, [{...day, consumption_on_network: 0, solar_panel: 0,
-            battery_discharging: 0, battery_charging: 0, charging_energy_from_network: 0, house_consumption: 0}]);
-        assert.deepEqual(zero.slice(2), ['0', '0', '0', '0', '0', '0', '0', '0']);
+            battery_discharging: 0, battery_charging: 0, charging_energy_from_network: 0, house_consumption: 0,
+            devices_consumption: 0}]);
+        assert.deepEqual(zero.slice(2), ['0', '0', '0', '0', '0', '0', '0', '0', '0']);
         const withoutBattery = await renderTable(name, [{...day, consumption_on_network: 0,
             solar_panel: 0, battery_discharging: null, battery_charging: null}]);
-        assert.deepEqual(withoutBattery.slice(2), ['0', '0', 'Unavailable', 'Unavailable', 'Unavailable', '0', '0', '0']);
+        assert.deepEqual(withoutBattery.slice(2), ['0', '0', 'Unavailable', 'Unavailable', 'Unavailable', '0',
+            'Unavailable', '0', '0']);
     });
 }
 

@@ -33,14 +33,16 @@ const batterySettings = batteryLogic.readSettings(config);
 // Login (emails in config.auth.mails) guarding the configuration panel and the force page.
 const auth = createAuth(readOptions(config));
 
+const devices_to_activate = require('./devices-to-activate.json');
+
 // One energy summary per local day; see lib/energy-days.js.
 const energyDays = createEnergyDays({
     store: createEnergyDayStore(path.join(__dirname, 'energy-days.sqlite')),
     influx: influxLib,
-    computeEnergy
+    computeEnergy,
+    devices: devices_to_activate.map(device => device.uri)
 });
 
-const devices_to_activate = require('./devices-to-activate.json');
 const devices_to_activate_state = {};
 const db_devices_activation = JSONStore('./devices-activation.json',200);
 
