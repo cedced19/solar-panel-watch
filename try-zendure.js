@@ -25,7 +25,7 @@ const config = loadConfig();
 const meter = config.zendure_meter || {};
 
 const DEFAULTS = {
-    host: meter.host || '192.168.0.48',
+    host: meter.host || '192.168.0.46',
     serial: meter.serial || 'TEE1NJP7P341978',
     mac: meter.mac_address || 'E0:72:A1:85:24:48',
     macFallback: meter.recover_by_mac ?? true,
@@ -34,6 +34,9 @@ const DEFAULTS = {
     ports: [80, 443, 8000, 8080, 1883, 8883, 502],
     cloud: false
 };
+// TODO : Add a wifi fallback option that uses the Zendure wifi IP:
+// E0:72:A1:85:24:48 is the MAC of the 1CT-S WLAN interface
+// E0:72:A1:85:24:4B is the MAC of the 1CT-S LAN interface
 
 function parseArgs(args, defaults = DEFAULTS) {
     const options = {...defaults};
