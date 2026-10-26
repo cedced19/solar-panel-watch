@@ -5,7 +5,6 @@
   const batteryData = batteryReading && Number.isFinite(batteryReading.socPercent) && batteryReading.socPercent >= 0 && batteryReading.socPercent <= 100 ? batteryReading : null;
   const batteryChargingPower = batteryReading && Number.isFinite(batteryReading.chargingPowerW) && batteryReading.chargingPowerW >= 0 ? batteryReading.chargingPowerW : null;
   const batteryDischargingPower = batteryReading && Number.isFinite(batteryReading.dischargingPowerW) && batteryReading.dischargingPowerW >= 0 ? batteryReading.dischargingPowerW : null;
-  const batteryInterval = typeof zendure_battery_req_threshold !== 'undefined' && Number.isFinite(zendure_battery_req_threshold) && zendure_battery_req_threshold > 0 ? zendure_battery_req_threshold : 20000;
   const batteryStateKeys = {charging: 'Battery charging', standby: 'Battery standby', discharging: 'Battery discharging'};
   const deviceChargingKeys = {
     'battery-full': 'Device activation allowed battery full',
@@ -95,7 +94,7 @@
         <p class="card-label"><%= __('Activated devices Power')%></p>
       </section>
 
-      <section class="card battery-card<% if(!batteryData){ %> is-unavailable<% } %>" id="battery-card" data-poll-interval="<%= batteryInterval %>" data-charging="<%= __('Battery charging')%>" data-standby="<%= __('Battery standby')%>" data-discharging="<%= __('Battery discharging')%>">
+      <section class="card battery-card<% if(!batteryData){ %> is-unavailable<% } %>" id="battery-card" data-charging="<%= __('Battery charging')%>" data-standby="<%= __('Battery standby')%>" data-discharging="<%= __('Battery discharging')%>">
         <div class="battery-heading">
           <h2 class="card-heading" id="battery-label"><%= __('Zendure battery level')%></h2>
           <div class="power-value" aria-live="polite"><span id="battery-level"><%= batteryData ? Math.round(batteryData.socPercent * 10)/10 : __('Unavailable') %></span><span class="power-unit">%</span></div>
@@ -202,12 +201,11 @@
       standby: batteryCard.dataset.standby,
       discharging: batteryCard.dataset.discharging
     };
-    const configuredBatteryInterval = Number(batteryCard.dataset.pollInterval);
-    const batteryPollInterval = Number.isFinite(configuredBatteryInterval) && configuredBatteryInterval > 0 ? configuredBatteryInterval : 20000;
+    // Display refresh only: the server polls the devices on its own intervals.
+    const refreshInterval = 10000;
     let powerRequestPending = false;
     let batteryRequestPending = false;
-    let powerInterval;
-    let batteryInterval;
+    let refreshTimer;
     let latestPowerData = {
       power1: <%= Number.isFinite(power1) ? power1 : 'null' %>,
       power2: <%= Number.isFinite(power2) ? power2 : 'null' %>
@@ -339,16 +337,19 @@
       }
     }
 
+    function refresh() {
+      update_labels();
+      updateBattery();
+    }
+
     function stopTimers() {
-      clearInterval(powerInterval);
-      clearInterval(batteryInterval);
+      clearInterval(refreshTimer);
     }
 
     function startTimers() {
       stopTimers();
       if (!document.hidden) {
-        powerInterval = setInterval(update_labels, 10000);
-        batteryInterval = setInterval(updateBattery, batteryPollInterval);
+        refreshTimer = setInterval(refresh, refreshInterval);
       }
     }
 
@@ -356,8 +357,7 @@
     document.addEventListener('visibilitychange', function() {
       startTimers();
       if (!document.hidden) {
-        update_labels();
-        updateBattery();
+        refresh();
       }
     });
     window.addEventListener('pagehide', stopTimers);

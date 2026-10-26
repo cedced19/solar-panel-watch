@@ -15,6 +15,10 @@ services:
         done
         exec node main.js
     restart: always
+    # Hard memory ceiling (memswap_limit equal to mem_limit also forbids swap):
+    # a spike kills and restarts only this container, not the whole device.
+    mem_limit: 250m
+    memswap_limit: 250m
     working_dir: /app
     init: true
     volumes:
@@ -23,13 +27,22 @@ services:
       - /etc/localtime:/etc/localtime:ro
     environment:
       - NODE_ENV=production
+      # V8 collects garbage harder before the 250m container ceiling is reached.
+      # The semi-space cap matters: with the old-space cap alone, V8's total heap
+      # limit is still 352 MB, above the container ceiling; with it, 172 MB.
+      - NODE_OPTIONS=--max-old-space-size=160 --max-semi-space-size=4
       - TZ=Europe/Paris
       - PORT=8889
   influxdb:
     image: influxdb:2.6-alpine
     network_mode: host
     restart: always
-    environment: 
+    mem_limit: 250m
+    memswap_limit: 250m
+    environment:
+      # Soft limit for the Go runtime, below the 250m container ceiling, so it
+      # collects garbage aggressively instead of being OOM-killed.
+      - GOMEMLIMIT=200MiB
       - TZ=Europe/Paris
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=home

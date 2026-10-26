@@ -333,7 +333,6 @@ app.get('/', function(req, res) {
                 pretty_name: pretty_name,
                 battery,
                 device_charging: getDeviceChargingStatus(),
-                zendure_battery_req_threshold: getPowerData.batteryRequestThreshold,
                 recovered_shelly_ip: getPowerData.getShellyRecoveryState().recoveredIp,
                 recovered_zendure_ip: source === 'zendure' ? recovery.recoveredIp : null
             });

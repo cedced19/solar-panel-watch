@@ -188,8 +188,12 @@ power in watts (`chargingPowerW`, from Zendure's `outputPackPower`). A missing
 charging power reading is shown as unavailable; a reported zero remains `0 W`. If pack
 charge is unavailable, it uses `electricLevel` and labels it as the device average.
 Battery failures show an unavailable state without blocking house power readings. The
-server and visible dashboard refresh battery status on its independent interval;
-concurrent requests share the same cached reading or in-flight request.
+server polls the battery on its own `zendure_battery_req_threshold` interval, while
+the dashboard (`/`) only refreshes its display: one hard-coded 10 s timer in
+[`views/index.ejs`](views/index.ejs) fetches `/api/data` and `/api/battery` together,
+so power and battery cards update at the same pace. Reloading faster would add
+nothing for a human reader; concurrent requests share the same cached reading or
+in-flight request.
 
 The battery is charged first. Devices in normal and advanced modes are
 activated only when the battery cannot take more power
