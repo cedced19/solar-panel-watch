@@ -1,28 +1,39 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {createPowerWriter} = require('../lib/influx-lib');
+const {createPowerWriter, createBatteryHistory, createSharedWriteApi} = require('../lib/influx-lib');
+
+const testConfig = {influx_org: 'test-org', influx_bucket: 'test-bucket', influx_default_tag: 'test-home'};
+
+// A client whose write API only buffers: nothing is sent until flush().
+function fakeClient() {
+  const state = {points: [], destinations: [], options: [], flushes: []};
+  state.client = {
+    getWriteApi(org, bucket, precision, options) {
+      const destination = {org, bucket};
+      state.destinations.push(destination);
+      state.options.push({precision, ...options});
+      return {
+        useDefaultTags(tags) { destination.tags = tags; },
+        writePoint(point) { state.points.push(point); },
+        flush(withRetries) { state.flushes.push(withRetries); return Promise.resolve(); }
+      };
+    }
+  };
+  return state;
+}
 
 function writer() {
-  const points = [];
-  const destinations = [];
   const errors = [];
+  const logs = [];
+  const state = fakeClient();
   const api = createPowerWriter({
-    config: {influx_org: 'test-org', influx_bucket: 'test-bucket', influx_default_tag: 'test-home'},
-    client: {
-      getWriteApi(org, bucket) {
-        const destination = {org, bucket};
-        destinations.push(destination);
-        return {
-          useDefaultTags(tags) { destination.tags = tags; },
-          writePoint(point) { points.push(point); },
-          close() { return Promise.resolve(); }
-        };
-      }
-    },
-    log() {},
+    config: testConfig,
+    client: state.client,
+    now: () => 1780000000123,
+    log(message) { logs.push(message); },
     logError(error) { errors.push(error); }
   });
-  return {api, points, destinations, errors};
+  return {api, points: state.points, destinations: state.destinations, errors, logs, state};
 }
 
 function fields(point) {
@@ -73,4 +84,53 @@ test('Shelly rollback still records finite network metadata from both meters', a
     power1: -100, reactive1: 1, pf1: 0.8, voltage1: 232,
     power2: 100, reactive2: 2, pf2: 0.9, voltage2: 231
   });
+});
+
+test('a reading is stamped when it is polled, not when its batch is sent', async () => {
+  const {api, points} = writer();
+  await api.writePowerRaw(false, {emeters: [{power: -350}, {power: 20}]});
+  assert.equal(points[0].toLineProtocol(), 'power power1=-350,power2=20 1780000000123000000');
+});
+
+test('all writes share one buffered write API, sent every few seconds and retried by the client', async () => {
+  const {api, state, logs, errors} = writer();
+  for (let i = 0; i < 5; i++) await api.writePowerRaw(true, {emeters: [{power: i}, {power: null}]});
+  assert.equal(state.points.length, 5);
+  assert.deepEqual(state.destinations, [{org: 'test-org', bucket: 'test-bucket', tags: {home: 'test-home'}}]);
+  assert.equal(state.options.length, 1);
+  assert.equal(state.options[0].precision, 'ns');
+  assert.ok(state.options[0].flushInterval >= 5000 && state.options[0].flushInterval <= 10000);
+  assert.deepEqual(logs, Array(5).fill('Data queued for InfluxDB.'));
+
+  // A failed batch is logged by the client's callback, once per attempt.
+  const failure = new Error('InfluxDB unavailable');
+  state.options[0].writeFailed(failure, [], 1, 0);
+  assert.deepEqual(logs.at(-1), 'Failed at updating InfluxDB: cannot connect to db.');
+  assert.deepEqual(errors, [failure]);
+});
+
+test('a write API that cannot start is logged and does not reject the caller', async () => {
+  const failure = new Error('cannot start');
+  const errors = [];
+  const api = createPowerWriter({
+    config: testConfig, now: () => 0, log() {}, logError(error) { errors.push(error); },
+    client: {getWriteApi() { throw failure; }}
+  });
+  await assert.doesNotReject(api.writePowerRaw(false, {emeters: [{power: 1}, {power: null}]}));
+  assert.deepEqual(errors, [failure]);
+});
+
+test('power and battery readings go through the same write API, which can be flushed', async () => {
+  const state = fakeClient();
+  const writes = createSharedWriteApi({client: state.client, config: testConfig, log() {}, logError() {}});
+  assert.equal(await writes.flush(), undefined, 'nothing to flush before the first write');
+  assert.deepEqual(state.flushes, []);
+  const power = createPowerWriter({config: testConfig, writes, now: () => 1780000000123});
+  const battery = createBatteryHistory({config: testConfig, writes, now: () => 1780000000123});
+  await power.writePowerRaw(false, {emeters: [{power: 100}, {power: null}]});
+  await battery.writeBatteryLevel(false, {socPercent: 50, time: 1770000123});
+  assert.equal(state.destinations.length, 1);
+  assert.deepEqual(state.points.map(point => point.toLineProtocol().split(' ')[0]), ['power', 'battery']);
+  await writes.flush();
+  assert.deepEqual(state.flushes, [true], 'also sends the batches waiting for a retry');
 });

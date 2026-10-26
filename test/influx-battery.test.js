@@ -24,8 +24,7 @@ function writer(options = {}) {
                 destinations.push(destination);
                 return {
                     useDefaultTags(tags) { destination.tags = tags; },
-                    writePoint(point) { points.push(point); },
-                    close() { return options.closeError ? Promise.reject(options.closeError) : Promise.resolve(); }
+                    writePoint(point) { points.push(point); }
                 };
             }
         },
@@ -42,16 +41,14 @@ test('battery history stores SOC and all four powers in one point with the readi
     await api.writeBatteryLevel(true, reading);
     // A cached poll writes the same point instead of inventing a new reading time.
     await api.writeBatteryLevel(false, reading);
-    assert.deepEqual(destinations, [
-        {org: 'test-org', bucket: 'test-bucket', tags: {home: 'test-home'}},
-        {org: 'test-org', bucket: 'test-bucket', tags: {home: 'test-home'}}
-    ]);
-    const lines = points.map((point, index) => point.toLineProtocol({defaultTags: destinations[index].tags}));
+    // Both points go through one buffered write API.
+    assert.deepEqual(destinations, [{org: 'test-org', bucket: 'test-bucket', tags: {home: 'test-home'}}]);
+    const lines = points.map(point => point.toLineProtocol({defaultTags: destinations[0].tags}));
     assert.deepEqual(lines, [
         'battery,home=test-home gridInputPower=10,outputHomePower=330,outputPackPower=220,packInputPower=40,socPercent=83.5 1770000123000000000',
         'battery,home=test-home gridInputPower=10,outputHomePower=330,outputPackPower=220,packInputPower=40,socPercent=83.5 1770000123000000000'
     ]);
-    assert.deepEqual(logs, ['Battery level updated in InfluxDB.']);
+    assert.deepEqual(logs, ['Battery level queued for InfluxDB.']);
 });
 
 test('battery power history preserves zero and omits missing or invalid optional readings', async () => {
@@ -93,14 +90,12 @@ test('unavailable or invalid levels and supplied invalid timestamps create no ba
     assert.deepEqual(destinations, []);
 });
 
-test('battery writer logs asynchronous and synchronous failures without rejecting callers', async () => {
-    for (const mode of ['closeError', 'startError']) {
-        const failure = new Error('InfluxDB unavailable');
-        const {api, logs, errors} = writer({[mode]: failure});
-        await assert.doesNotReject(api.writeBatteryLevel(false, {socPercent: 80, time: 1770000123}));
-        assert.deepEqual(logs, ['Failed at updating battery level in InfluxDB.']);
-        assert.deepEqual(errors, [failure]);
-    }
+test('battery writer logs a write API that cannot start without rejecting callers', async () => {
+    const failure = new Error('InfluxDB unavailable');
+    const {api, logs, errors} = writer({startError: failure});
+    await assert.doesNotReject(api.writeBatteryLevel(false, {socPercent: 80, time: 1770000123}));
+    assert.deepEqual(logs, ['Failed at updating battery level in InfluxDB.']);
+    assert.deepEqual(errors, [failure]);
 });
 
 const tableMeta = {

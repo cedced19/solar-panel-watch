@@ -5,6 +5,7 @@ const {createRequire} = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const feedReadings = require('./feed-readings.js');
 
 const {createAuth, readOptions} = require('../lib/auth');
 const {createEnergyDayStore} = require('../lib/energy-day-store.js');
@@ -72,13 +73,13 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
     const energyQueries = [];
     const energyFailure = {error: null};
     const influx = {
-        async requestConsumptionOverRange(start, stop) {
+        async streamConsumptionOverRange(start, stop, sink) {
             energyQueries.push({start, stop});
             if (energyFailure.error) throw energyFailure.error;
-            return {power1: [
+            feedReadings(sink, {power1: [
                 {_time: new Date(start.getTime() + 12 * 3600 * 1000).toISOString(), _value: 600},
                 {_time: new Date(start.getTime() + 12 * 3600 * 1000 + 30 * 1000).toISOString(), _value: 600}
-            ], power2: [], battery: []};
+            ], power2: [], battery: []});
         },
         async requestDevicePowerOverRange() { return {}; },
         writePower() {}, writePowerRaw(_debug, save) { powerWrites.push(save); },

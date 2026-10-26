@@ -312,6 +312,11 @@ computed before it ended).
   table shows it above the figures. Days stored before this field have it empty
   until they are recomputed with "Recompute"; that recomputation also applies
   the 30 s limit, so its totals can come out lower than before.
+  The readings are sent to InfluxDB in batches every 5 seconds, each stamped when it
+  was polled; the buffer is also sent when the server stops (SIGTERM, Ctrl-C or a
+  restart from the configuration panel), but a crash can lose the last few
+  seconds. A day's energy is integrated while the readings stream from InfluxDB,
+  so computing it needs little memory whatever the sampling rate.
   `influx_update_delay` no longer sets how often power is stored; it only sets
   how old a stored reading may be to count as fresh in the power graph (twice
   its value).

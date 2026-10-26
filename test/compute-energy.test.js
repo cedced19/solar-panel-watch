@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const realComputeEnergy = require('../lib/compute-energy');
-const {devicesEnergy, MAX_HOLD_MS} = realComputeEnergy;
+const {devicesEnergy, MAX_HOLD_MS, createEnergyAccumulator} = realComputeEnergy;
 
 // Most fixtures below read once a minute (or hourly) to keep the arithmetic
 // readable, so they lift the hold cap. The hold and coverage tests use the
@@ -362,4 +362,83 @@ test('night charging and battery energy use the same hold cap', () => {
     assert.equal(day.battery_charging, 0.035);
     assert.equal(day.charging_energy_from_network, 0.035);
     assert.equal(day.coverage_battery, 100);
+});
+
+// Readings of two days with a gap, a battery row missing a field and a row at midnight.
+function mixedReadings() {
+    const t = (day, hour, minute, second) => new Date(2026, 9, day, hour, minute, second).toISOString();
+    const network = [[13, 23, 58, 0, 600], [13, 23, 58, 20, -300], [13, 23, 59, 50, 900], [14, 0, 0, 0, 1200],
+        [14, 0, 0, 20, 300], [14, 0, 0, 40, -50]].map(([d, h, m, sec, v]) => ({_time: t(d, h, m, sec), _value: v}));
+    const solar = network.filter((_, i) => i !== 2).map(point => ({...point, _value: Math.abs(point._value)}));
+    const battery = [[13, 23, 58, 0, 100, 0], [13, 23, 58, 20, 0, 300], [14, 0, 0, 0, 50, 10], [14, 0, 0, 20, 70, 20]]
+        .map(([d, h, m, sec, discharge, charge]) =>
+            ({_time: t(d, h, m, sec), _value: 50, packInputPower: discharge, outputPackPower: charge}));
+    return {network, solar, battery};
+}
+
+test('feeding readings one by one gives the same days as the arrays, in any interleaving of the sources', () => {
+    const {network, solar, battery} = mixedReadings();
+    const expected = realComputeEnergy(network, solar, battery);
+    assert.equal(expected.length, 2);
+    for (const order of [['n', 's', 'b'], ['b', 's', 'n'], ['s', 'n', 'b']]) {
+        const accumulator = createEnergyAccumulator();
+        for (const source of order) {
+            if (source === 'n') network.forEach(point => accumulator.addNetwork(point._time, point._value));
+            if (source === 's') solar.forEach(point => accumulator.addSolar(point._time, point._value));
+            if (source === 'b') battery.forEach(row => accumulator.addBattery(row._time, row.packInputPower, row.outputPackPower));
+        }
+        assert.deepEqual(accumulator.result(), expected, order.join());
+    }
+});
+
+test('a missing battery field makes that direction unavailable for the day, also when streamed', () => {
+    const {network, solar, battery} = mixedReadings();
+    const accumulator = createEnergyAccumulator();
+    network.forEach(point => accumulator.addNetwork(point._time, point._value));
+    solar.forEach(point => accumulator.addSolar(point._time, point._value));
+    battery.forEach((row, i) => accumulator.addBattery(row._time, row.packInputPower, i === 1 ? undefined : row.outputPackPower));
+    const [first, second] = accumulator.result();
+    assert.equal(first.battery_charging, null);
+    assert.notEqual(first.battery_discharging, null);
+    // The row at midnight closes the first day and opens the second: charging is available for the second one.
+    assert.notEqual(second.battery_charging, null);
+});
+
+test('the result can be read while readings keep coming, and again afterwards', () => {
+    const {network} = mixedReadings();
+    const accumulator = createEnergyAccumulator();
+    network.slice(0, 3).forEach(point => accumulator.addNetwork(point._time, point._value));
+    const partial = accumulator.result();
+    assert.deepEqual(accumulator.result(), partial, 'reading the result changes nothing');
+    network.slice(3).forEach(point => accumulator.addNetwork(point._time, point._value));
+    assert.deepEqual(accumulator.result(), realComputeEnergy(network));
+    assert.notDeepEqual(accumulator.result(), partial);
+});
+
+test('times may be ISO strings or milliseconds, and unreadable ones are ignored', () => {
+    const start = new Date(2026, 9, 13, 12).getTime();
+    const iso = createEnergyAccumulator();
+    const ms = createEnergyAccumulator();
+    for (const [i, value] of [600, 600, 600].entries()) {
+        iso.addNetwork(new Date(start + i * 10000).toISOString(), value);
+        ms.addNetwork(start + i * 10000, value);
+    }
+    ms.addNetwork('not a date', 5000);
+    ms.addNetwork(start + 30000, NaN);
+    assert.deepEqual(ms.result(), iso.result());
+});
+
+test('a whole day of one-second readings is integrated with full coverage', () => {
+    const start = new Date(2026, 9, 13).getTime();
+    const accumulator = createEnergyAccumulator();
+    for (let second = 0; second < 86400; second++) {
+        accumulator.addNetwork(start + second * 1000, 600);
+        accumulator.addSolar(start + second * 1000, 100);
+        accumulator.addBattery(start + second * 1000, 0, 0);
+    }
+    const [day] = accumulator.result({from: start, to: start + 86400000});
+    // 600 W over 86399 s and the last second, whose 15 s tail stops at midnight in the coverage but not in the energy.
+    assert.equal(day.consumption_on_network, kWh(600 * (86399 + 15)));
+    assert.equal(day.solar_panel, kWh(100 * (86399 + 15)));
+    assert.deepEqual([day.coverage_network, day.coverage_solar, day.coverage_battery], [100, 100, 100]);
 });

@@ -38,9 +38,6 @@ test('consumption query selects this home, sorts meters and assembles missing ba
     assert.doesNotMatch(query, /aggregateWindow/);
     await api.requestConsumptionOverPeriod('24h', '5m');
     assert.match(query, /aggregateWindow\(every: 5m, fn: mean, createEmpty: false\)/);
-    await api.requestConsumptionOverRange(at(0), at(20));
-    assert.ok(query.includes(`range(start: ${at(0)}, stop: ${at(20)})`));
-    assert.doesNotMatch(query, /aggregateWindow/);
 });
 
 test('consumption queries escape configured literals and propagate Influx errors', async () => {
@@ -56,61 +53,65 @@ test('consumption queries escape configured literals and propagate Influx errors
     await assert.rejects(api.requestConsumptionOverPeriod('2h'), error => error === failure);
     assert.ok(query.includes(String.raw`from(bucket: "bucket\"name")`));
     assert.ok(query.includes(String.raw`r["home"] == "home\\name"`));
-    await assert.rejects(api.requestConsumptionOverRange(at(0), at(20)), error => error === failure);
+    await assert.rejects(api.streamConsumptionOverRange(at(0), at(20), {}), error => error === failure);
 });
 
-test('aggregated battery means preserve unavailable windows and complete measured zeros', async () => {
-    const rows = [];
-    for (const seconds of [0, 60]) {
-        for (const [field, value] of [['socPercent', 80], ['packInputPower', 0], ['outputPackPower', 300]]) {
-            rows.push({_time: at(seconds), _field: field, _value: value, result: 'mean'});
-            rows.push({_time: at(seconds), _field: field,
-                _value: seconds === 0 && field === 'outputPackPower' ? 1 : 2, result: 'battery_counts'});
-        }
-    }
-    const api = createConsumptionHistory({config, queryApi: {queryRows(query, observer) {
-        assert.match(query, /aggregateWindow\(every: 1m, fn: count, createEmpty: false\)/);
-        rows.forEach(row => observer.next(row, tableMeta));
-        observer.complete();
-    }}});
-    const data = await api.requestConsumptionOverPeriod('24h', '1m');
-    assert.deepEqual(data.battery, [
-        {_time: at(0), _value: 80, packInputPower: 0},
-        {_time: at(60), _value: 80, packInputPower: 0, outputPackPower: 300}
-    ]);
-});
+// Rows as the streaming query returns them: one table per power field, then the battery rows pivoted by time.
+const streamRows = [
+    {result: 'power', _field: 'power1', _time: at(0), _value: 400},
+    {result: 'power', _field: 'power1', _time: at(10), _value: -100},
+    {result: 'power', _field: 'power2', _time: at(0), _value: 800},
+    {result: 'battery', _time: at(0), socPercent: 80},
+    {result: 'battery', _time: at(10), socPercent: 81, packInputPower: 0, outputPackPower: 300}
+];
 
-test('device power query reads each device over the range after its last value of the week before', async () => {
-    const queries = [];
-    const rows = [
-        {_time: at(30), _field: 'water-heater', _value: 0},
-        {_time: at(10), _field: 'water-heater', _value: 2000},
-        {_time: at(5), _field: 'power1', _value: 400},
-        {_time: at(0), _field: 'heat-pump', _value: 1500}
-    ];
+test('the day stream selects this home and feeds each reading to the sink in arrival order, without merging rows', async () => {
+    let query;
     const api = createConsumptionHistory({config, queryApi: {
         queryRows(text, observer) {
-            queries.push(text);
-            rows.forEach(row => observer.next(row, tableMeta));
+            query = text;
+            streamRows.forEach(row => observer.next(row, tableMeta));
             observer.complete();
         }
     }});
-    const start = new Date(Date.UTC(2026, 9, 13));
-    const stop = new Date(Date.UTC(2026, 9, 14));
-    assert.deepEqual(await api.requestDevicePowerOverRange(start, stop, ['water-heater', 'heat-pump', 'off']), {
-        'water-heater': [{_time: at(10), _value: 2000}, {_time: at(30), _value: 0}],
-        'heat-pump': [{_time: at(0), _value: 1500}],
-        off: []
-    });
-    const [query] = queries;
-    assert.ok(query.includes('range(start: 2026-10-06T00:00:00.000Z, stop: 2026-10-13T00:00:00.000Z)'));
-    assert.match(query, /stop: 2026-10-13T00:00:00\.000Z\)[\s\S]*\|> last\(\)/);
-    assert.ok(query.includes('range(start: 2026-10-13T00:00:00.000Z, stop: 2026-10-14T00:00:00.000Z)'));
-    assert.ok(query.includes('r["home"] == "test-home"'));
-    for (const device of ['water-heater', 'heat-pump', 'off']) assert.ok(query.includes(`r["_field"] == "${device}"`));
+    const calls = [];
+    const sink = {
+        addNetwork: (...args) => calls.push(['network', ...args]),
+        addSolar: (...args) => calls.push(['solar', ...args]),
+        addBattery: (...args) => calls.push(['battery', ...args])
+    };
+    await api.streamConsumptionOverRange(new Date(at(0)), new Date(at(20)), sink);
+    assert.deepEqual(calls, [
+        ['network', at(0), 400], ['network', at(10), -100], ['solar', at(0), 800],
+        // A row without a power field passes it on as missing, never as zero.
+        ['battery', at(0), undefined, undefined], ['battery', at(10), 0, 300]
+    ]);
+    assert.ok(query.includes(`range(start: ${at(0)}, stop: ${at(20)})`));
+    assert.match(query, /r\["home"\] == "test-home"/);
+    assert.doesNotMatch(query, /aggregateWindow/);
+    assert.match(query, /yield\(name: "power"\)/);
+    assert.match(query, /pivot\(rowKey: \["_time"\], columnKey: \["_field"\], valueColumn: "_value"\)/);
+    assert.equal(query.match(/sort\(columns: \["_time"\], desc: false\)/g).length, 2);
+    for (const field of ['power1', 'power2', 'socPercent', 'packInputPower', 'outputPackPower']) {
+        assert.ok(query.includes(`r["_field"] == "${field}"`), field);
+    }
+});
 
-    assert.deepEqual(await api.requestDevicePowerOverRange(start, stop, []), {});
-    assert.equal(queries.length, 1, 'no device, no query');
-    await api.requestDevicePowerOverRange(start, stop, ['say "hi"']);
-    assert.ok(queries.at(-1).includes(String.raw`r["_field"] == "say \"hi\""`));
+test('streamed readings give the same energy as the arrays of the same readings', async () => {
+    const computeEnergy = require('../lib/compute-energy');
+    const api = createConsumptionHistory({config, queryApi: {
+        queryRows(text, observer) {
+            streamRows.forEach(row => observer.next(row, tableMeta));
+            observer.complete();
+        }
+    }});
+    const accumulator = computeEnergy.createEnergyAccumulator();
+    await api.streamConsumptionOverRange(new Date(at(0)), new Date(at(20)), accumulator);
+    const series = field => streamRows.filter(row => row._field === field).map(({_time, _value}) => ({_time, _value}));
+    const battery = streamRows.filter(row => row.result === 'battery');
+    const expected = computeEnergy(series('power1'), series('power2'), battery);
+    assert.deepEqual(accumulator.result(), expected);
+    // The first battery row has no power fields, so the day has no battery energy.
+    assert.equal(expected[0].battery_charging, null);
+    assert.equal(expected[0].solar_panel, 0.003);
 });

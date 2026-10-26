@@ -41,6 +41,42 @@ practice while exporting). On production data this meant:
   reminder that missing periods are not counted, when a series is below
   100 %), and the nomenclature page explains it in English and French.
 
+## Batched writes and streamed integration (same day, second step)
+
+One reading per second means two HTTP requests per second (power and battery,
+each with its own write client), and a day of 1 s readings is about 430 000 rows.
+
+- **Writes are batched.** One write client per destination, shared by the power
+  and battery writers ([lib/influx-lib.js](lib/influx-lib.js)), flushes every
+  5 s (`WRITE_FLUSH_MS`) and retries failed batches itself, which the former
+  one-shot writes did not. Power points used to get their time from Influx on
+  arrival; they are now stamped when polled (`Date.now()`, ms), otherwise the
+  batch would have moved them. A failed batch is logged by the client's
+  `writeFailed` callback. `flushWrites()` is called on SIGTERM, SIGINT and the
+  configuration panel restart, with a 3 s limit. A crash loses at most the last
+  5 s of readings. The device power and variable writers are unchanged (they
+  write on events, not every second).
+- **The integration streams.** `createEnergyAccumulator()` in
+  [lib/compute-energy.js](lib/compute-energy.js) takes `addNetwork`, `addSolar`
+  and `addBattery` calls one reading at a time and keeps only running sums per
+  day; `result({from, to})` gives the same days as before and can be called
+  repeatedly. `computeEnergy(arrays)` is a wrapper around it, so its results
+  are unchanged. Day detection uses cached day bounds instead of building a
+  date and a string per reading.
+- **The query streams** ([lib/consumption-history.js](lib/consumption-history.js),
+  `streamConsumptionOverRange`, replacing `requestConsumptionOverRange`): grid
+  and solar arrive as one time-sorted table per field, and the battery fields
+  are pivoted by Influx into one row per timestamp, as the battery graph query
+  already does. This keeps the rule that a row lacking a power field makes that
+  direction unavailable for the day, with no merge, no sort and no row kept in
+  JavaScript. The graph queries (`requestConsumptionOverPeriod`) still return
+  arrays.
+- **Measured** on a synthetic day of 1 s grid, solar and battery readings: the
+  array path holds about 29 MB of rows (more with the former battery merge),
+  the streamed path about 1 MB, at the same speed (about 175 ms).
+  On three days of production readings the totals and coverage are identical
+  digit for digit before and after.
+
 ## Real data
 
 On the three days of production readings from 23 to 26 October, the cap lowers

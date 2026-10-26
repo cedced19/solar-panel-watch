@@ -5,6 +5,7 @@ const {createRequire} = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const feedReadings = require('./feed-readings.js');
 
 test('energy day endpoints compute missing days once, store them and recompute on demand', async (t) => {
     const mainPath = path.resolve(__dirname, '../main.js');
@@ -26,10 +27,10 @@ test('energy day endpoints compute missing days once, store them and recompute o
                 {_time: new Date(2026, 9, 13, 12, 30).toISOString(), _value: 0}
             ]};
         },
-        async requestConsumptionOverRange(start, stop) {
+        async streamConsumptionOverRange(start, stop, sink) {
             queries.push({start, stop});
             if (failure) throw failure;
-            return data;
+            feedReadings(sink, data);
         },
         async requestConsumptionOverPeriod(period, every) {
             queries.push({period, every});

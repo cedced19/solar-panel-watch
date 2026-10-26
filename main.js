@@ -14,7 +14,7 @@ const getPowerData = require('./lib/get-power-data.js');
 const getAlpha = require('./lib/get-alpha.js');
 const influxLib = require('./lib/influx-lib.js');
 const getDeviceEnergy = require('./lib/compute-energy-device.js');
-const computeEnergy = require('./lib/compute-energy.js');
+const {createEnergyAccumulator} = require('./lib/compute-energy.js');
 const computeConsumptionPower = require('./lib/compute-consumption-power.js');
 const { validatePeriod, validateGroup, isValidPeriod } = require('./lib/validate-params.js');
 const { createAssetUrl } = require('./lib/asset-url.js');
@@ -41,7 +41,7 @@ const devices_to_activate = require('./devices-to-activate.json');
 const energyDays = createEnergyDays({
     store: createEnergyDayStore(path.join(__dirname, 'energy-days.sqlite')),
     influx: influxLib,
-    computeEnergy,
+    createEnergyAccumulator,
     devices: devices_to_activate.map(device => device.uri)
 });
 
@@ -993,11 +993,19 @@ app.get('/api/data/activation-hist/', (req, res) => {
     });
 });
 
+// Power readings wait a few seconds in a buffer before they are sent to
+// InfluxDB: send them before the process exits (not for longer than 3 s).
+function flushAndExit() {
+    const giveUp = new Promise(resolve => setTimeout(resolve, 3000));
+    Promise.race([influxLib.flushWrites(), giveUp]).catch(() => {}).finally(() => process.exit(0));
+}
+
 // Configuration panel and the login routes shared with the force page.
 app.use(createConfigPanel({
     configPath: path.join(__dirname, 'config.json'),
     runningConfig: config,
-    auth: auth
+    auth: auth,
+    restart: flushAndExit
 }));
 
 app.use(function (req, res, next) {
@@ -1191,6 +1199,7 @@ function start() {
 }
 
 if (require.main === module) {
+    for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, flushAndExit);
     start();
 }
 

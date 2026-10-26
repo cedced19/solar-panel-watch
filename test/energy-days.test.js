@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const computeEnergy = require('../lib/compute-energy.js');
+const {createEnergyAccumulator} = require('../lib/compute-energy.js');
+const feedReadings = require('./feed-readings.js');
 const {createEnergyDayStore} = require('../lib/energy-day-store.js');
 const {createEnergyDays, isValidDay, localDayKey, previousDay} = require('../lib/energy-days.js');
 
@@ -15,16 +16,16 @@ function setup(nowDate, devices) {
         ], power2: [], battery: []}
     };
     const influx = {
-        async requestConsumptionOverRange(start, stop) {
+        async streamConsumptionOverRange(start, stop, sink) {
             queries.push({start, stop});
-            return state.data;
+            feedReadings(sink, state.data);
         },
         async requestDevicePowerOverRange(start, stop, names) {
             queries.push({start, stop, devices: names});
             return state.devicePower;
         }
     };
-    const energyDays = createEnergyDays({store, influx, computeEnergy, devices, now: () => current});
+    const energyDays = createEnergyDays({store, influx, createEnergyAccumulator, devices, now: () => current});
     return {store, queries, state, energyDays, setNow(date) { current = date; }};
 }
 
