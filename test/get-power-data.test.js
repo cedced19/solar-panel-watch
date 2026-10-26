@@ -151,7 +151,7 @@ test('maps configured Zendure device options and keeps battery polling on its se
       zendure_req_threshold: 1500,
       zendure_battery_req_threshold: 20000,
       zendure_request_timeout: 3500,
-      zendure_meter: {host: '192.168.0.48', serial: 'METER', mac_address: 'E0:72:A1:85:24:48', recover_by_mac: true, power_field: 'total_power', power_scale: -1},
+      zendure_meter: {host: '192.168.0.48', serial: 'METER', mac_address: 'E0:72:A1:85:24:4B', wlan_mac_address: 'E0:72:A1:85:24:48', recover_by_mac: true, power_field: 'total_power', power_scale: -1},
       zendure_battery: {host: '192.168.0.40', serial: 'HUB', battery_serial: 'PACK', mac_address: '90:64:9B:10:9A:14', recover_by_mac: true}
     },
     shellyClient: success({emeters: [{power: 999}, {power: 200}]}),
@@ -163,8 +163,8 @@ test('maps configured Zendure device options and keeps battery polling on its se
   await power(client);
   assert.strictEqual(await battery(client), batteryData);
   assert.deepEqual(options, [
-    {host: '192.168.0.48', serial: 'METER', batterySerial: undefined, macAddress: 'E0:72:A1:85:24:48', recoverByMac: true, requestThreshold: 1500, timeout: 3500, powerField: 'total_power', powerScale: -1},
-    {host: '192.168.0.40', serial: 'HUB', batterySerial: 'PACK', macAddress: '90:64:9B:10:9A:14', recoverByMac: true, requestThreshold: 20000, timeout: 3500, powerField: undefined, powerScale: undefined}
+    {host: '192.168.0.48', serial: 'METER', batterySerial: undefined, macAddress: 'E0:72:A1:85:24:4B', wlanMacAddress: 'E0:72:A1:85:24:48', recoverByMac: true, requestThreshold: 1500, timeout: 3500, powerField: 'total_power', powerScale: -1},
+    {host: '192.168.0.40', serial: 'HUB', batterySerial: 'PACK', macAddress: '90:64:9B:10:9A:14', wlanMacAddress: undefined, recoverByMac: true, requestThreshold: 20000, timeout: 3500, powerField: undefined, powerScale: undefined}
   ]);
   assert.equal(client.powerRequestThreshold, 1500);
   assert.equal(client.batteryRequestThreshold, 20000);

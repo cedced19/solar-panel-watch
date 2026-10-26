@@ -44,7 +44,8 @@ test('the dashboard reports Zendure house power and battery availability indepen
     let recoveryState = {
         enabled: true,
         notFound: true,
-        macAddress: 'E0:72:A1:85:24:48'
+        macAddress: 'E0:72:A1:85:24:4B',
+        wlanMacAddress: 'E0:72:A1:85:24:48'
     };
 
     t.after(() => {
@@ -63,7 +64,7 @@ test('the dashboard reports Zendure house power and battery availability indepen
     const unavailablePage = await request(server, '/', {'accept-language': 'fr'});
     assert.equal(unavailablePage.status, 503);
     assert.match(unavailablePage.body, /Zendure.*indisponible/i);
-    assert.match(unavailablePage.body, /E0:72:A1:85:24:48/);
+    assert.match(unavailablePage.body, /E0:72:A1:85:24:4B, E0:72:A1:85:24:48/);
     assert.match(unavailablePage.body, /Puissance de la maison indisponible/);
     assert.match(unavailablePage.body, /Impossible de lire la puissance de la maison depuis le capteur Zendure/);
     assert.equal(main.isPowerDataAvailable(), false);
@@ -96,12 +97,12 @@ test('the dashboard reports Zendure house power and battery availability indepen
     getPowerData.req = (callback) => callback(null, {
         emeters: [{power: -500}, {power: 1000}]
     });
-    recoveryState = {recoveredIp: '192.168.0.37'};
+    recoveryState = {recoveredIp: '192.168.0.37', recoveredInterface: 'WLAN'};
 
     const availablePage = await request(server, '/');
     assert.equal(availablePage.status, 200);
     assert.match(availablePage.body, /-500/);
-    assert.match(availablePage.body, /192.168.0.37/);
+    assert.match(availablePage.body, /192.168.0.37<\/code> \(WLAN\)/);
     assert.match(availablePage.body, /id="battery-level"/);
     assert.match(availablePage.body, /86/);
     assert.match(availablePage.body, /Battery charging power/);

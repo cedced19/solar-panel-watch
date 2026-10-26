@@ -16,7 +16,8 @@
     "zendure_meter": {
         "host": "192.168.0.48",
         "serial": "TEE1NJP7P341978",
-        "mac_address": "E0:72:A1:85:24:48",
+        "mac_address": "E0:72:A1:85:24:4B",
+        "wlan_mac_address": "E0:72:A1:85:24:48",
         "recover_by_mac": true,
         "power_field": "total_power",
         "power_scale": 1

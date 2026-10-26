@@ -10,6 +10,9 @@ const {parseArgs, normalizeMac, findIpInNeighbors, findZendureIpByMac, main, pro
 
 const serial = 'TEE1NJP7P341978';
 const mac = 'E0:72:A1:85:24:48';
+const lanMac = 'E0:72:A1:85:24:4B';
+// Independent of config.json: one MAC address, listed for both interfaces.
+const macArgs = ['--mac', mac, '--wlan-mac', mac];
 const token = Buffer.from('https://app.zendure.tech/eu.fixtureAppKey').toString('base64');
 // Shape observed from the actual 1CT-S, including a zero-valued phase.
 const flatReport = {timestamp: 1791828793, messageId: 133, deviceId: 'fixtureDevice', a_aprt_power: 0, b_aprt_power: 0, c_aprt_power: 1503, total_power: 1503};
@@ -40,11 +43,12 @@ async function runCli(args) {
 
 test('options reject missing values, invalid addresses, deadlines and ports', () => {
     assert.deepEqual(parseArgs(['--ports', '80,80,8080']).ports, [80, 8080]);
-    assert.equal(parseArgs([]).mac, mac);
+    for (const name of ['mac', 'wlanMac']) assert.ok(normalizeMac(parseArgs([])[name]));
+    assert.equal(parseArgs(['--wlan-mac', 'e0-72-a1-85-24-4b']).wlanMac, lanMac);
     assert.equal(parseArgs([]).macFallback, true);
     assert.equal(parseArgs(['--no-mac-fallback']).macFallback, false);
     assert.equal(parseArgs(['--mac', 'e0-72-a1-85-24-48']).mac, mac);
-    for (const args of [['--host'], ['--host', 'example.com'], ['--mac'], ['--mac', 'E0:72:A1'], ['--timeout', '0'], ['--timeout', 'Infinity'], ['--ports', '80,'], ['--ports', '65536'], ['--unknown']]) {
+    for (const args of [['--host'], ['--host', 'example.com'], ['--mac'], ['--mac', 'E0:72:A1'], ['--wlan-mac'], ['--wlan-mac', 'E0:72:A1'], ['--timeout', '0'], ['--timeout', 'Infinity'], ['--ports', '80,'], ['--ports', '65536'], ['--unknown']]) {
         assert.throws(() => parseArgs(args));
     }
 });
@@ -80,11 +84,11 @@ test('neighbor parsing matches the exact MAC across Linux, macOS and Windows for
 });
 
 test('MAC recovery uses a cached match without scanning the subnet', async () => {
-    const result = await findZendureIpByMac(parseArgs([]), {
+    const result = await findZendureIpByMac(parseArgs(macArgs), {
         readNeighbors: async () => '192.168.0.37 dev eth0 lladdr e0:72:a1:85:24:48 STALE',
         probeTcp: async () => { throw new Error('Unexpected subnet scan.'); }
     });
-    assert.deepEqual(result, {host: '192.168.0.37'});
+    assert.deepEqual(result, {host: '192.168.0.37', mac});
 });
 
 test('MAC recovery populates neighbors with bounded probes and stops at an exact match', async () => {
@@ -92,7 +96,7 @@ test('MAC recovery populates neighbors with bounded probes and stops at an exact
     let table = '';
     let active = 0;
     let maximum = 0;
-    const result = await findZendureIpByMac(parseArgs([]), {
+    const result = await findZendureIpByMac(parseArgs(macArgs), {
         readNeighbors: async () => table,
         probeTcp: async (host, port, timeout) => {
             calls.push({host, port, timeout});
@@ -103,7 +107,7 @@ test('MAC recovery populates neighbors with bounded probes and stops at an exact
             return {port, open: false, error: 'ECONNREFUSED'};
         }
     });
-    assert.equal(result.host, '192.168.0.37');
+    assert.deepEqual(result, {host: '192.168.0.37', mac});
     assert.equal(maximum, 16);
     assert.equal(calls.length, 48);
     assert.ok(calls.every(call => call.host.startsWith('192.168.0.') && call.host !== '192.168.0.48' && call.port === 80 && call.timeout <= 250));
@@ -111,7 +115,7 @@ test('MAC recovery populates neighbors with bounded probes and stops at an exact
 
 test('MAC recovery does not select responding hosts without a matching MAC', async () => {
     let count = 0;
-    const result = await findZendureIpByMac(parseArgs([]), {
+    const result = await findZendureIpByMac(parseArgs(macArgs), {
         readNeighbors: async () => '192.168.0.37 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE',
         probeTcp: async () => { count++; return {open: true}; }
     });
@@ -120,16 +124,63 @@ test('MAC recovery does not select responding hosts without a matching MAC', asy
 });
 
 test('MAC recovery reports unavailable tables or denied sockets', async () => {
-    assert.deepEqual(await findZendureIpByMac(parseArgs([]), {
+    assert.deepEqual(await findZendureIpByMac(parseArgs(macArgs), {
         readNeighbors: async () => null,
         probeTcp: async () => { throw new Error('Unexpected subnet scan.'); }
     }), {host: null, unavailable: true});
     let count = 0;
-    assert.deepEqual(await findZendureIpByMac(parseArgs([]), {
+    assert.deepEqual(await findZendureIpByMac(parseArgs(macArgs), {
         readNeighbors: async () => '',
         probeTcp: async () => { count++; return {open: false, error: 'EPERM'}; }
     }), {host: null, unavailable: true});
     assert.equal(count, 16);
+});
+
+test('MAC recovery looks for the LAN MAC first, then the WLAN MAC, with one scan', async () => {
+    const args = ['--mac', lanMac, '--wlan-mac', mac];
+    const neighbor = (ip, address) => `${ip} dev eth0 lladdr ${address.toLowerCase()} REACHABLE`;
+    const refused = async () => ({open: false, error: 'ECONNREFUSED'});
+
+    // Both interfaces answer: the LAN one wins without probing.
+    assert.deepEqual(await findZendureIpByMac(parseArgs(args), {
+        readNeighbors: async () => `${neighbor('192.168.0.37', mac)}\n${neighbor('192.168.0.38', lanMac)}`,
+        probeTcp: async () => { throw new Error('Unexpected subnet scan.'); }
+    }), {host: '192.168.0.38', mac: lanMac});
+
+    // Only the WLAN MAC is known: the whole subnet is scanned for the LAN MAC, then WLAN is used.
+    let probes = 0;
+    assert.deepEqual(await findZendureIpByMac(parseArgs(args), {
+        readNeighbors: async () => neighbor('192.168.0.37', mac),
+        probeTcp: async () => { probes++; return refused(); }
+    }), {host: '192.168.0.37', mac});
+    assert.equal(probes, 253);
+
+    // The LAN MAC appears during the scan: it replaces the WLAN match and stops the scan.
+    probes = 0;
+    let table = neighbor('192.168.0.37', mac);
+    assert.deepEqual(await findZendureIpByMac(parseArgs(args), {
+        readNeighbors: async () => table,
+        probeTcp: async host => {
+            probes++;
+            if (host === '192.168.0.20') table += `\n${neighbor(host, lanMac)}`;
+            return refused();
+        }
+    }), {host: '192.168.0.20', mac: lanMac});
+    assert.equal(probes, 32);
+
+    // Neither MAC answers: a single scan covers both.
+    probes = 0;
+    assert.deepEqual(await findZendureIpByMac(parseArgs(args), {
+        readNeighbors: async () => '',
+        probeTcp: async () => { probes++; return refused(); }
+    }), {host: null});
+    assert.equal(probes, 253);
+
+    // The battery probe passes no WLAN MAC: only the LAN one is searched.
+    assert.deepEqual(await findZendureIpByMac({host: '192.168.0.48', mac: lanMac, ports: [80], timeout: 250}, {
+        readNeighbors: async () => neighbor('192.168.0.37', lanMac),
+        probeTcp: async () => { throw new Error('Unexpected subnet scan.'); }
+    }), {host: '192.168.0.37', mac: lanMac});
 });
 
 async function captureMain(args, dependencies) {
@@ -142,7 +193,7 @@ async function captureMain(args, dependencies) {
 
 test('main retries the recovered address when the configured IP has no meter report', async () => {
     const hosts = [];
-    const result = await captureMain([], {
+    const result = await captureMain(macArgs, {
         probeHost: async options => {
             hosts.push(options.host);
             return {ports: [{port: 80, open: true}], reportFound: options.host === '192.168.0.37', serialConfirmed: false};
@@ -156,6 +207,22 @@ test('main retries the recovered address when the configured IP has no meter rep
     assert.deepEqual(hosts, ['192.168.0.48', '192.168.0.37']);
     assert.match(result.output, /MAC E0:72:A1:85:24:48 found at 192.168.0.37/);
     assert.match(result.output, /Local meter report received/);
+});
+
+test('main names the interface whose MAC address recovered the meter', async () => {
+    for (const [found, name] of [[lanMac, 'LAN'], [mac, 'WLAN']]) {
+        const result = await captureMain(['--mac', lanMac, '--wlan-mac', mac], {
+            probeHost: async options => ({ports: [{port: 80, open: true}], reportFound: options.host === '192.168.0.37', serialConfirmed: false}),
+            findZendureIpByMac: async options => {
+                assert.equal(options.mac, lanMac);
+                assert.equal(options.wlanMac, mac);
+                return {host: '192.168.0.37', mac: found};
+            }
+        });
+        assert.equal(result.code, 0);
+        assert.match(result.output, /Trying MAC fallback for LAN E0:72:A1:85:24:4B, then WLAN E0:72:A1:85:24:48/);
+        assert.match(result.output, new RegExp(`MAC ${found} found at 192\\.168\\.0\\.37 \\(${name} interface\\)`));
+    }
 });
 
 test('main skips discovery for a valid report, disabled fallback or denied sockets', async () => {
@@ -178,7 +245,7 @@ test('main reports a failed MAC lookup and keeps its LAN failure exit code', asy
         findZendureIpByMac: async () => ({host: null})
     });
     assert.equal(result.code, 1);
-    assert.match(result.output, /No other IP found for this MAC/);
+    assert.match(result.output, /No other IP found for the LAN or WLAN MAC/);
 });
 
 test('flat 1CT-S report preserves zero and does not claim a serial match', () => {

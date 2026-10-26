@@ -35,7 +35,8 @@ It can also be edited online, see [Configuration panel](#configuration-panel).
     "zendure_meter": {
         "host": "192.168.0.48",
         "serial": "TEE1NJP7P341978",
-        "mac_address": "E0:72:A1:85:24:48",
+        "mac_address": "E0:72:A1:85:24:4B",
+        "wlan_mac_address": "E0:72:A1:85:24:48",
         "recover_by_mac": true,
         "power_field": "total_power",
         "power_scale": 1
@@ -167,14 +168,14 @@ Configure these settings in `config.json` and restart the application:
 | `house_power_source` | `zendure` (configured default) or `shelly` for an explicit rollback. |
 | `zendure_req_threshold` | House polling/cache interval in milliseconds; default `1000`, matching the existing Shelly cadence. |
 | `zendure_request_timeout` | Deadline for each Zendure HTTP request; default `3000` ms. |
-| `zendure_meter` | Meter `host`, expected `serial`, `mac_address`, and `recover_by_mac`. |
+| `zendure_meter` | Meter `host`, expected `serial`, `mac_address` (LAN interface), `wlan_mac_address` (WLAN interface, optional) and `recover_by_mac`. |
 | `zendure_meter.power_field` | Field to read from `/properties/report`; default `total_power`. |
 | `zendure_meter.power_scale` | Multiply the raw field to obtain signed watts; default `1`. Positive means grid import, negative means export. Set a negative scale if the CT orientation reverses the sign. |
 | `zendure_battery_req_threshold` | Independent battery polling/cache interval; configured as `20000` ms. |
 | `zendure_battery_full_soc` | Fallback for the charge percentage from which an idle battery counts as full and devices may run; default `100` (a number from `0` to `100`). Used only when Zendure does not report its charge target (`socSet`). |
 | `zendure_battery_max_charging_power` | Fallback for the maximum battery charging power in watts. While the battery charges at this power, devices may use the extra surplus. Used only when Zendure does not report its maximum charge power (`chargeMaxLimit`). Unset by default, so without either value devices only run once the battery is full. |
 | `zendure_battery_max_charging_tolerance` | How many watts below the maximum still count as "at max"; default `50`. |
-| `zendure_battery` | SolarFlow `host`, device `serial`, expected `battery_serial`, `mac_address`, and `recover_by_mac`. |
+| `zendure_battery` | SolarFlow `host`, device `serial`, expected `battery_serial`, `mac_address`, optional `wlan_mac_address`, and `recover_by_mac`. |
 
 The supplied device addresses and identities match the standalone probes below.
 Enable the local API/HEMS setting in the Zendure app. The library reads LAN status
@@ -182,6 +183,38 @@ without cloud credentials or control commands. A returned serial must match when
 present; a serial-less meter response remains unverified. MAC recovery uses an
 exact match within the configured host's `/24` subnet and keeps the recovered
 address in memory.
+
+### MAC recovery: LAN, then WLAN
+
+The Zendure devices have one MAC address per network interface. The 1CT-S meter
+uses `E0:72:A1:85:24:4B` on its LAN (cable) interface and `E0:72:A1:85:24:48` on
+its WLAN (Wi-Fi) interface, and gets a different IP address on each. With
+`recover_by_mac` enabled, when the configured `host` stops answering (or answers
+with another serial) the server looks the device up by MAC address, in this order:
+
+1. `mac_address`: the **LAN** interface.
+2. `wlan_mac_address`: the **WLAN** interface, so the meter is found again at its
+   Wi-Fi address when the cable is unplugged or the LAN port is down.
+
+A single scan of the `/24` subnet serves both lookups (it fills the system's
+ARP/neighbor table), so having a second MAC does not double the scan time. The
+LAN MAC wins when both interfaces answer; the WLAN address is used only once the
+scan found no LAN address, so when only the WLAN one is on the network the scan
+covers the whole subnet (a few seconds, once) before settling on it. The device found must still return a matching report
+(serial, readiness) before the address is kept; it is never written to
+`config.json` and a restart goes back to the configured `host`. `wlan_mac_address`
+is optional (leave it out or empty to search the LAN MAC only) and the same two
+keys are read for `zendure_battery`. If both keys hold the same address it is
+searched once.
+
+The dashboard (`/`) shows which interface the temporary address belongs to, for
+example `Zendure was temporarily recovered at IP address 192.168.0.37 (WLAN)`, and
+lists both MAC addresses when none of them is found on the network.
+
+> Upgrading: `mac_address` used to hold the meter's `...:48` address, which is the
+> WLAN one. `config.json` keeps your value and gets `wlan_mac_address` added from
+> the template; set `mac_address` to the LAN address (`...:4B`) so the order above
+> applies.
 
 The battery card shows the matching pack's charge percentage, state and charging
 power in watts (`chargingPowerW`, from Zendure's `outputPackPower`). A missing
@@ -332,7 +365,9 @@ node try-zendure.js --help
 ```
 
 The defaults identify the Smart Meter 1CT-S at `192.168.0.48`, serial
-`TEE1NJP7P341978`, identity `492848`, fallback MAC `E0:72:A1:85:24:48`.
+`TEE1NJP7P341978`, identity `492848`, fallback MACs `E0:72:A1:85:24:4B` (LAN)
+and `E0:72:A1:85:24:48` (WLAN); `zendure_meter` in `config.json` overrides them
+when present.
 The script tests TCP ports and reads
 `/properties/report` and MQTT status over HTTP. It handles both nested zenSDK
 properties and the flat 1CT-S response (`total_power`, `a_aprt_power`,
@@ -342,17 +377,20 @@ Exit code 0 means a tested LAN TCP service opened, 1 means none opened, and 2
 means invalid options or a failed optional cloud lookup.
 
 If the configured IP returns no meter report (or returns a different serial),
-the script finds the fallback MAC in the system ARP/neighbor table and retries
-at that IP. If the address is not cached, it makes short TCP connection attempts
-within the configured IP's `/24` subnet to populate the table, with at most 16
-connections at once. Only an exact MAC match is used for recovery; the configured
-IP is not changed on disk. MAC discovery requires the computer and meter to be
-on the same LAN and uses `ip neigh` (or `/proc/net/arp`) on Linux and `arp` on
-macOS/Windows. It reports when those facilities are unavailable.
+the script looks for the LAN MAC (`--mac`) in the system ARP/neighbor table and
+retries at that IP; if the LAN MAC is absent it falls back to the WLAN MAC
+(`--wlan-mac`), the address the meter uses on Wi-Fi. If the addresses are not
+cached, it makes short TCP connection attempts within the configured IP's `/24`
+subnet to populate the table, with at most 16 connections at once; one scan
+serves both MACs and the LAN MAC wins when both are found. Only an exact MAC
+match is used for recovery, and the output names the interface that matched; the
+configured IP is not changed on disk. MAC discovery requires the computer and
+meter to be on the same LAN and uses `ip neigh` (or `/proc/net/arp`) on Linux and
+`arp` on macOS/Windows. It reports when those facilities are unavailable.
 
 ```bash
-node try-zendure.js --mac E0:72:A1:85:24:48
-node try-zendure.js --no-mac-fallback
+node try-zendure.js --mac E0:72:A1:85:24:4B --wlan-mac E0:72:A1:85:24:48
+node try-zendure.js --no-mac-fallback   # disables both the LAN and the WLAN lookup
 ```
 
 The supplied authorization key belongs to the cloud API. To also check whether

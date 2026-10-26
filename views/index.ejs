@@ -50,7 +50,7 @@
       <h1><%= __(unavailableKey)%></h1>
       <p class="failure-description"><%= __(source === 'zendure' ? 'Zendure configuration error' : 'Shelly configuration error')%></p>
       <% if(recovery && recovery.enabled && recovery.notFound){ %>
-        <p class="failure-description"><%= __(source === 'zendure' ? 'Zendure MAC not found' : 'Shelly MAC not found')%> <code><%= recovery.macAddress %></code></p>
+        <p class="failure-description"><%= __(source === 'zendure' ? 'Zendure MAC not found' : 'Shelly MAC not found')%> <code><%= [...new Set([recovery.macAddress, recovery.wlanMacAddress].filter(Boolean))].join(', ') %></code></p>
       <% } %>
       <ul class="failure-checks">
         <li><%= __(source === 'zendure' ? 'Check Zendure configuration' : 'Check Shelly configuration')%></li>
@@ -162,7 +162,7 @@
     <p class="recovery-warning"><strong><%= __('Recovered Shelly warning')%></strong> <code><%= recovered_shelly_ip %></code></p>
   <% } %>
   <% if(typeof recovered_zendure_ip !== 'undefined' && recovered_zendure_ip){ %>
-    <p class="recovery-warning"><strong><%= __('Recovered Zendure warning')%></strong> <code><%= recovered_zendure_ip %></code></p>
+    <p class="recovery-warning"><strong><%= __('Recovered Zendure warning')%></strong> <code><%= recovered_zendure_ip %></code><% if(typeof recovered_zendure_interface !== 'undefined' && recovered_zendure_interface){ %> (<%= recovered_zendure_interface %>)<% } %></p>
   <% } %>
   </main>
   <% } %>

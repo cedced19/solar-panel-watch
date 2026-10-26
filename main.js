@@ -334,7 +334,8 @@ app.get('/', function(req, res) {
                 battery,
                 device_charging: getDeviceChargingStatus(),
                 recovered_shelly_ip: getPowerData.getShellyRecoveryState().recoveredIp,
-                recovered_zendure_ip: source === 'zendure' ? recovery.recoveredIp : null
+                recovered_zendure_ip: source === 'zendure' ? recovery.recoveredIp : null,
+                recovered_zendure_interface: source === 'zendure' ? recovery.recoveredInterface : null
             });
         });
     });

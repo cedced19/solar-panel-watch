@@ -27,16 +27,15 @@ const meter = config.zendure_meter || {};
 const DEFAULTS = {
     host: meter.host || '192.168.0.46',
     serial: meter.serial || 'TEE1NJP7P341978',
-    mac: meter.mac_address || 'E0:72:A1:85:24:48',
+    // The 1CT-S has one MAC per interface; the LAN one is tried first, then the WLAN one.
+    mac: meter.mac_address || 'E0:72:A1:85:24:4B',
+    wlanMac: meter.wlan_mac_address || 'E0:72:A1:85:24:48',
     macFallback: meter.recover_by_mac ?? true,
     id: '492848',
     timeout: config.zendure_request_timeout || 3000,
     ports: [80, 443, 8000, 8080, 1883, 8883, 502],
     cloud: false
 };
-// TODO : Add a wifi fallback option that uses the Zendure wifi IP:
-// E0:72:A1:85:24:48 is the MAC of the 1CT-S WLAN interface
-// E0:72:A1:85:24:4B is the MAC of the 1CT-S LAN interface
 
 function parseArgs(args, defaults = DEFAULTS) {
     const options = {...defaults};
@@ -51,16 +50,20 @@ function parseArgs(args, defaults = DEFAULTS) {
             options.macFallback = false;
             continue;
         }
-        if (!['--host', '--serial', '--mac', '--id', '--timeout', '--ports'].includes(arg)) {
+        if (!['--host', '--serial', '--mac', '--wlan-mac', '--id', '--timeout', '--ports'].includes(arg)) {
             throw new Error(`Unknown option: ${arg}. Use --help.`);
         }
         const value = args[++i];
         if (!value || value.startsWith('--')) throw new Error(`Missing value for ${arg}.`);
-        options[arg.slice(2)] = value;
+        options[arg.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
     }
     if (net.isIP(options.host) !== 4) throw new Error('--host must be an IPv4 address.');
     options.mac = normalizeMac(options.mac);
     if (!options.mac) throw new Error('--mac must be a six-byte MAC address.');
+    if (options.wlanMac !== undefined) {
+        options.wlanMac = normalizeMac(options.wlanMac);
+        if (!options.wlanMac) throw new Error('--wlan-mac must be a six-byte MAC address.');
+    }
     options.timeout = Number(options.timeout);
     if (!Number.isInteger(options.timeout) || options.timeout < 1 || options.timeout > 60000) {
         throw new Error('--timeout must be between 1 and 60000 milliseconds.');
@@ -108,13 +111,27 @@ async function readNeighborTable() {
     }
 }
 
+// MACs are tried by priority (LAN, then WLAN) with one scan: it fills the ARP table
+// for every responding host. A WLAN match is only returned once the whole /24 subnet
+// has shown no LAN match.
 async function findZendureIpByMac(options, dependencies = {}) {
     const readNeighbors = dependencies.readNeighbors || readNeighborTable;
     const connect = dependencies.probeTcp || probeTcp;
+    const macs = [...new Set([options.mac, options.wlanMac].map(normalizeMac).filter(Boolean))];
+    let best = null;
+    // Keeps the highest-priority match; true once the LAN MAC is found.
+    function search(table) {
+        for (let rank = 0; rank < (best ? best.rank : macs.length); rank++) {
+            const host = findIpInNeighbors(table, macs[rank], options.host);
+            if (host) { best = {host, mac: macs[rank], rank}; break; }
+        }
+        return best?.rank === 0;
+    }
+    const result = () => best ? {host: best.host, mac: best.mac} : {host: null};
+    const unavailable = () => best ? result() : {host: null, unavailable: true};
     let table = await readNeighbors();
-    if (table === null) return {host: null, unavailable: true};
-    let host = findIpInNeighbors(table, options.mac, options.host);
-    if (host) return {host};
+    if (table === null) return unavailable();
+    if (search(table)) return result();
     const prefix = options.host.split('.').slice(0, 3).join('.');
     const hosts = Array.from({length: 254}, (_, index) => `${prefix}.${index + 1}`).filter(ip => ip !== options.host);
     const port = options.ports.find(port => ![1883, 8883, 502].includes(port)) || 80;
@@ -122,13 +139,12 @@ async function findZendureIpByMac(options, dependencies = {}) {
     // Limit recovery to this /24 and 16 simultaneous connections.
     for (let i = 0; i < hosts.length; i += 16) {
         const results = await Promise.all(hosts.slice(i, i + 16).map(ip => connect(ip, port, Math.min(options.timeout, 250))));
-        if (results.every(result => ['EPERM', 'EACCES'].includes(result.error))) return {host: null, unavailable: true};
+        if (results.every(result => ['EPERM', 'EACCES'].includes(result.error))) return unavailable();
         table = await readNeighbors();
-        if (table === null) return {host: null, unavailable: true};
-        host = findIpInNeighbors(table, options.mac, options.host);
-        if (host) return {host};
+        if (table === null) return unavailable();
+        if (search(table)) return result();
     }
-    return {host: null};
+    return result();
 }
 
 function probeTcp(host, port, timeout) {
@@ -312,7 +328,8 @@ async function main(args = process.argv.slice(2), dependencies = {}) {
 
   --host IP         Meter IPv4 address (default: ${DEFAULTS.host})
   --serial SERIAL   Expected serial (default: ${DEFAULTS.serial})
-  --mac MAC         Fallback MAC address (default: ${DEFAULTS.mac})
+  --mac MAC         Fallback MAC of the LAN interface, tried first (default: ${DEFAULTS.mac})
+  --wlan-mac MAC    Fallback MAC of the WLAN interface, tried second (default: ${DEFAULTS.wlanMac})
   --no-mac-fallback Disable MAC discovery if no meter report is received
   --id ID           Expected cloud identity (default: ${DEFAULTS.id})
   --timeout MS      Deadline per connection/request (default: ${DEFAULTS.timeout})
@@ -320,7 +337,9 @@ async function main(args = process.argv.slice(2), dependencies = {}) {
   --cloud           Also look up the meter using the ZENDURE_KEY environment variable
   --help            Show this help
 
-MAC recovery checks the ARP/neighbor table, then probes this host's /24 subnet.
+MAC recovery checks the ARP/neighbor table, then probes this host's /24 subnet,
+looking for the LAN MAC first and then for the WLAN MAC (the Wi-Fi address the
+meter uses when its cable is unplugged).
 It requires the meter to be on the same LAN; no network settings are changed.
 Local requests only read status. --cloud lists devices; it sends no control commands.
 Exit codes: 0 = a tested LAN TCP port opened; 1 = none opened;
@@ -332,20 +351,21 @@ A cloud result does not establish LAN reachability or provide live meter reading
     // Validate before sending any requests if cloud mode was explicitly requested.
     if (options.cloud) decodeCloudKey(token);
     const sensitiveValues = token ? [token, decodeCloudKeySafe(token)] : [];
-    console.log(`Zendure Smart Meter 1CT-S: ${options.host}\nExpected serial: ${options.serial}; identity: ${options.id}; fallback MAC: ${options.mac}`);
+    console.log(`Zendure Smart Meter 1CT-S: ${options.host}\nExpected serial: ${options.serial}; identity: ${options.id}; fallback MACs: LAN ${options.mac}, WLAN ${options.wlanMac}`);
     const probe = dependencies.probeHost || probeHost;
     let result = await probe(options, sensitiveValues);
     if (!result.reportFound && options.macFallback && !result.ports.some(port => ['EPERM', 'EACCES'].includes(port.error))) {
-        console.log(`\nTrying MAC fallback for ${options.mac} in ${options.host.split('.').slice(0, 3).join('.')}.0/24...`);
+        console.log(`\nTrying MAC fallback for LAN ${options.mac}, then WLAN ${options.wlanMac}, in ${options.host.split('.').slice(0, 3).join('.')}.0/24...`);
         const recover = dependencies.findZendureIpByMac || findZendureIpByMac;
         const recovered = await recover(options);
         if (recovered.host) {
-            console.log(`MAC ${options.mac} found at ${recovered.host}; retrying the meter probe.`);
+            const found = recovered.mac || options.mac;
+            console.log(`MAC ${found} found at ${recovered.host} (${found === options.wlanMac ? 'WLAN' : 'LAN'} interface); retrying the meter probe.`);
             options.host = recovered.host;
             result = await probe(options, sensitiveValues);
         } else {
             console.log(recovered.unavailable ? 'MAC discovery unavailable: cannot read the neighbor table or open LAN sockets.' :
-                'No other IP found for this MAC in the configured /24 subnet.');
+                'No other IP found for the LAN or WLAN MAC in the configured /24 subnet.');
         }
     }
     const {ports, reportFound, serialConfirmed} = result;
