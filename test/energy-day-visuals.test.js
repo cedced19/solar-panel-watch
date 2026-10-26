@@ -86,9 +86,38 @@ test('day flows leave the battery out without both directions and need solar dat
 
 test('day ratios give self-sufficiency and self-consumption within 0 to 1', () => {
     const {visuals} = load();
-    assert.deepEqual(plain(visuals.dayRatios(day)), {selfSufficiency: 6.5 / 10.5, selfConsumption: 0.7});
+    assert.deepEqual(plain(visuals.dayRatios(day)), {selfSufficiency: 6.5 / 10.5, selfConsumption: 0.7, batteryPeak: null});
     assert.deepEqual(plain(visuals.dayRatios({...day, solar_panel: 0, house_consumption: 0})),
-        {selfSufficiency: null, selfConsumption: null});
+        {selfSufficiency: null, selfConsumption: null, batteryPeak: null});
+});
+
+test('the battery peak ratio is the highest level of the day as a share of 1, and null when not stored', () => {
+    const {visuals} = load();
+    assert.equal(visuals.dayRatios({...day, battery_max_soc: 87.5}).batteryPeak, 0.875);
+    assert.equal(visuals.dayRatios({...day, battery_max_soc: 0}).batteryPeak, 0);
+    assert.equal(visuals.dayRatios({...day, battery_max_soc: 130}).batteryPeak, 1);
+    for (const value of [null, undefined, NaN, '87']) {
+        assert.equal(visuals.dayRatios({...day, battery_max_soc: value}).batteryPeak, null, String(value));
+    }
+});
+
+test('the battery peak is drawn as a third gauge in the battery colour, unavailable without a stored level', async () => {
+    const dataset = {batteryPeak: 'Battery peak level', batteryPeakHint: 'Highest battery level of the day'};
+    const rings = async entry => {
+        const {visuals, nodes} = load({dataset});
+        await visuals.render(entry);
+        return nodes.get('energy-rings').children;
+    };
+    const [, , peak] = await rings({...day, battery_max_soc: 87.5});
+    assert.equal(peak.children[0].style['--ring-value'], 0.875);
+    assert.equal(peak.children[0].style['--ring-color'], '#8e44ad');
+    assert.equal(peak.children[0].attributes['aria-label'], 'Battery peak level: 88%');
+    assert.equal(peak.children[0].children[0].children[0].textContent, '88%');
+    assert.deepEqual(peak.children[1].children.map(child => child.textContent),
+        ['Battery peak level', 'Highest battery level of the day']);
+    const [, , missing] = await rings(day);
+    assert.match(missing.children[0].className, /is-unavailable/);
+    assert.equal(missing.children[0].attributes['aria-label'], 'Battery peak level: Unavailable');
 });
 
 test('hourly energy integrates window averages into local hours and keeps empty hours null', () => {
@@ -124,7 +153,7 @@ test('rendering a day draws gauges, tiles, flow and donuts, then loads the power
     await visuals.render(day);
     await settle();
     assert.match(requests[0], /^\/api\/data\/consumption\/\d+m\?every=5m$/);
-    assert.equal(nodes.get('energy-rings').children.length, 2);
+    assert.equal(nodes.get('energy-rings').children.length, 3);
     assert.equal(nodes.get('energy-tiles').children.length, 6);
     assert.deepEqual([...plots.keys()],
         ['energy-flow', 'energy-house-sources', 'energy-solar-uses', 'energy-profile', 'energy-hourly']);

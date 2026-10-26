@@ -505,6 +505,8 @@
 	"Self-sufficiency hint": "Part de la consommation non achetée au réseau",
 	"Self-consumption": "Autoconsommation",
 	"Self-consumption hint": "Part de l’énergie solaire utilisée ou stockée sur place plutôt qu’injectée",
+	"Battery peak level": "Pic de batterie",
+	"Battery peak level hint": "Niveau de charge le plus élevé atteint par la batterie dans la journée",
 	"of household use": "de la consommation",
 	"Solar production": "Production solaire",
 	"Grid import": "Achat réseau",

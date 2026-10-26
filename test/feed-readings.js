@@ -3,5 +3,5 @@
 module.exports = function feedReadings(sink, {power1 = [], power2 = [], battery = []}) {
     for (const point of power1) sink.addNetwork(point._time, point._value);
     for (const point of power2) sink.addSolar(point._time, point._value);
-    for (const row of battery) sink.addBattery(row._time, row.packInputPower, row.outputPackPower);
+    for (const row of battery) sink.addBattery(row._time, row.packInputPower, row.outputPackPower, row._value);
 };

@@ -499,6 +499,8 @@
 	"Self-sufficiency hint": "Share of the household use not bought from the grid",
 	"Self-consumption": "Self-consumption",
 	"Self-consumption hint": "Share of the solar energy used at home or stored instead of exported",
+	"Battery peak level": "Battery peak level",
+	"Battery peak level hint": "Highest battery charge level reached during the day",
 	"of household use": "of household use",
 	"Solar production": "Solar production",
 	"Grid import": "Grid import",

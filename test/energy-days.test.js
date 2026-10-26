@@ -158,3 +158,15 @@ test('a gap in the readings lowers the coverage of the day and is not integrated
     assert.equal(row.consumption_on_network, 0.027);
     assert.equal(row.coverage_network, Math.round(165 / 86400 * 1000) / 10);
 });
+
+test('the highest battery level of the day is stored with the day, null when no level was read', async () => {
+    const {store, state, energyDays} = setup(new Date(2026, 9, 20));
+    const level = (minute, soc) => ({_time: new Date(2026, 9, 13, 12, minute).toISOString(), _value: soc,
+        packInputPower: 0, outputPackPower: 0});
+    state.data = {...state.data, battery: [level(0, 35), level(1, 92.3), level(2, 71)]};
+    assert.equal((await energyDays.getDay('2026-10-13')).battery_max_soc, 92.3);
+    assert.equal(store.get('2026-10-13').battery_max_soc, 92.3);
+
+    state.data = {...state.data, battery: []};
+    assert.equal((await energyDays.getDay('2026-10-13', {force: true})).battery_max_soc, null);
+});

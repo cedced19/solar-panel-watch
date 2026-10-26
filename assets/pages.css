@@ -966,7 +966,7 @@ body.graph-page .graph-card {
 
 .energy-rings {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
   margin: 16px 0 20px;
 }
@@ -989,7 +989,7 @@ body.graph-page .graph-card {
   height: 112px;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(#27ae60 calc(var(--ring-value) * 1turn), #e2e8f0 0);
+  background: conic-gradient(var(--ring-color, #27ae60) calc(var(--ring-value) * 1turn), #e2e8f0 0);
 }
 
 .energy-ring.is-unavailable {

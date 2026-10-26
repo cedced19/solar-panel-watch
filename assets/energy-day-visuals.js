@@ -83,8 +83,9 @@
         };
     }
 
-    // Share of the house energy not bought from the grid, and share of the
-    // solar energy kept at home (used or stored) instead of exported.
+    // Share of the house energy not bought from the grid, share of the
+    // solar energy kept at home (used or stored) instead of exported, and the
+    // highest battery level of the day (null for days stored before it was kept).
     function dayRatios(entry) {
         const row = window.energyConsumption.normalizeEntry(entry);
         const saved = window.energyConsumption.savedEnergy(row);
@@ -93,7 +94,9 @@
             selfSufficiency: Number.isFinite(saved) && row.house_consumption > 0 ?
                 Math.min(1, Math.max(0, saved / row.house_consumption)) : null,
             selfConsumption: Number.isFinite(solar) && solar > 0 && Number.isFinite(row.introduced_on_network) ?
-                Math.min(1, Math.max(0, (solar + row.introduced_on_network) / solar)) : null
+                Math.min(1, Math.max(0, (solar + row.introduced_on_network) / solar)) : null,
+            batteryPeak: Number.isFinite(row.battery_max_soc) ?
+                Math.min(1, Math.max(0, row.battery_max_soc / 100)) : null
         };
     }
 
@@ -174,10 +177,12 @@
     function renderRings(container, ratios, labels) {
         container.innerHTML = '';
         [['selfSufficiency', labels.selfSufficiency, labels.selfSufficiencyHint],
-            ['selfConsumption', labels.selfConsumption, labels.selfConsumptionHint]].forEach(([key, title, hint]) => {
+            ['selfConsumption', labels.selfConsumption, labels.selfConsumptionHint],
+            ['batteryPeak', labels.batteryPeak, labels.batteryPeakHint, COLORS.battery]].forEach(([key, title, hint, color]) => {
             const value = ratios[key];
             const ring = el('div', 'energy-ring' + (value === null ? ' is-unavailable' : ''));
             ring.style.setProperty('--ring-value', value === null ? 0 : value);
+            if (color) ring.style.setProperty('--ring-color', color);
             ring.setAttribute('role', 'img');
             ring.setAttribute('aria-label', title + ': ' + (value === null ? labels.unavailable : Math.round(value * 100) + '%'));
             const face = el('div', 'energy-ring-face');

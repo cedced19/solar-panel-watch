@@ -293,6 +293,12 @@ computed before it ended).
   The energy flow diagram draws it as grid → battery. Days stored before this
   field have it empty (the diagram then counts charging as solar first) until
   they are recomputed with "Recompute".
+- `battery_max_soc` is the highest battery level (percent, one decimal) read
+  during the local day, from the `socPercent` of the battery readings; it is
+  empty when the day has no valid level. The day at a glance, on the calendar and
+  the current-day pages, shows it as a third gauge, "Battery peak level". Days
+  stored before this field have it empty until they are recomputed with
+  "Recompute" (the gauge then reads "Unavailable").
 - `devices_consumption` is the energy of all the devices of
   `devices-to-activate.json` together, from their power in InfluxDB. A device
   writes its power when it changes, so each value holds until the next one

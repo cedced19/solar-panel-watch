@@ -28,7 +28,8 @@ test('aligned readings preserve grid import/export, solar, house and the 15-seco
         start_date: new Date(network[0]._time), end_date: new Date(network[2]._time),
         consumption_on_network: 0.015, introduced_on_network: -0.005,
         solar_panel: 0.06, battery_discharging: 0, battery_charging: 0, charging_energy_from_network: 0,
-        house_consumption: 0.07, coverage_network: 100, coverage_solar: 100, coverage_battery: 100
+        house_consumption: 0.07, coverage_network: 100, coverage_solar: 100, coverage_battery: 100,
+        battery_max_soc: 50
     }]);
 });
 
@@ -385,7 +386,7 @@ test('feeding readings one by one gives the same days as the arrays, in any inte
         for (const source of order) {
             if (source === 'n') network.forEach(point => accumulator.addNetwork(point._time, point._value));
             if (source === 's') solar.forEach(point => accumulator.addSolar(point._time, point._value));
-            if (source === 'b') battery.forEach(row => accumulator.addBattery(row._time, row.packInputPower, row.outputPackPower));
+            if (source === 'b') battery.forEach(row => accumulator.addBattery(row._time, row.packInputPower, row.outputPackPower, row._value));
         }
         assert.deepEqual(accumulator.result(), expected, order.join());
     }
@@ -441,4 +442,43 @@ test('a whole day of one-second readings is integrated with full coverage', () =
     assert.equal(day.consumption_on_network, kWh(600 * (86399 + 15)));
     assert.equal(day.solar_panel, kWh(100 * (86399 + 15)));
     assert.deepEqual([day.coverage_network, day.coverage_solar, day.coverage_battery], [100, 100, 100]);
+});
+
+test('the battery level peak is the highest valid level of each local day, whatever else the rows carry', () => {
+    const at = (day, hour, minute, level) => ({_time: new Date(2026, 9, day, hour, minute).toISOString(), _value: level});
+    const network = [at(13, 8, 0, 100), at(13, 20, 0, 100), at(14, 8, 0, 100), at(14, 9, 0, 100)];
+    const accumulator = createEnergyAccumulator();
+    network.forEach(point => accumulator.addNetwork(point._time, point._value));
+    // Rows without power fields still carry a level; invalid levels are ignored.
+    accumulator.addBattery(at(13, 8, 0)._time, undefined, undefined, 40);
+    accumulator.addBattery(at(13, 12, 0)._time, 0, 0, 87.46);
+    accumulator.addBattery(at(13, 13, 0)._time, 0, 0, 101);
+    accumulator.addBattery(at(13, 14, 0)._time, 0, 0, -5);
+    accumulator.addBattery(at(13, 15, 0)._time, 0, 0, NaN);
+    accumulator.addBattery(at(13, 16, 0)._time, 0, 0, undefined);
+    accumulator.addBattery(at(13, 18, 0)._time, 0, 0, 60);
+    accumulator.addBattery(at(14, 8, 0)._time, 0, 0, 30);
+    const [first, second] = accumulator.result();
+    assert.equal(first.battery_max_soc, 87.5);
+    assert.equal(second.battery_max_soc, 30);
+});
+
+test('the battery level peak is null without a valid level, and can be 0', () => {
+    const network = points([600, 600]);
+    const [none] = realComputeEnergy(network, [], batteryPoints([0, 0]).map(({_value, ...row}) => row));
+    assert.equal(none.battery_max_soc, null);
+    const [empty] = realComputeEnergy(network, [], [{_time: network[0]._time, _value: 0, packInputPower: 0, outputPackPower: 0}]);
+    assert.equal(empty.battery_max_soc, 0);
+    assert.equal(realComputeEnergy(network)[0].battery_max_soc, null);
+});
+
+test('a level stamped at midnight belongs to the new day only', () => {
+    const t = (day, hour, minute) => new Date(2026, 9, day, hour, minute).getTime();
+    const accumulator = createEnergyAccumulator();
+    for (const [ts, value] of [[t(13, 23, 59), 600], [t(14, 0, 0), 600], [t(14, 0, 1), 600]]) accumulator.addNetwork(ts, value);
+    accumulator.addBattery(t(13, 23, 58), 0, 0, 50);
+    accumulator.addBattery(t(14, 0, 0), 0, 0, 90);
+    const [first, second] = accumulator.result();
+    assert.equal(first.battery_max_soc, 50);
+    assert.equal(second.battery_max_soc, 90);
 });

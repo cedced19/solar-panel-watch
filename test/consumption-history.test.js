@@ -84,7 +84,7 @@ test('the day stream selects this home and feeds each reading to the sink in arr
     assert.deepEqual(calls, [
         ['network', at(0), 400], ['network', at(10), -100], ['solar', at(0), 800],
         // A row without a power field passes it on as missing, never as zero.
-        ['battery', at(0), undefined, undefined], ['battery', at(10), 0, 300]
+        ['battery', at(0), undefined, undefined, 80], ['battery', at(10), 0, 300, 81]
     ]);
     assert.ok(query.includes(`range(start: ${at(0)}, stop: ${at(20)})`));
     assert.match(query, /r\["home"\] == "test-home"/);
@@ -108,10 +108,11 @@ test('streamed readings give the same energy as the arrays of the same readings'
     const accumulator = computeEnergy.createEnergyAccumulator();
     await api.streamConsumptionOverRange(new Date(at(0)), new Date(at(20)), accumulator);
     const series = field => streamRows.filter(row => row._field === field).map(({_time, _value}) => ({_time, _value}));
-    const battery = streamRows.filter(row => row.result === 'battery');
+    const battery = streamRows.filter(row => row.result === 'battery').map(row => ({...row, _value: row.socPercent}));
     const expected = computeEnergy(series('power1'), series('power2'), battery);
     assert.deepEqual(accumulator.result(), expected);
     // The first battery row has no power fields, so the day has no battery energy.
     assert.equal(expected[0].battery_charging, null);
     assert.equal(expected[0].solar_panel, 0.003);
+    assert.equal(expected[0].battery_max_soc, 81);
 });
