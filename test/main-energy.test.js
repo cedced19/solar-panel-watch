@@ -14,7 +14,7 @@ test('energy day endpoints compute missing days once, store them and recompute o
     const queries = [];
     let data = {power1: [
         {_time: new Date(2026, 9, 13, 12).toISOString(), _value: 600},
-        {_time: new Date(2026, 9, 13, 12, 1).toISOString(), _value: 600}
+        {_time: new Date(2026, 9, 13, 12, 0, 30).toISOString(), _value: 600}
     ], power2: [], battery: []};
     let failure;
     const deviceQueries = [];
@@ -77,8 +77,13 @@ test('energy day endpoints compute missing days once, store them and recompute o
     assert.equal(calendar.status, 200);
     const day = JSON.parse(calendar.body);
     assert.equal(day.day, '2026-10-13');
-    assert.equal(day.consumption_on_network, 0.012);
+    // 600 W for the 30 s between the readings and the 15 s tail.
+    assert.equal(day.consumption_on_network, 0.007);
     assert.equal(day.introduced_on_network, 0);
+    // 45 s of readings out of the 24 hours of the day.
+    assert.equal(day.coverage_network, 0.1);
+    assert.equal(day.coverage_solar, null);
+    assert.equal(day.coverage_battery, null);
     assert.equal(day.solar_panel, null);
     assert.equal(day.house_consumption, null);
     assert.equal(day.battery_discharging, null);
@@ -110,9 +115,9 @@ test('energy day endpoints compute missing days once, store them and recompute o
     const sparseSolar = await recompute('/api/data/energy/day/2026-10-13');
     assert.equal(sparseSolar.status, 200);
     const sparseDay = JSON.parse(sparseSolar.body);
-    assert.equal(sparseDay.consumption_on_network, 0.012);
+    assert.equal(sparseDay.consumption_on_network, 0.007);
     assert.equal(sparseDay.solar_panel, 0.005);
-    assert.equal(sparseDay.house_consumption, 0.017);
+    assert.equal(sparseDay.house_consumption, 0.012);
     assert.equal(queries.length, 2);
 
     data.power2 = data.power1.map(point => ({...point, _value: 1200}));
@@ -122,20 +127,21 @@ test('energy day endpoints compute missing days once, store them and recompute o
         const response = await recompute('/api/data/energy/day/2026-10-13');
         assert.equal(response.status, 200);
         const fallbackDay = JSON.parse(response.body);
-        assert.equal(fallbackDay.house_consumption, 0.037);
+        assert.equal(fallbackDay.house_consumption, 0.022);
         assert.equal(fallbackDay.battery_charging, null);
-        assert.equal(store.get('2026-10-13').house_consumption, 0.037);
+        assert.equal(store.get('2026-10-13').house_consumption, 0.022);
         const balance = await request('/api/data/consumption/24h?raw=true');
         assert.equal(balance.status, 200);
         assert.deepEqual(JSON.parse(balance.body).house_consumption.map(point => point._value), [1800, 1800]);
     }
     data.battery = data.power1.map(point => ({_time: point._time, packInputPower: 600, outputPackPower: 300}));
     const chargedDay = JSON.parse((await recompute('/api/data/energy/day/2026-10-13')).body);
-    assert.equal(chargedDay.battery_discharging, 0.012);
-    assert.equal(chargedDay.battery_charging, 0.006);
-    assert.equal(chargedDay.house_consumption, 0.043);
+    assert.equal(chargedDay.battery_discharging, 0.007);
+    assert.equal(chargedDay.battery_charging, 0.003);
+    assert.equal(chargedDay.house_consumption, 0.026);
+    assert.equal(chargedDay.coverage_battery, 0.1);
     assert.equal(queries.at(-1).every, undefined); // energy always integrates raw points
-    assert.equal(store.get('2026-10-13').battery_charging, 0.006);
+    assert.equal(store.get('2026-10-13').battery_charging, 0.003);
 
     for (const [suffix, expectedEvery] of [['?every=1m', '1m'], ['?raw=true&every=1h', null], ['', '30m']]) {
         const balance = await request('/api/data/consumption/24h' + suffix);
@@ -160,7 +166,7 @@ test('energy day endpoints compute missing days once, store them and recompute o
     assert.equal(empty.consumption_on_network, null);
     assert.equal(empty.complete, true);
     const kept = JSON.parse((await recompute('/api/data/energy/day/2026-10-13')).body);
-    assert.equal(kept.house_consumption, 0.043);
+    assert.equal(kept.house_consumption, 0.026);
     assert.deepEqual(JSON.parse((await request('/api/data/energy-calendar/')).body),
         [{day: '2026-10-13', complete: true, has_data: true}, {day: '2026-10-14', complete: true, has_data: false}]);
 

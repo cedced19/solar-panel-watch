@@ -1,7 +1,13 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const computeEnergy = require('../lib/compute-energy');
-const {devicesEnergy} = computeEnergy;
+const realComputeEnergy = require('../lib/compute-energy');
+const {devicesEnergy, MAX_HOLD_MS} = realComputeEnergy;
+
+// Most fixtures below read once a minute (or hourly) to keep the arithmetic
+// readable, so they lift the hold cap. The hold and coverage tests use the
+// default cap through realComputeEnergy.
+const computeEnergy = (network, solar, battery, options) =>
+    realComputeEnergy(network, solar, battery, {maxHoldMs: Infinity, ...options});
 
 function points(values, day = 13) {
     return values.map((value, i) => ({
@@ -22,7 +28,7 @@ test('aligned readings preserve grid import/export, solar, house and the 15-seco
         start_date: new Date(network[0]._time), end_date: new Date(network[2]._time),
         consumption_on_network: 0.015, introduced_on_network: -0.005,
         solar_panel: 0.06, battery_discharging: 0, battery_charging: 0, charging_energy_from_network: 0,
-        house_consumption: 0.07
+        house_consumption: 0.07, coverage_network: 100, coverage_solar: 100, coverage_battery: 100
     }]);
 });
 
@@ -268,4 +274,92 @@ test('device energy skips invalid readings and never counts negative power', () 
         {_time: at(2), _value: null}, {_time: at(3), _value: -500}, {_time: at(4), _value: 0}]};
     // 1000 W from 01:00 to 03:00 (the null reading does not change it), nothing below zero.
     assert.equal(devicesEnergy(power, new Date(2026, 9, 13), new Date(2026, 9, 14)), 2);
+});
+
+// Whole kWh of W·s, floored to 3 decimals like the reported fields.
+const kWh = wattSeconds => Math.floor(wattSeconds / 3600) / 1000;
+
+// Readings every `step` seconds from 12:00:00 local time on 13 October.
+function every(step, values, day = 13) {
+    return values.map((value, i) => ({
+        _time: new Date(2026, 9, day, 12, 0, i * step).toISOString(), _value: value
+    }));
+}
+
+test('a reading is held for at most 30 seconds, then the span is missing', () => {
+    assert.equal(MAX_HOLD_MS, 30000);
+    // 1000 W is held 30 s of the 10 minutes before the next reading, plus the 15 s tail of 2000 W.
+    const network = [...every(10, [1000]), ...every(10, [2000]).map(point =>
+        ({...point, _time: new Date(Date.parse(point._time) + 10 * 60 * 1000).toISOString()}))];
+    const [day] = realComputeEnergy(network, []);
+    assert.equal(day.consumption_on_network, kWh(1000 * 30 + 2000 * 15));
+    // Held 45 s out of the 10 min 15 s between the first reading and the end of the last one.
+    assert.equal(day.coverage_network, Math.round(45 / 615 * 1000) / 10);
+    // The old behaviour, a reading held until the next one whatever the gap, stays available.
+    assert.equal(realComputeEnergy(network, [], [], {maxHoldMs: Infinity})[0].consumption_on_network,
+        kWh(1000 * 600 + 2000 * 15));
+});
+
+test('readings up to 30 seconds apart are fully covered and integrate like before', () => {
+    const [day] = realComputeEnergy(every(30, [3600, 3600, 3600]), every(30, [1800, 1800, 1800]));
+    // 3600 W for 30 + 30 s plus the 15 s tail.
+    assert.equal(day.consumption_on_network, kWh(3600 * 75));
+    assert.equal(day.coverage_network, 100);
+    assert.equal(day.coverage_solar, 100);
+    assert.equal(day.solar_panel, kWh(1800 * 75));
+});
+
+test('each series reports its own coverage, null when it has no readings that day', () => {
+    const network = every(10, [600, 600, 600, 600, 600, 600]);
+    // Solar stops after 20 s of the 65 s window; the battery has the same gap in its other direction only.
+    const solar = every(10, [1000, 1000]);
+    const battery = every(10, [0, 0, 0, 0, 0, 0]).map(point => ({_time: point._time, packInputPower: 0, outputPackPower: 0}));
+    const [day] = realComputeEnergy(network, solar, battery);
+    assert.equal(day.coverage_network, 100);
+    // Two readings: 10 s held, then a 15 s tail, out of 65 s.
+    assert.equal(day.coverage_solar, Math.round(25 / 65 * 1000) / 10);
+    assert.equal(day.coverage_battery, 100);
+    const [bare] = realComputeEnergy(network, [], undefined);
+    assert.equal(bare.coverage_solar, null);
+    assert.equal(bare.coverage_battery, null);
+});
+
+test('coverage is measured over the requested period, so a late first reading or an early stop counts as missing', () => {
+    const network = every(10, [600, 600, 600]);
+    const start = new Date(2026, 9, 13, 12).getTime();
+    // Readings cover 12:00:00-12:00:35 of a window opening at 11:59:30 and closing at 12:01:10.
+    const [day] = realComputeEnergy(network, [], [], {from: start - 30000, to: start + 70000});
+    assert.equal(day.coverage_network, 35);
+    // A window that fits inside the readings is fully covered.
+    assert.equal(realComputeEnergy(network, [], [], {from: start + 5000, to: start + 20000})[0].coverage_network, 100);
+});
+
+test('coverage is relative to each local day, and counts the last reading only up to the end of the period', () => {
+    const at = (day, minute, second, value) => ({_time: new Date(2026, 9, day, 0, minute, second).toISOString(), _value: value});
+    const late = (second, value) => ({_time: new Date(2026, 9, 13, 23, 59, second).toISOString(), _value: value});
+    const network = [
+        {_time: new Date(2026, 9, 13, 23, 58).toISOString(), _value: 600},
+        {_time: new Date(2026, 9, 13, 23, 58, 30).toISOString(), _value: 600},
+        late(0, 600), late(30, 600), at(14, 0, 30, 600), at(14, 1, 0, 600)
+    ];
+    const [first, second] = realComputeEnergy(network, [], [], {
+        from: new Date(2026, 9, 13, 23, 58).getTime(), to: new Date(2026, 9, 14, 0, 1).getTime()
+    });
+    // 13th: 120 s from 23:58 to midnight; three 30 s holds and a 15 s tail (the next reading is a day later).
+    assert.equal(first.coverage_network, 87.5);
+    // 14th: the first 30 s have no reading; the last reading is at the end of the period, so it adds no tail.
+    assert.equal(second.coverage_network, 50);
+});
+
+test('night charging and battery energy use the same hold cap', () => {
+    // 5 s readings over 20 s at 3600 W, then nothing for hours, in the 22:00-06:00 window.
+    const at = (second, value) => ({_time: new Date(2026, 9, 13, 23, 0, second).toISOString(),
+        packInputPower: 0, outputPackPower: value});
+    const battery = [at(0, 3600), at(5, 3600), at(10, 3600), at(15, 3600), at(20, 3600)];
+    const network = battery.map(point => ({_time: point._time, _value: 100}));
+    const [day] = realComputeEnergy(network, network, battery);
+    // 20 s between readings plus the 15 s tail.
+    assert.equal(day.battery_charging, 0.035);
+    assert.equal(day.charging_energy_from_network, 0.035);
+    assert.equal(day.coverage_battery, 100);
 });

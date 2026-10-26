@@ -10,7 +10,7 @@ const summary = {
     start_date: new Date(2026, 9, 13, 0, 0, 5), end_date: new Date(2026, 9, 13, 23, 59, 50),
     consumption_on_network: 2, introduced_on_network: -1, solar_panel: 6,
     battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1, house_consumption: 8,
-    devices_consumption: 2
+    devices_consumption: 2, coverage_network: 99.5, coverage_solar: 98.2, coverage_battery: 100
 };
 
 test('the energy day store keeps one summary per day and upserts it', () => {
@@ -21,7 +21,8 @@ test('the energy day store keeps one summary per day and upserts it', () => {
         day: '2026-10-13', start_date: summary.start_date.toISOString(), end_date: summary.end_date.toISOString(),
         consumption_on_network: 2, introduced_on_network: -1, solar_panel: 6,
         battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1, house_consumption: 8,
-        devices_consumption: 2, complete: true, computed_at: computedAt.toISOString(), source: 'influx'
+        devices_consumption: 2, coverage_network: 99.5, coverage_solar: 98.2, coverage_battery: 100,
+        complete: true, computed_at: computedAt.toISOString(), source: 'influx'
     });
     const updated = store.put('2026-10-13', {...summary, solar_panel: null, house_consumption: undefined},
         {complete: false, source: 'influx'});
@@ -78,7 +79,9 @@ test('a store file from before a field existed gets its column, null for the day
     const stored = store.get('2026-10-12');
     assert.equal(stored.battery_charging, 3);
     assert.equal(stored.charging_energy_from_network, null);
+    assert.equal(stored.coverage_network, null);
     assert.equal(store.put('2026-10-13', summary, {complete: true, source: 'influx'}).charging_energy_from_network, 1);
+    assert.equal(store.get('2026-10-13').coverage_solar, 98.2);
     store.close();
     const reopened = createEnergyDayStore(filename);
     assert.equal(reopened.get('2026-10-13').charging_energy_from_network, 1);

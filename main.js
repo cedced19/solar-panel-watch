@@ -543,6 +543,8 @@ app.get('/api/data/consumption/:period', validatePeriod, (req, res) => {
     influxLib.requestConsumptionOverPeriod(req.params.period, every).then(data => {
         res.json(computeConsumptionPower(data, {
             aggregated: Boolean(every),
+            // Readings are now stored at every poll; influx_update_delay no longer
+            // sets how often, only how old a stored reading may be to count as fresh.
             powerMaxAgeMs: (config.influx_update_delay || 15000) * 2,
             batteryMaxAgeMs: getPowerData.batteryRequestThreshold + batteryRequestTimeout
         }));
@@ -1065,10 +1067,6 @@ function saveYesterdayEnergy() {
 }
 new Cron('30 0 * * *', {unref: true}, saveYesterdayEnergy);
 saveYesterdayEnergy();
-// Write data to influx
-setInterval(function () {
-    influxLib.daemon(app.get('env') === 'development', config.save_network_data);
-},config.influx_update_delay);
 
 // Check if energy threshold is not reached (in case of water boiler)
 setInterval(function () {
@@ -1115,18 +1113,17 @@ setInterval(function () {
             if (err) {
                 return console.error("Error while requesting data.");
             }
+            // Every reading is stored, whatever its value: the energy reports
+            // integrate these points and treat longer gaps as missing data.
+            if (config.save_network_data) {
+                // log also data from network
+                influxLib.writeNetworkData(app.get('env') === 'development', save);
+            } else {
+                // simply log power
+                influxLib.writePowerRaw(app.get('env') === 'development', save);
+            }
             let power = save.emeters[0].power - get_power_from_activated_devices();
             //power = -800; // for test
-            if (power < 0) {
-                if (config.save_network_data) {
-                    // log also data from network
-                    influxLib.writeNetworkData(app.get('env') === 'development', save);
-                } else {
-                    // simply log power
-                    influxLib.writePowerRaw(app.get('env') === 'development', save);
-                }
-                
-            }
             //print("Power available: " + power);
             // Forcing first, then the battery: devices that are not forced only share
             // surplus once the battery allows it.

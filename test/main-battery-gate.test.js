@@ -67,6 +67,7 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
         getAll: () => []
     };
     const batteryHistory = {points: [], queries: [], writes: [], csvCalls: [], csvColumns: []};
+    const powerWrites = [];
     const energyStore = createEnergyDayStore(':memory:');
     const energyQueries = [];
     const energyFailure = {error: null};
@@ -76,11 +77,12 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
             if (energyFailure.error) throw energyFailure.error;
             return {power1: [
                 {_time: new Date(start.getTime() + 12 * 3600 * 1000).toISOString(), _value: 600},
-                {_time: new Date(start.getTime() + 12 * 3600 * 1000 + 60 * 1000).toISOString(), _value: 600}
+                {_time: new Date(start.getTime() + 12 * 3600 * 1000 + 30 * 1000).toISOString(), _value: 600}
             ], power2: [], battery: []};
         },
         async requestDevicePowerOverRange() { return {}; },
-        daemon() {}, writePower() {}, writePowerRaw() {}, writeNetworkData() {},
+        writePower() {}, writePowerRaw(_debug, save) { powerWrites.push(save); },
+        writeNetworkData(_debug, save) { powerWrites.push(save); },
         writeVar() {}, requestLastVar: async () => [], requestVarOverPeriod: async () => [],
         getMaxValueOverData: () => 0,
         writeBatteryLevel(debug, battery) {
@@ -184,7 +186,7 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
             assert.equal(debug.requested_alpha, 128);
         }
     }
-    return {main, readings, batteryHistory, energyStore, energyQueries, energyFailure, request, token, force, startBackgroundTasks,
+    return {main, readings, batteryHistory, powerWrites, energyStore, energyQueries, energyFailure, request, token, force, startBackgroundTasks,
         controlTick, batteryTick, initializeDevices, assertDevicesOff, assertRequestedPowerOff};
 }
 
@@ -527,7 +529,8 @@ test('the energy of the previous day is saved at startup and every day at 00:30'
     assert.deepEqual(queriedDays()[1], [new Date(2026, 9, 23), new Date(2026, 9, 24)]);
     const saved = app.energyStore.get('2026-10-23');
     assert.equal(saved.complete, true);
-    assert.equal(saved.consumption_on_network, 0.012);
+    // 600 W for the 30 s between the readings and the 15 s tail.
+    assert.equal(saved.consumption_on_network, 0.007);
     await advanceTo(new Date(2026, 9, 24, 23, 59));
     assert.equal(app.energyQueries.length, 2);
 
@@ -590,4 +593,17 @@ test('battery history graph routes render the requested period and dashboard ent
     const dashboard = await app.request('/');
     assert.equal(dashboard.status, 200);
     assert.match(dashboard.body, /href="\/graph\/battery\/24h"/);
+});
+
+test('every power reading polled by the control loop is stored, whatever its value', async (t) => {
+    const app = await createServer(t);
+    await app.initializeDevices();
+    for (const power of [-3000, 0, 450, -20]) {
+        app.readings.power = power;
+        app.controlTick();
+    }
+    assert.deepEqual(app.powerWrites.map(save => save.emeters[0].power), [-3000, 0, 450, -20]);
+    app.readings.powerError = new Error('Zendure unavailable');
+    app.controlTick();
+    assert.equal(app.powerWrites.length, 4, 'a failed poll stores nothing');
 });

@@ -38,6 +38,19 @@
                 p.textContent = '<%= __("Partial day")%>';
                 container.appendChild(p);
             }
+            // Share of the day each source has readings for (null before the field existed).
+            const coverage = [['<%= __("Coverage grid")%>', row.coverage_network],
+                ['<%= __("Coverage solar")%>', row.coverage_solar],
+                ['<%= __("Coverage battery")%>', row.coverage_battery]].filter(([, value]) => Number.isFinite(value));
+            if (coverage.length) {
+                const gaps = coverage.some(([, value]) => value < 100);
+                const p = document.createElement('p');
+                p.className = 'energy-coverage-note' + (gaps ? ' energy-coverage-gaps' : '');
+                p.textContent = '<%= __("Data coverage")%>: ' +
+                    coverage.map(([label, value]) => label + ' ' + value + ' %').join(', ') +
+                    (gaps ? '. <%= __("Coverage gaps note")%>' : '');
+                container.appendChild(p);
+            }
             const table = document.createElement('table');
             const thead = document.createElement('thead');
             const header = document.createElement('tr');

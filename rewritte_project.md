@@ -21,7 +21,7 @@ The web interface provides live readings, power and battery graphs, energy summa
 | Frontend | EJS pages, CSS and browser JavaScript with Plotly. Some substantial browser logic lives inside templates. |
 | Deployment/testing | Docker Compose and a systemd example; 11 test files covering adapters, recovery, battery gates, APIs, history and browser graph behavior. `bot/` contains simulated polling clients. |
 
-The checked-in configuration selects Zendure house power, polls power every 1 second and battery status every 20 seconds, and schedules regular power-history writes every 15 seconds. Surplus operation can trigger additional power writes. The battery minimum is **99%**, and permission requires SOC **strictly above** that value; the code default when omitted is 80%. The configured timezone is `Europe/Paris`.
+The checked-in configuration selects Zendure house power, polls power every 1 second and battery status every 20 seconds, and stores every power reading it polls in the power history (no separate 15-second writer, no condition on the value). The battery minimum is **99%**, and permission requires SOC **strictly above** that value; the code default when omitted is 80%. The configured timezone is `Europe/Paris`.
 
 ## Language comparison
 
@@ -52,7 +52,7 @@ Use the same state-owner/channel design as Go. For InfluxDB, evaluate a communit
 - **Availability:** house-meter failure closes the device gate, with no automatic fallback to Shelly. Missing solar remains `null` and a gap in history; measured zero remains zero. Battery failure leaves house readings available but closes the device gate.
 - **Battery freshness:** cached responses must retain their original reading time. Current expiry is the battery interval plus the request timeout. Preserve the strict SOC comparison and its precedence over forced mode.
 - **Device protocol:** preserve names/IDs, response fields, polling intervals, priority allocation, hysteresis and the alpha calibration table (`128` means off). A server outage requires device clients to implement their own timeout-to-off behavior.
-- **Energy semantics:** daily totals currently assume aligned house/solar arrays and use server-local dates, a fixed 15-second final tail and special midnight handling. Solar gaps can invalidate that assumption. Device energy uses either Flux's trapezoidal integral or a staircase calculation with a tail to the present; these are not equivalent. Add reference cases and decide which differences are compatibility requirements versus corrections, including timezone/DST and missing samples.
+- **Energy semantics:** daily totals currently assume aligned house/solar arrays and use server-local dates, a fixed 15-second final tail and special midnight handling. A reading is held for at most 30 seconds; longer gaps are missing and reported as per-day coverage. Solar gaps can invalidate the aligned-arrays assumption. Device energy uses either Flux's trapezoidal integral or a staircase calculation with a tail to the present; these are not equivalent. Add reference cases and decide which differences are compatibility requirements versus corrections, including timezone/DST and missing samples.
 - **Persistence and API hygiene:** import existing JSON state before switching ownership. Move credentials from tracked configuration/deployment files to runtime secrets; replace password-bearing forced-control GET URLs with authenticated mutation requests through a deliberate compatibility transition.
 
 ## Practical migration

@@ -544,6 +544,14 @@ body.graph-page .graph-card {
   color: #92400e;
 }
 
+.energy-coverage-note {
+  margin: 0 0 10px;
+}
+
+.energy-coverage-gaps {
+  color: #92400e;
+}
+
 .energy-recompute {
   margin-top: 12px;
 }

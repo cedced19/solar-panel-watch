@@ -11,7 +11,7 @@ function setup(nowDate, devices) {
     const state = {
         data: {power1: [
             {_time: new Date(2026, 9, 13, 12).toISOString(), _value: 600},
-            {_time: new Date(2026, 9, 13, 12, 1).toISOString(), _value: 600}
+            {_time: new Date(2026, 9, 13, 12, 0, 30).toISOString(), _value: 600}
         ], power2: [], battery: []}
     };
     const influx = {
@@ -31,7 +31,7 @@ function setup(nowDate, devices) {
 test('a complete stored day is served without a new query, a forced one recomputes it', async () => {
     const {queries, state, energyDays} = setup(new Date(2026, 9, 20));
     const row = await energyDays.getDay('2026-10-13');
-    assert.equal(row.consumption_on_network, 0.012);
+    assert.equal(row.consumption_on_network, 0.007);
     assert.equal(row.complete, true);
     assert.deepEqual([queries[0].start, queries[0].stop], [new Date(2026, 9, 13), new Date(2026, 9, 14)]);
     assert.deepEqual(await energyDays.getDay('2026-10-13'), row);
@@ -39,7 +39,7 @@ test('a complete stored day is served without a new query, a forced one recomput
 
     state.data = {...state.data, power1: state.data.power1.map(point => ({...point, _value: 1200}))};
     const forced = await energyDays.getDay('2026-10-13', {force: true});
-    assert.equal(forced.consumption_on_network, 0.025);
+    assert.equal(forced.consumption_on_network, 0.015);
     assert.equal(queries.length, 2);
 });
 
@@ -128,4 +128,32 @@ test('without devices the figure stays empty and no device power is queried', as
     const {queries, energyDays} = setup(new Date(2026, 9, 20));
     assert.equal((await energyDays.getDay('2026-10-13')).devices_consumption, null);
     assert.ok(queries.every(query => !query.devices));
+});
+
+test('coverage is measured over the whole day once it is over, and up to now for today', async () => {
+    const {state, energyDays, setNow} = setup(new Date(2026, 9, 14, 1));
+    state.data = {...state.data, power2: state.data.power1};
+    const complete = await energyDays.getDay('2026-10-13');
+    // 30 s held plus the 15 s tail out of 24 hours, for grid and solar; no battery readings.
+    assert.equal(complete.coverage_network, Math.round(45 / 86400 * 1000) / 10);
+    assert.equal(complete.coverage_solar, complete.coverage_network);
+    assert.equal(complete.coverage_battery, null);
+
+    // At 12:00:45 the period is midnight to now, and the tail counts only up to now.
+    setNow(new Date(2026, 9, 13, 12, 0, 45));
+    const today = await energyDays.getDay('2026-10-13', {force: true});
+    assert.equal(today.complete, false);
+    assert.equal(today.coverage_network, Math.round(45 / (12 * 3600 + 45) * 1000) / 10);
+});
+
+test('a gap in the readings lowers the coverage of the day and is not integrated', async () => {
+    const {state, energyDays} = setup(new Date(2026, 9, 20));
+    // 600 W every 10 s for a minute, nothing for 10 minutes, then again for a minute.
+    const burst = (minute) => Array.from({length: 7}, (_, i) =>
+        ({_time: new Date(2026, 9, 13, 12, minute, i * 10).toISOString(), _value: 600}));
+    state.data = {power1: [...burst(0), ...burst(11)], power2: [], battery: []};
+    const row = await energyDays.getDay('2026-10-13');
+    // Held: 60 s, then 30 s of the 10-minute gap, then 60 s and the 15 s tail = 165 s at 600 W = 27.5 Wh.
+    assert.equal(row.consumption_on_network, 0.027);
+    assert.equal(row.coverage_network, Math.round(165 / 86400 * 1000) / 10);
 });

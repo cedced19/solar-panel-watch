@@ -13,6 +13,7 @@ function page(name, data, locals) {
     }, {filename});
     const nodes = new Map();
     const cells = [];
+    const notes = [];
     const plots = new Map();
     function element(tag) {
         const classes = new Set();
@@ -24,6 +25,7 @@ function page(name, data, locals) {
             addEventListener(type, listener) { (this.listeners[type] = this.listeners[type] || []).push(listener); },
             closest() { return {offsetWidth: 1000}; }};
         if (tag === 'td') cells.push(node);
+        if (tag === 'p') notes.push(node);
         return node;
     }
     // The visuals read their labels and options from the data-* attributes of their container.
@@ -54,10 +56,10 @@ function page(name, data, locals) {
             vm.runInContext(script[2], context);
         }
     }
-    return {context, cells, nodes, plots};
+    return {context, cells, notes, nodes, plots};
 }
 
-async function renderTable(name, [row]) {
+async function renderPage(name, row) {
     const result = page(name, row);
     if (name === 'energy-calendar') {
         result.context.energyData = row;
@@ -66,8 +68,18 @@ async function renderTable(name, [row]) {
         vm.runInContext('loadData()', result.context);
         await new Promise(resolve => setImmediate(resolve));
     }
+    return result;
+}
+
+async function renderTable(name, [row]) {
+    const result = await renderPage(name, row);
     return result.cells.map(cell => cell.children.length ?
         cell.children.map(child => child.textContent).join('') : String(cell.textContent));
+}
+
+// Texts of the notes shown above the day table (partial day, data coverage).
+async function renderNotes(name, row) {
+    return (await renderPage(name, row)).notes.map(note => note.textContent);
 }
 
 const day = {
@@ -95,6 +107,17 @@ for (const name of ['energy-calendar', 'energy']) {
             battery_discharging: 4, battery_charging: 3, charging_energy_from_network: 1,
             introduced_on_network: -1, house_consumption: 8, devices_consumption: 2}]);
         assert.deepEqual(text.slice(2), ['2 (25%)', '6', '4', '3', '1', '8', '2 (25%)', '-1', '6 (75%)']);
+    });
+
+    test(`${name} shows the data coverage of each source and says missing readings are not counted`, async () => {
+        const withGaps = await renderNotes(name, {...day, coverage_network: 99.5, coverage_solar: 87.3, coverage_battery: null});
+        assert.deepEqual(withGaps, ['Data coverage: Coverage grid 99.5 %, Coverage solar 87.3 %. Coverage gaps note']);
+        const classes = (await renderPage(name, {...day, coverage_network: 99.5})).notes.map(note => note.className);
+        assert.deepEqual(classes, ['energy-coverage-note energy-coverage-gaps']);
+        const full = await renderNotes(name, {...day, coverage_network: 100, coverage_solar: 100, coverage_battery: 100});
+        assert.deepEqual(full, ['Data coverage: Coverage grid 100 %, Coverage solar 100 %, Coverage battery 100 %']);
+        // Days stored before the coverage existed show no note.
+        assert.deepEqual(await renderNotes(name, day), []);
     });
 
     test(`${name} preserves recorded legacy totals without inventing battery energy`, async () => {

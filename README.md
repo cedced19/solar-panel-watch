@@ -302,6 +302,19 @@ computed before it ended).
   household's solar first (an estimate from the day totals). A button on the
   energy flow hides the devices from both charts (the choice is kept in the
   browser); the table always shows the figure.
+- Power readings are stored at every poll (every second with the default
+  `zendure_req_threshold`), whatever their value. The energy of a day integrates
+  them: a reading is held until the next one, for at most 30 seconds. A longer
+  gap is missing, so its energy is not counted, and each day reports its
+  coverage as `coverage_network`, `coverage_solar` and `coverage_battery`: the
+  percentage of the day (up to now for today) that the grid, solar and battery
+  readings cover. Totals are a minimum when coverage is below 100 %. The day
+  table shows it above the figures. Days stored before this field have it empty
+  until they are recomputed with "Recompute"; that recomputation also applies
+  the 30 s limit, so its totals can come out lower than before.
+  `influx_update_delay` no longer sets how often power is stored; it only sets
+  how old a stored reading may be to count as fresh in the power graph (twice
+  its value).
 - `GET /api/data/energy/days?start=YYYY-MM-DD&end=YYYY-MM-DD` returns
   `{days, stale}`; `GET /api/data/energy/day/<date>` returns one day;
   `POST /api/data/energy/day/<date>/recompute` forces a calculation.
