@@ -401,6 +401,31 @@ reference does not specify its scaling or sign. Verify `power_scale` against
 the Zendure app and a known import/export condition before relying on surplus
 power decisions.
 
+### State report
+
+The last button of the dashboard (also shown on the page displayed while the house
+power is unavailable) downloads `GET /api/report`: one plain-text file with the
+current state of the installation, written to be handed to an AI agent
+([`lib/state-report.js`](lib/state-report.js)). Like the dashboard it is public.
+It holds, in this order:
+
+1. the Zendure battery: current reading, then its settings and diagnostics;
+2. the Zendure sensor (house power meter), or `NOT USED` when `house_power_source`
+   is `shelly`;
+3. the Shelly energy meters;
+4. the device decisions: the battery gate (open or closed and why), the power
+   available to the devices, and for each device whether it is on or off, what
+   blocks it (forcing, battery gate, maximum energy, control variable target) and
+   its last state;
+5. the current `devices-to-activate.json`, as it is on disk, with a warning when it
+   differs from the devices the running process started with.
+
+Every source is read when the file is requested, in parallel and for at most 5 s.
+One that does not answer is written as `NOT CONNECTED` with its error, and the rest
+of the report is kept. Units are part of the key names, times are UTC, and a short
+legend at the top of the file explains the sign of the house power and how the
+decisions are taken. `config.json` is never included, since it holds secrets.
+
 ## Standalone Zendure Smart Meter probe
 
 Run the read-only probe from a computer on the meter's LAN, using Node.js 18 or newer.

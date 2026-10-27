@@ -59,6 +59,7 @@
       <a class="retry-button" href="/"><span aria-hidden="true">↻</span><%= __('Retry')%></a>
       <p class="safety-note"><%= __('Safety mode')%></p>
       <a href="/nomenclature/"><%= __('Nomenclature') %></a>
+      <a href="/api/report"><%= __('Download report') %></a>
     </main>
   <% } else{ %>
   <main class="dashboard-shell" id="dashboard" data-unavailable="<%= __('Unavailable')%>">
@@ -157,6 +158,13 @@
           <li><a  href="/config/"><%= __('Configuration')%></a></li>
         </ul>
       </nav>
+
+      <div class="report-download">
+        <a class="action-button" href="/api/report">
+          <span class="action-icon" aria-hidden="true"><img src="/assets/icons/report-download.svg" alt=""></span>
+          <span><%= __('Download report')%></span>
+        </a>
+      </div>
     </div>
   <% if(recovered_shelly_ip){ %>
     <p class="recovery-warning"><strong><%= __('Recovered Shelly warning')%></strong> <code><%= recovered_shelly_ip %></code></p>

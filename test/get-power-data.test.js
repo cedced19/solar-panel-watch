@@ -187,3 +187,38 @@ test('uses defaults and exposes recovery states for the selected house, solar an
   assert.strictEqual(client.getShellyRecoveryState(), shellyState);
   assert.strictEqual(client.getBatteryRecoveryState(), batteryState);
 });
+
+test('reads the Zendure sensor on its own, whatever the house power source, and reports client errors', async () => {
+  const client = createGetPowerData({
+    config: {house_power_source: 'shelly'},
+    shellyClient: {req: () => assert.fail('the Shelly is not part of this request')},
+    meterClient: {reqPower: callback => callback(null, {power: -430, time: 1760000000})}
+  });
+  const data = await new Promise((resolve, reject) => client.reqMeter((error, value) => error ? reject(error) : resolve(value)));
+  assert.deepEqual(data, {power: -430, time: 1760000000});
+
+  const broken = createGetPowerData({config: {house_power_source: 'shelly'}, shellyClient: {}, meterClient: {reqPower() { throw new Error('Zendure host is invalid.'); }}});
+  const error = await new Promise(resolve => broken.reqMeter(resolve));
+  assert.equal(error.message, 'Zendure host is invalid.');
+});
+
+test('reads the Shelly on its own and shares the request with the house power request', async () => {
+  let requests = 0;
+  let shellyCallback;
+  const status = {time: 1750000000, emeters: [{power: 999}, {power: 850}]};
+  const client = createGetPowerData({
+    config: {},
+    shellyClient: {req(callback) { requests++; shellyCallback = callback; }},
+    meterClient: {reqPower: callback => callback(null, {power: -430, time: 1760000000})}
+  });
+  const house = power(client);
+  const shelly = new Promise((resolve, reject) => client.reqShelly((error, value) => error ? reject(error) : resolve(value)));
+  assert.equal(requests, 1);
+  shellyCallback(null, status);
+  assert.strictEqual(await shelly, status);
+  await house;
+
+  const failing = createGetPowerData({config: {}, shellyClient: {req: callback => callback(new Error('Shelly request timed out.'))}, meterClient: {}});
+  const error = await new Promise(resolve => failing.reqShelly(resolve));
+  assert.equal(error.message, 'Shelly request timed out.');
+});

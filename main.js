@@ -25,6 +25,7 @@ const { createAuth, readOptions } = require('./lib/auth.js');
 const { createConfigPanel } = require('./lib/config-panel.js');
 const { createEnergyDayStore } = require('./lib/energy-day-store.js');
 const { createEnergyDays, isValidDay, dayBounds, previousDay } = require('./lib/energy-days.js');
+const { createStateReport } = require('./lib/state-report.js');
 const { Cron } = require('croner');
 
 
@@ -276,6 +277,33 @@ function get_power_from_activated_devices() {
     return sum;
 }
 
+// What the controller currently decides, for the state report (lib/state-report.js).
+// Devices come in priority order; a device that never called the app has no state yet.
+function getDecisionState() {
+    return {
+        gate: getDeviceChargingStatus(),
+        batterySettings,
+        powerDataAvailable,
+        activatedDevicesPowerW: get_power_from_activated_devices(),
+        devices: devices_to_activate.map(device => {
+            const state = devices_to_activate_state[device.uri] || null;
+            return {
+                config: device,
+                state,
+                connected: state !== null && is_device_connected(device.time_limit, state.last_call, 20)
+            };
+        })
+    };
+}
+
+const stateReport = createStateReport({
+    sources: getPowerData,
+    getDecisionState,
+    devicesPath: path.join(__dirname, 'devices-to-activate.json'),
+    runningDevices: running_devices,
+    timezone: config.timezone
+});
+
 function pretty_name(name) {
     name = name.replaceAll('-', ' ');
     let words = name.split(' ');
@@ -472,6 +500,19 @@ app.get('/api/battery/settings', function(req, res) {
         }
         res.json(settings);
     });
+});
+
+// One text file with the battery, Zendure sensor, Shelly, device decisions and
+// devices-to-activate.json; see lib/state-report.js. Public like the dashboard it is linked from.
+app.get('/api/report', function(req, res, next) {
+    stateReport.build().then(function (report) {
+        res.set({
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="' + report.filename + '"',
+            'Cache-Control': 'no-store'
+        });
+        res.send(report.text);
+    }, next);
 });
 
 app.get('/api/data/battery/:period', validatePeriod, (req, res, next) => {

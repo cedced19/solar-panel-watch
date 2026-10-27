@@ -393,6 +393,29 @@ body.dashboard-page {
   background: #eff6ff;
 }
 
+.report-download {
+  grid-column: 1 / -1;
+}
+
+.report-download .action-button {
+  display: inline-flex;
+  gap: 8px;
+  min-height: 0;
+  padding: 8px 12px;
+  font-size: .9rem;
+}
+
+.report-download .action-icon {
+  flex-basis: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+.report-download .action-icon img {
+  width: 16px;
+  height: 16px;
+}
+
 .recovery-warning {
   margin: 16px 0 0;
   padding: 12px 16px;

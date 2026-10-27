@@ -539,5 +539,6 @@
 	"Other household use": "Consommation de la maison",
 	"Hide activated devices": "Masquer les appareils activés",
 	"Show activated devices": "Afficher les appareils activés",
-	"Solar uses devices note": "Estimation : les appareils activés sont comptés comme utilisant d’abord le solaire."
+	"Solar uses devices note": "Estimation : les appareils activés sont comptés comme utilisant d’abord le solaire.",
+	"Download report": "Télécharger le rapport"
 }
