@@ -4,7 +4,8 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const {fillDefaults, ensureConfig} = require('../lib/config-file');
+const {fillDefaults, ensureConfig, ensureDevices} = require('../lib/config-file');
+const {validateDevices} = require('../lib/config-panel');
 
 const defaults = {
     timezone: 'Europe/Paris',
@@ -67,4 +68,39 @@ test('ensureConfig completes an existing config.json and leaves a complete one u
     assert.deepEqual(ensureConfig(files), completed);
     assert.equal(fs.readFileSync(files.configPath, 'utf8'), before);
     assert.equal(fs.existsSync(files.configPath + '.bak'), false, 'nothing is written when nothing changed');
+});
+
+const devicesDefault = [
+    {uri: 'heater', power_limit: 2600, time_limit: 2500, power_threshold_percentage: 0.04, ids: ['abc12'], priority: 1}
+];
+
+function tempDevices(t, devices) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'devices-file-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    const files = {devicesPath: path.join(dir, 'devices-to-activate.json'), defaultPath: path.join(dir, 'devices-to-activate-default.json')};
+    fs.writeFileSync(files.defaultPath, JSON.stringify(devicesDefault, null, 4));
+    if (devices) fs.writeFileSync(files.devicesPath, JSON.stringify(devices, null, 4));
+    return files;
+}
+
+test('the tracked devices-to-activate-default.json holds devices the app can run', () => {
+    const tracked = JSON.parse(fs.readFileSync(path.join(__dirname, '../devices-to-activate-default.json'), 'utf8'));
+    assert.equal(validateDevices(tracked), null);
+    assert.ok(tracked.length > 0);
+});
+
+test('ensureDevices creates devices-to-activate.json from the template when it is missing', (t) => {
+    const files = tempDevices(t);
+    assert.deepEqual(ensureDevices(files), devicesDefault);
+    assert.deepEqual(JSON.parse(fs.readFileSync(files.devicesPath, 'utf8')), devicesDefault);
+    assert.equal(fs.existsSync(files.devicesPath + '.bak'), false);
+});
+
+test('ensureDevices never touches an existing file, even one that lacks keys of the template', (t) => {
+    const edited = [{uri: 'heater', power_limit: 1000, time_limit: 2500, ids: ['abc12'], priority: 1}, {uri: 'pump'}];
+    const files = tempDevices(t, edited);
+    const before = fs.readFileSync(files.devicesPath, 'utf8');
+    assert.deepEqual(ensureDevices(files), edited);
+    assert.equal(fs.readFileSync(files.devicesPath, 'utf8'), before);
+    assert.equal(fs.existsSync(files.devicesPath + '.bak'), false);
 });

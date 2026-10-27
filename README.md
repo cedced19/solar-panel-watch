@@ -64,9 +64,11 @@ It can also be edited online, see [Configuration panel](#configuration-panel).
 
 ## Configuration panel
 
-`/config/` (linked from the dashboard) edits `config.json` in the browser, as a
-form or as raw JSON. It and the force page (`/force/`) are the only pages that
-need a login; every other page and API stays open. Both pages share the same
+`/config/` (linked from the dashboard) edits `config.json` and
+[`devices-to-activate.json`](#devices-to-activatejson) in the browser, as a
+form or as raw JSON; the tabs above the form switch between the two files. It
+and the force page (`/force/`) are the only pages that need a login; every
+other page and API stays open. Both pages share the same
 login and token, so signing in on one signs in on the other. The login works
 like domotic-center:
 
@@ -80,11 +82,11 @@ address and one of its [app passwords](https://myaccount.google.com/apppasswords
 The code is sent through it and it is saved to `config.json` only once that code
 is verified, so the sender is known to work and never has to be committed.
 
-Saving keeps the previous file in `config.json.bak`. Changes to `auth`
-(allowed emails, sender) apply immediately, and removing an address ends its
-sessions. Other settings are read at startup, so the panel then offers a
-restart: the process exits and docker/systemd (`restart: always`) starts it
-again. Under nodemon (`docker-compose-reload.yml`) the app stays stopped until
+Saving keeps the previous file in `config.json.bak` (`devices-to-activate.json.bak`
+for the devices). Changes to `auth` (allowed emails, sender) apply immediately,
+and removing an address ends its sessions. Other settings and the devices are
+read at startup, so the panel then offers a restart: the process exits and
+docker/systemd (`restart: always`) starts it again. Under nodemon (`docker-compose-reload.yml`) the app stays stopped until
 the next file change.
 
 ## Forcing devices
@@ -102,6 +104,27 @@ gives it back to the automatic logic, once signed in. Its API takes the same
 A device that has not called the app since it started returns HTTP 404.
 
 ## devices-to-activate.json
+
+`devices-to-activate.json` lists the devices the app controls and is not tracked
+by git, like `config.json`. `devices-to-activate-default.json` is the tracked
+template: on start (and before `npm test`), a missing `devices-to-activate.json`
+is created from it. Unlike `config.json`, an existing file is never completed
+from the template, because the optional keys (`min_alpha`, `max_energy_val`,
+`max_control_var_val`, ...) switch a feature on for a device.
+
+It is edited on the `/config/` page ([Configuration panel](#configuration-panel)),
+which refuses a file the app could not start with: a device needs a `uri` of
+letters, digits, `-` and `_` (unique), a positive `power_limit` and `time_limit`,
+a `power_threshold_percentage` between 0 and 1, a number `priority` and a list
+of `ids`. Devices can be added or removed in the JSON tab. Server-side
+procedure and the meaning of the margin: [EDIT_CONFIG.md](EDIT_CONFIG.md).
+
+> **Upgrading a checkout where `devices-to-activate.json` was still tracked:**
+> pulling the commit that untracks it stops with "Your local changes would be
+> overwritten" if the file was edited, and deletes it otherwise (the app then
+> recreates it from the template, losing your values). Keep a copy first:
+> `cp -p devices-to-activate.json devices-to-activate.local.json && git checkout devices-to-activate.json && git pull && mv devices-to-activate.local.json devices-to-activate.json`.
+
 ```json
 [
     {

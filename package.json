@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node main.js",
     "dev": "nodemon main.js",
-    "pretest": "node -e \"require('./lib/config-file.js').ensureConfig()\"",
+    "pretest": "node -e \"const c = require('./lib/config-file.js'); c.ensureConfig(); c.ensureDevices()\"",
     "test": "node --test test/*.test.js"
   },
   "devDependencies": {

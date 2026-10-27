@@ -6,7 +6,7 @@ const test = require('node:test');
 const express = require('express');
 
 const {createAuth, readOptions} = require('../lib/auth');
-const {createConfigPanel, validateConfig} = require('../lib/config-panel');
+const {createConfigPanel, validateConfig, validateDevices} = require('../lib/config-panel');
 
 const initialConfig = {
     timezone: 'Europe/Paris',
@@ -14,12 +14,19 @@ const initialConfig = {
     auth: {mails: ['cedced19@gmail.com'], sender: {user: 'robot@gmail.com', pass: 'app-pass'}, jwt_secret: 'test-secret'}
 };
 
+const initialDevices = [
+    {uri: 'heater', power_limit: 2600, time_limit: 2500, power_threshold_percentage: 0.1, ids: ['abc12'], priority: 1, min_alpha: 40},
+    {uri: 'boiler', power_limit: 2300, time_limit: 2500, power_threshold_percentage: 0.12, ids: ['def34'], priority: 2}
+];
+
 // checkSender(options) stands for the SMTP login check of a new sender.
 async function startPanel(t, {config = initialConfig, checkSender = () => Promise.resolve()} = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'config-panel-'));
     const configPath = path.join(dir, 'config.json');
     fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
     fs.chmodSync(configPath, 0o640);
+    const devicesPath = path.join(dir, 'devices-to-activate.json');
+    fs.writeFileSync(devicesPath, JSON.stringify(initialDevices, null, 4));
     const sent = [];
     const auth = createAuth(readOptions(config), {
         mailer: (options, to, code) => {
@@ -30,7 +37,9 @@ async function startPanel(t, {config = initialConfig, checkSender = () => Promis
     });
     let restarts = 0;
     const app = express();
-    app.use(createConfigPanel({configPath, runningConfig: config, auth, restart: () => { restarts++; }}));
+    app.use(createConfigPanel({
+        configPath, runningConfig: config, devicesPath, runningDevices: initialDevices, auth, restart: () => { restarts++; }
+    }));
     const server = await new Promise((resolve) => {
         const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
     });
@@ -56,7 +65,7 @@ async function startPanel(t, {config = initialConfig, checkSender = () => Promis
         return res.body.token;
     }
 
-    return {call, login, sent, configPath, restarts: () => restarts};
+    return {call, login, sent, configPath, devicesPath, restarts: () => restarts};
 }
 
 test('validateConfig keeps at least one valid allowed email', () => {
@@ -67,12 +76,31 @@ test('validateConfig keeps at least one valid allowed email', () => {
     assert.deepEqual(validateConfig({auth: {mails: ['a@b.fr', 'nope']}}), {error: 'invalid-mail', value: 'nope'});
 });
 
+test('validateDevices accepts the devices main.js can run and names the first one it cannot', () => {
+    assert.equal(validateDevices(initialDevices), null);
+    assert.equal(validateDevices([]), null);
+    assert.deepEqual(validateDevices({}), {error: 'devices-array'});
+    assert.deepEqual(validateDevices([initialDevices[0], 'boiler']), {error: 'device-object', value: '#2'});
+    assert.deepEqual(validateDevices([{...initialDevices[0], uri: 'a/b'}]), {error: 'device-uri', value: 'a/b'});
+    assert.deepEqual(validateDevices([{...initialDevices[0], uri: undefined}]), {error: 'device-uri', value: '#1'});
+    assert.deepEqual(validateDevices([initialDevices[0], initialDevices[0]]), {error: 'device-duplicate', value: 'heater'});
+    const broken = (change) => validateDevices([{...initialDevices[0], ...change}]);
+    assert.deepEqual(broken({power_limit: 0}), {error: 'device-field', value: 'heater.power_limit'});
+    assert.deepEqual(broken({time_limit: '2500'}), {error: 'device-field', value: 'heater.time_limit'});
+    assert.deepEqual(broken({power_threshold_percentage: 4}), {error: 'device-field', value: 'heater.power_threshold_percentage'});
+    assert.deepEqual(broken({priority: null}), {error: 'device-field', value: 'heater.priority'});
+    assert.deepEqual(broken({ids: 'abc12'}), {error: 'device-field', value: 'heater.ids'});
+    assert.deepEqual(broken({ids: [12]}), {error: 'device-field', value: 'heater.ids'});
+});
+
 test('the config API requires a login while the request endpoint does not reveal the whitelist', async (t) => {
     const panel = await startPanel(t);
 
     assert.equal((await panel.call('GET', '/api/config')).status, 401);
     assert.equal((await panel.call('GET', '/api/config', {token: 'bad.token.value'})).status, 401);
     assert.equal((await panel.call('PUT', '/api/config', {body: {}})).status, 401);
+    assert.equal((await panel.call('GET', '/api/config/devices')).status, 401);
+    assert.equal((await panel.call('PUT', '/api/config/devices', {body: []})).status, 401);
     assert.equal((await panel.call('POST', '/api/config/restart')).status, 401);
     assert.equal((await panel.call('GET', '/api/auth/me')).status, 401);
 
@@ -118,6 +146,50 @@ test('saving writes config.json with a backup, applies the whitelist and flags a
     const withoutMe = {...newDelay, auth: {...newDelay.auth, mails: ['friend@example.com']}};
     assert.equal((await panel.call('PUT', '/api/config', {token, body: withoutMe})).status, 200);
     assert.equal((await panel.call('GET', '/api/config', {token})).status, 401);
+});
+
+test('devices-to-activate.json is read and saved like config.json, with its own checks and backup', async (t) => {
+    const panel = await startPanel(t);
+    const token = await panel.login();
+    const readSaved = () => JSON.parse(fs.readFileSync(panel.devicesPath, 'utf8'));
+
+    assert.deepEqual(await panel.call('GET', '/api/config/devices', {token}), {
+        status: 200, body: {ok: true, devices: initialDevices, restart_required: false}
+    });
+
+    const invalid = await panel.call('PUT', '/api/config/devices', {token, body: [{...initialDevices[0], power_limit: -5}]});
+    assert.deepEqual(invalid, {status: 400, body: {ok: false, error: 'device-field', value: 'heater.power_limit'}});
+    assert.deepEqual((await panel.call('PUT', '/api/config/devices', {token, body: {}})).body, {ok: false, error: 'devices-array'});
+    assert.deepEqual((await panel.call('PUT', '/api/config/devices', {token, body: '{oops'})).body, {ok: false, error: 'invalid-json'});
+    assert.deepEqual(readSaved(), initialDevices);
+    assert.equal(fs.existsSync(panel.devicesPath + '.bak'), false);
+
+    // The margin of the heater is raised: every device setting is read at startup.
+    const edited = [{...initialDevices[0], power_threshold_percentage: 0.2}, initialDevices[1]];
+    const saved = await panel.call('PUT', '/api/config/devices', {token, body: edited});
+    assert.deepEqual(saved, {status: 200, body: {ok: true, devices: edited, restart_required: true}});
+    assert.deepEqual(readSaved(), edited);
+    assert.deepEqual(JSON.parse(fs.readFileSync(panel.devicesPath + '.bak', 'utf8')), initialDevices);
+    assert.equal(fs.existsSync(panel.devicesPath + '.tmp'), false);
+
+    // The restart flag covers both files, whichever one is being edited.
+    assert.equal((await panel.call('GET', '/api/config', {token})).body.restart_required, true);
+    assert.equal((await panel.call('PUT', '/api/config/devices', {token, body: initialDevices})).body.restart_required, false);
+    assert.equal((await panel.call('GET', '/api/config', {token})).body.restart_required, false);
+
+    const delay = {...initialConfig, influx_update_delay: 30000};
+    assert.equal((await panel.call('PUT', '/api/config', {token, body: delay})).body.restart_required, true);
+    assert.equal((await panel.call('GET', '/api/config/devices', {token})).body.restart_required, true);
+});
+
+test('a devices file that cannot be read does not block config.json', async (t) => {
+    const panel = await startPanel(t);
+    const token = await panel.login();
+    fs.writeFileSync(panel.devicesPath, '[{');
+    assert.deepEqual(await panel.call('GET', '/api/config/devices', {token}), {status: 500, body: {ok: false, error: 'read-failed'}});
+    assert.deepEqual(await panel.call('GET', '/api/config', {token}), {
+        status: 200, body: {ok: true, config: initialConfig, restart_required: false}
+    });
 });
 
 test('the first login configures the sender, saved only once its code is verified', async (t) => {
@@ -200,6 +272,7 @@ test('the configuration and force pages are public, their APIs need a login and 
 
     assert.equal((await fetch(`${base}/nomenclature/`)).status, 200);
     assert.equal((await fetch(`${base}/api/config`)).status, 401);
+    assert.equal((await fetch(`${base}/api/config/devices`)).status, 401);
     assert.equal((await fetch(`${base}/api/data-force`)).status, 401);
     assert.equal((await fetch(`${base}/api/device/chauffe-eau/force`, {method: 'DELETE'})).status, 401);
 });

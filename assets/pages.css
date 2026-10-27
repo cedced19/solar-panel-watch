@@ -777,13 +777,6 @@ body.graph-page .graph-card {
   margin: 0;
 }
 
-.config-file {
-  color: #64748b;
-  font-family: var(--monospace);
-  font-size: .85rem;
-  font-weight: 400;
-}
-
 .config-tabs {
   display: inline-flex;
   padding: 3px;

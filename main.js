@@ -1,5 +1,7 @@
-// Create or complete config.json from config-default.json before any module reads it.
+// Create or complete config.json from config-default.json, and create
+// devices-to-activate.json from devices-to-activate-default.json, before any module reads them.
 require('./lib/config-file.js').ensureConfig();
+require('./lib/config-file.js').ensureDevices();
 
 const fs = require('fs');
 const express = require('express');
@@ -36,6 +38,8 @@ const batterySettings = batteryLogic.readSettings(config);
 const auth = createAuth(readOptions(config));
 
 const devices_to_activate = require('./devices-to-activate.json');
+// What the process started with, for the configuration panel: get_priority_list sorts devices_to_activate in place.
+const running_devices = JSON.parse(JSON.stringify(devices_to_activate));
 
 // One energy summary per local day; see lib/energy-days.js.
 const energyDays = createEnergyDays({
@@ -1004,6 +1008,8 @@ function flushAndExit() {
 app.use(createConfigPanel({
     configPath: path.join(__dirname, 'config.json'),
     runningConfig: config,
+    devicesPath: path.join(__dirname, 'devices-to-activate.json'),
+    runningDevices: running_devices,
     auth: auth,
     restart: flushAndExit
 }));

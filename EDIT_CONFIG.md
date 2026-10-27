@@ -2,8 +2,27 @@
 
 `devices-to-activate.json` sets how each controlled device is driven. The app
 reads it once at startup (`require` in `main.js`), so a change only applies
-after a restart. Unlike `config.json`, which has its own editor at `/config/`
-(see the README), this file is tracked by git and has no web editor.
+after a restart. The file is local to the installation and not tracked by git,
+like `config.json`: `devices-to-activate-default.json` is the tracked template
+it is created from when missing, and later changes to the template never reach
+an existing file.
+
+## In the browser
+
+Open `/config/`, sign in, choose the `devices-to-activate.json` tab, edit the
+form (or the JSON tab to add or remove a device) and save. The previous version
+is kept in `devices-to-activate.json.bak`. A file the app could not start with
+(missing `power_limit`, duplicate `uri`, ...) is refused. Then press **Restart**
+in the banner that appears.
+
+After a restart, devices that are not forced may stay off for a few seconds
+until they call the app again. Forced levels are reloaded from `reload_files/`.
+The energy-limit and temperature-target flags start cleared and are set again
+by their next periodic check.
+
+## On the server, over SSH
+
+Use this when the app does not start or the page cannot be reached.
 
 | | |
 | --- | --- |
@@ -13,8 +32,6 @@ after a restart. Unlike `config.json`, which has its own editor at `/config/`
 
 The server has `jq`, `python3`, `curl` and `git`. Node only exists inside the
 container, so `node -e` does not work on the host.
-
-## Procedure
 
 Run these commands from your computer:
 
@@ -35,7 +52,7 @@ ssh $SERVER "cat $REPO/devices-to-activate.json" | diff - devices-to-activate.se
 
 # 4. Copy it back and check the result on the server
 scp devices-to-activate.server.json $SERVER:$REPO/devices-to-activate.json
-ssh $SERVER "cd $REPO && jq -c '.[] | {uri, power_threshold_percentage}' devices-to-activate.json && git diff devices-to-activate.json"
+ssh $SERVER "cd $REPO && jq -c '.[] | {uri, power_threshold_percentage}' devices-to-activate.json"
 
 # 5. Restart the app so it reads the file
 ssh $SERVER "cd $REPO && sudo docker compose restart node"
@@ -44,28 +61,31 @@ ssh $SERVER "cd $REPO && sudo docker compose restart node"
 ssh $SERVER "curl -s localhost:8889/api/device/chauffe-eau/debug/ | jq .power_threshold_percentage"
 ```
 
-Instead of step 5, you can restart from the `/config/` page (login needed).
-After a restart, devices that are not forced may stay off for a few seconds
-until they call the app again. Forced levels are reloaded from `reload_files/`.
-The energy-limit and temperature-target flags start cleared and are set again
-by their next periodic check.
-
-## Rollback
+Rollback:
 
 ```bash
 ssh $SERVER "cd $REPO && cp -p devices-to-activate.json.bak-YYYYMMDD devices-to-activate.json && sudo docker compose restart node"
 ```
 
-`git checkout devices-to-activate.json` on the server also restores the
-committed values.
+Deleting `devices-to-activate.json` and restarting recreates it from
+`devices-to-activate-default.json`, which holds the values committed in the
+repository, not the ones tuned on the server (see the change log below).
 
-## Keeping git in step
+## Updating the server from a checkout that still tracks the file
 
-The edit leaves the server checkout modified. A later `git pull` that also
-changes this file stops with "Your local changes would be overwritten". Commit
-the same values in the repository, then on the server run
-`git checkout devices-to-activate.json && git pull`, and check the values
-again.
+Until the commit that untracks `devices-to-activate.json` is pulled, the server
+checkout has it tracked and modified, and `git pull` stops with "Your local
+changes would be overwritten". Once, on the server:
+
+```bash
+cd ~/repos/solar-panel-watch
+cp -p devices-to-activate.json devices-to-activate.local.json
+git checkout devices-to-activate.json && git pull
+mv devices-to-activate.local.json devices-to-activate.json
+sudo docker compose restart node
+```
+
+Afterwards `git pull` never touches the file again.
 
 ## The margin: `power_threshold_percentage`
 

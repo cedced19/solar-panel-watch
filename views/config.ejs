@@ -18,6 +18,11 @@
     'mails-required': 'Config error mails-required',
     'invalid-mail': 'Config error invalid-mail',
     'config-object': 'Config error config-object',
+    'devices-array': 'Config error devices-array',
+    'device-object': 'Config error device-object',
+    'device-uri': 'Config error device-uri',
+    'device-duplicate': 'Config error device-duplicate',
+    'device-field': 'Config error device-field',
     'write-failed': 'Config error write-failed',
     'read-failed': 'Config error read-failed'
   };
@@ -62,7 +67,11 @@
 
     <section class="card config-card" id="editor-view" hidden>
       <div class="config-toolbar">
-        <h2 class="card-heading"><%= __('Configuration')%> <span class="config-file">config.json</span></h2>
+        <h2 class="card-heading"><%= __('Configuration')%></h2>
+        <div class="config-tabs" id="file-tabs" role="tablist" aria-label="<%= __('Config file')%>">
+          <button type="button" role="tab" data-file="config" aria-selected="true">config.json</button>
+          <button type="button" role="tab" data-file="devices" aria-selected="false">devices-to-activate.json</button>
+        </div>
         <div class="config-tabs" role="tablist">
           <button type="button" role="tab" id="tab-form" aria-selected="true" aria-controls="config-form"><%= __('Config form')%></button>
           <button type="button" role="tab" id="tab-json" aria-selected="false" aria-controls="config-json">JSON</button>

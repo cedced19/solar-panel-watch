@@ -1,5 +1,6 @@
 // Configuration panel (/config/): once signed in (see login.js), a form or raw
-// JSON editor for config.json, loaded from and saved to /api/config.
+// JSON editor for config.json or devices-to-activate.json, loaded from and
+// saved to /api/config or /api/config/devices.
 (function () {
     var SECRET_KEY = /pass|secret|token|tocken/i;
 
@@ -9,6 +10,7 @@
 
     var editorView = document.getElementById('editor-view');
     var signedInEmail = document.getElementById('signed-in-email');
+    var fileTabs = document.querySelectorAll('#file-tabs button');
     var tabForm = document.getElementById('tab-form');
     var tabJson = document.getElementById('tab-json');
     var form = document.getElementById('config-form');
@@ -19,7 +21,15 @@
     var discardBtn = document.getElementById('discard-btn');
     var editorStatus = document.getElementById('editor-status');
 
-    var saved = null;          // config as last loaded from / saved to the server
+    // The files the panel edits: where the server serves them, under which key
+    // of its answer, and what their JSON must be at the top level.
+    var FILES = {
+        config: {name: 'config.json', url: '/api/config', key: 'config', isRoot: isPlainObject, rootError: messages['config-object']},
+        devices: {name: 'devices-to-activate.json', url: '/api/config/devices', key: 'devices', isRoot: Array.isArray, rootError: messages['devices-array']}
+    };
+
+    var file = FILES.config;   // the file being edited
+    var saved = null;          // its content as last loaded from / saved to the server
     var draft = null;          // working copy edited by the form or the JSON tab
     var invalidFields = {};    // form inputs holding an unparsable number
     var jsonError = null;      // parse error of the JSON tab, if any
@@ -202,11 +212,17 @@
         return renderLeaf(key, value, path);
     }
 
+    // The devices file is an array of devices, each shown under its uri.
     function renderForm() {
         invalidFields = {};
-        form.replaceChildren.apply(form, Object.keys(draft).map(function (key) {
-            return renderNode(key, draft[key], [key]);
-        }));
+        var nodes = Array.isArray(draft)
+            ? draft.map(function (item, index) {
+                return renderNode(isPlainObject(item) && item.uri ? item.uri : '#' + (index + 1), item, [index]);
+            })
+            : Object.keys(draft).map(function (key) {
+                return renderNode(key, draft[key], [key]);
+            });
+        form.replaceChildren.apply(form, nodes);
     }
 
     // ---- editing state -----------------------------------------------------
@@ -256,7 +272,7 @@
     jsonArea.addEventListener('input', function () {
         try {
             var parsed = JSON.parse(jsonArea.value);
-            if (!isPlainObject(parsed)) throw new Error(messages['config-object']);
+            if (!file.isRoot(parsed)) throw new Error(file.rootError);
             draft = parsed;
             jsonError = null;
         } catch (err) {
@@ -266,24 +282,45 @@
     });
 
     async function loadConfig() {
+        var loading = file;
         setStatus(editorStatus, messages.loading);
         try {
-            var data = await login.api('/api/config');
-            setDraft(data.config);
+            var data = await login.api(loading.url);
+            if (loading !== file) return; // another file was opened meanwhile
+            setDraft(data[loading.key]);
             restartBanner.hidden = !data.restart_required;
         } catch (err) {
-            if (err.message !== 'not-authenticated') setStatus(editorStatus, login.failureText(err), 'error');
+            if (loading === file && err.message !== 'not-authenticated') setStatus(editorStatus, login.failureText(err), 'error');
         }
     }
+
+    // Opens another file, once the changes made to the current one are given up.
+    function openFile(name) {
+        if (FILES[name] === file) return;
+        if ((isDirty() || jsonError !== null) && !window.confirm(messages.unsaved)) return;
+        file = FILES[name];
+        saved = draft = null;
+        jsonError = null;
+        fileTabs.forEach(function (tab) { tab.setAttribute('aria-selected', String(tab.dataset.file === name)); });
+        jsonArea.setAttribute('aria-label', file.name);
+        form.replaceChildren();
+        jsonArea.value = '';
+        changed();
+        loadConfig();
+    }
+
+    fileTabs.forEach(function (tab) {
+        tab.addEventListener('click', function () { openFile(tab.dataset.file); });
+    });
 
     saveBtn.addEventListener('click', async function () {
         saveBtn.disabled = true;
         setStatus(editorStatus, messages.saving);
         try {
-            var data = await login.api('/api/config', {method: 'PUT', body: JSON.stringify(draft)});
-            setDraft(data.config);
+            var data = await login.api(file.url, {method: 'PUT', body: JSON.stringify(draft)});
+            setDraft(data[file.key]);
             restartBanner.hidden = !data.restart_required;
-            setStatus(editorStatus, messages.saved, 'success');
+            setStatus(editorStatus, messages.saved.replace('{file}', file.name), 'success');
         } catch (err) {
             if (err.message === 'not-authenticated') return;
             setStatus(editorStatus, login.failureText(err), 'error');
