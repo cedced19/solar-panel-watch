@@ -26,6 +26,7 @@
     "zendure_battery_full_soc": 100,
     "zendure_battery_max_charging_power": 1500,
     "zendure_battery_max_charging_tolerance": 20,
+    "zendure_battery_ignore_state": false,
     "zendure_battery": {
         "host": "192.168.0.40",
         "serial": "ANACVCDLP283458",

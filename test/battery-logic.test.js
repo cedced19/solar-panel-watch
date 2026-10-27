@@ -10,9 +10,9 @@ function decide(battery, {powerAvailable = true, config = settings} = {}) {
 }
 
 test('settings default to a 100 % full battery, no known maximum charge and a 50 W tolerance', () => {
-    assert.deepEqual(readSettings({}), {fullSocPercent: 100, maxChargingPowerW: null, maxChargingToleranceW: 50});
+    assert.deepEqual(readSettings({}), {fullSocPercent: 100, maxChargingPowerW: null, maxChargingToleranceW: 50, ignoreState: false});
     assert.deepEqual(readSettings({zendure_battery_full_soc: 95, zendure_battery_max_charging_power: 1200,
-        zendure_battery_max_charging_tolerance: 0}), {fullSocPercent: 95, maxChargingPowerW: 1200, maxChargingToleranceW: 0});
+        zendure_battery_max_charging_tolerance: 0}), {fullSocPercent: 95, maxChargingPowerW: 1200, maxChargingToleranceW: 0, ignoreState: false});
 });
 
 test('invalid settings fail with a configuration error', () => {
@@ -22,6 +22,9 @@ test('invalid settings fail with a configuration error', () => {
     }
     for (const value of [0, -800, '800', NaN, Infinity]) {
         assert.throws(() => readSettings({zendure_battery_max_charging_power: value}), /zendure_battery_max_charging_power/);
+    }
+    for (const value of ['true', 1, 0]) {
+        assert.throws(() => readSettings({zendure_battery_ignore_state: value}), /zendure_battery_ignore_state/);
     }
     for (const value of [-1, '50', NaN]) {
         assert.throws(() => readSettings({zendure_battery_max_charging_tolerance: value}), /zendure_battery_max_charging_tolerance/);
@@ -64,6 +67,15 @@ test('without a configured maximum charging power, charging never activates devi
     const decision = decide({socPercent: 40, state: 'charging', chargingPowerW: 5000}, {config: readSettings({})});
     assert.equal(decision.reason, 'battery-charging-below-max');
     assert.equal(decision.maxChargingPowerW, null);
+});
+
+test('with zendure_battery_ignore_state only the measured power decides charging and discharging', () => {
+    const config = readSettings({zendure_battery_full_soc: 100, zendure_battery_max_charging_power: 800,
+        zendure_battery_ignore_state: true});
+    assert.equal(decide({socPercent: 100, state: 'discharging', dischargingPowerW: 0}, {config}).reason, 'battery-full');
+    assert.equal(decide({socPercent: 100, state: 'charging', chargingPowerW: 0}, {config}).reason, 'battery-full');
+    assert.equal(decide({socPercent: 50, state: 'standby', dischargingPowerW: 120}, {config}).reason, 'battery-discharging');
+    assert.equal(decide({socPercent: 50, state: 'standby', chargingPowerW: 800}, {config}).reason, 'battery-charging-at-max');
 });
 
 test('an idle battery activates devices only when full', () => {

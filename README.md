@@ -198,6 +198,7 @@ Configure these settings in `config.json` and restart the application:
 | `zendure_battery_full_soc` | Fallback for the charge percentage from which an idle battery counts as full and devices may run; default `100` (a number from `0` to `100`). Used only when Zendure does not report its charge target (`socSet`). |
 | `zendure_battery_max_charging_power` | Fallback for the maximum battery charging power in watts. While the battery charges at this power, devices may use the extra surplus. Used only when Zendure does not report its maximum charge power (`chargeMaxLimit`). Unset by default, so without either value devices only run once the battery is full. |
 | `zendure_battery_max_charging_tolerance` | How many watts below the maximum still count as "at max"; default `50`. |
+| `zendure_battery_ignore_state` | When `true`, the `state` reported by Zendure is ignored and only the measured charging/discharging power decides whether the battery counts as charging or discharging; default `false`. |
 | `zendure_battery` | SolarFlow `host`, device `serial`, expected `battery_serial`, `mac_address`, optional `wlan_mac_address`, and `recover_by_mac`. |
 
 The supplied device addresses and identities match the standalone probes below.
