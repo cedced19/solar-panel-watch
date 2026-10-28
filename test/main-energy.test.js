@@ -19,7 +19,7 @@ test('energy day endpoints compute missing days once, store them and recompute o
     ], power2: [], battery: []};
     let failure;
     const deviceQueries = [];
-    const influx = {
+    const victoria = {
         async requestDevicePowerOverRange(start, stop, devices) {
             deviceQueries.push({start, stop, devices});
             return {[devices[0]]: [
@@ -48,7 +48,7 @@ test('energy day endpoints compute missing days once, store them and recompute o
     vm.runInNewContext(fs.readFileSync(mainPath, 'utf8'), {
         module, exports: module.exports, __dirname: path.dirname(mainPath), process, console,
         require(name) {
-            if (name === './lib/influx-lib.js') return influx;
+            if (name === './lib/victoria-lib.js') return victoria;
             if (name === './lib/energy-day-store.js') return {createEnergyDayStore: () => store};
             if (name === 'json-store-list') return () => database;
             if (name === 'morgan') return () => (_req, _res, next) => next();
@@ -91,7 +91,7 @@ test('energy day endpoints compute missing days once, store them and recompute o
     assert.equal(day.battery_discharging, null);
     assert.equal(day.battery_charging, null);
     assert.equal(day.complete, true);
-    assert.equal(day.source, 'influx');
+    assert.equal(day.source, 'victoria');
     // Every configured device is queried for the day; 2000 W for 30 minutes.
     assert.equal(day.devices_consumption, 1);
     assert.deepEqual(deviceQueries[0].devices,
@@ -101,7 +101,7 @@ test('energy day endpoints compute missing days once, store them and recompute o
     assert.equal(queries[0].stop.getTime(), new Date(2026, 9, 14).getTime());
     assert.deepEqual(store.get('2026-10-13'), day);
 
-    // A complete stored day is served without querying Influx again.
+    // A complete stored day is served without querying VictoriaMetrics again.
     const stored = await request('/api/data/energy/day/2026-10-13');
     assert.deepEqual(JSON.parse(stored.body), day);
     assert.equal(queries.length, 1);
@@ -154,10 +154,10 @@ test('energy day endpoints compute missing days once, store them and recompute o
         assert.deepEqual(JSON.parse(balance.body).house_consumption.map(point => point._value), [2100, 2100]);
     }
     assert.equal((await request('/api/data/consumption/invalid')).status, 400);
-    failure = new Error('Influx unavailable');
+    failure = new Error('VictoriaMetrics unavailable');
     const failed = await request('/api/data/consumption/24h');
     assert.equal(failed.status, 500);
-    assert.deepEqual(JSON.parse(failed.body), {error: 'Influx unavailable'});
+    assert.deepEqual(JSON.parse(failed.body), {error: 'VictoriaMetrics unavailable'});
     assert.equal((await request('/api/data/energy/day/2026-10-14')).status, 500);
     assert.equal(store.get('2026-10-14'), null, 'a failed query stores nothing');
     failure = null;

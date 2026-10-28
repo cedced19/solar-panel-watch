@@ -15,7 +15,7 @@ function setup(nowDate, devices) {
             {_time: new Date(2026, 9, 13, 12, 0, 30).toISOString(), _value: 600}
         ], power2: [], battery: []}
     };
-    const influx = {
+    const victoria = {
         async streamConsumptionOverRange(start, stop, sink) {
             queries.push({start, stop});
             feedReadings(sink, state.data);
@@ -25,7 +25,7 @@ function setup(nowDate, devices) {
             return state.devicePower;
         }
     };
-    const energyDays = createEnergyDays({store, influx, createEnergyAccumulator, devices, now: () => current});
+    const energyDays = createEnergyDays({store, victoria, createEnergyAccumulator, devices, now: () => current});
     return {store, queries, state, energyDays, setNow(date) { current = date; }};
 }
 

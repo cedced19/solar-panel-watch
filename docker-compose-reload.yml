@@ -14,23 +14,29 @@ services:
       - TZ=Europe/Paris
       - PORT=8889
       - NODE_ENV=development
-  influxdb:
-    image: influxdb:2.6-alpine
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.155.0
     network_mode: host
     restart: always
-    environment: 
-      - TZ=Europe/Paris
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=home
-      - DOCKER_INFLUXDB_INIT_PASSWORD=0dBdJpACMCW2CwCRLu0iRyEz7U64P
-      - DOCKER_INFLUXDB_INIT_ORG=solar_panel_org
-      - DOCKER_INFLUXDB_INIT_BUCKET=solar_panel
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=joWbkcAOqD8hPtRRyEz7U64PLqOrPO
+    command:
+      # Reachable from this machine only (node shares the host network): the
+      # API has no authentication.
+      - -httpListenAddr=127.0.0.1:8428
+      - -storageDataPath=/victoria-metrics-data
+      # Keep every reading (the default retention is one month).
+      - -retentionPeriod=100y
+      # Readings of a series stamped with the same millisecond count once, as
+      # InfluxDB kept one point per timestamp.
+      - -dedup.minScrapeInterval=1ms
+      # A long graph at a fine window (30 days per minute) exceeds the default
+      # of 30000 points per series.
+      - -search.maxPointsPerTimeseries=1000000
+    environment:
+      # Soft limit for the Go runtime, below the 250m container ceiling, so it
+      # collects garbage aggressively instead of being OOM-killed.
+      - GOMEMLIMIT=200MiB
     volumes:
-      - data:/var/lib/influxdb2
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
+      - victoria-data:/victoria-metrics-data
       
 volumes:
-  data:
-
+  victoria-data:

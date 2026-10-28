@@ -10,7 +10,7 @@ const {createConfigPanel, validateConfig, validateDevices} = require('../lib/con
 
 const initialConfig = {
     timezone: 'Europe/Paris',
-    influx_update_delay: 15000,
+    victoria_update_delay: 15000,
     auth: {mails: ['cedced19@gmail.com'], sender: {user: 'robot@gmail.com', pass: 'app-pass'}, jwt_secret: 'test-secret'}
 };
 
@@ -138,7 +138,7 @@ test('saving writes config.json with a backup, applies the whitelist and flags a
     await panel.call('POST', '/api/auth/request', {body: {email: 'friend@example.com'}});
     assert.equal(panel.sent.at(-1).to, 'friend@example.com');
 
-    const newDelay = {...sameSettings, influx_update_delay: 30000};
+    const newDelay = {...sameSettings, victoria_update_delay: 30000};
     assert.equal((await panel.call('PUT', '/api/config', {token, body: newDelay})).body.restart_required, true);
     assert.equal((await panel.call('GET', '/api/config', {token})).body.restart_required, true);
 
@@ -177,7 +177,7 @@ test('devices-to-activate.json is read and saved like config.json, with its own 
     assert.equal((await panel.call('PUT', '/api/config/devices', {token, body: initialDevices})).body.restart_required, false);
     assert.equal((await panel.call('GET', '/api/config', {token})).body.restart_required, false);
 
-    const delay = {...initialConfig, influx_update_delay: 30000};
+    const delay = {...initialConfig, victoria_update_delay: 30000};
     assert.equal((await panel.call('PUT', '/api/config', {token, body: delay})).body.restart_required, true);
     assert.equal((await panel.call('GET', '/api/config/devices', {token})).body.restart_required, true);
 });

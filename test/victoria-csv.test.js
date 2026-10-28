@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {pointsToCSV} = require('../lib/influx-lib');
+const {pointsToCSV} = require('../lib/victoria-lib');
 
 test('CSV defaults preserve the existing two-column power and SOC export', () => {
     assert.equal(pointsToCSV([]), '_time,_value');

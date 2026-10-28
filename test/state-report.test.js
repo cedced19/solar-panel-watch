@@ -248,7 +248,7 @@ test('the report contains the devices file as it is and flags a file that differ
 test('the report leaves the configuration secrets out', async (t) => {
     const config = require('../config.json');
     const {text} = await buildReport(t);
-    for (const secret of [config.influx_tocken, config.auth && config.auth.jwt_secret, config.auth && config.auth.sender && config.auth.sender.pass]) {
+    for (const secret of [config.auth && config.auth.jwt_secret, config.auth && config.auth.sender && config.auth.sender.pass]) {
         if (secret) assert.equal(text.includes(secret), false);
     }
 });

@@ -1,9 +1,9 @@
 services:
   node: 
     image: node:24
-    network_mode: service:influxdb
+    network_mode: service:victoriametrics
     depends_on:
-      - influxdb
+      - victoriametrics
     command: node main.js
     restart: always
     working_dir: /app
@@ -15,22 +15,17 @@ services:
     environment:
       - TZ=Europe/Paris
       - PORT=8889
-  influxdb:
-    image: influxdb:2.6-alpine
-    environment: 
-      - TZ=Europe/Paris
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=home
-      - DOCKER_INFLUXDB_INIT_PASSWORD=0dBdJpACMCW2CwCRLu0iRyEz7U64P
-      - DOCKER_INFLUXDB_INIT_ORG=solar_panel_org
-      - DOCKER_INFLUXDB_INIT_BUCKET=solar_panel
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=joWbkcAOqD8hPtRRyEz7U64PLqOrPO
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.155.0
+    command:
+      - -storageDataPath=/victoria-metrics-data
+      - -retentionPeriod=100y
+      - -dedup.minScrapeInterval=1ms
+      - -search.maxPointsPerTimeseries=1000000
     volumes:
-      - data:/var/lib/influxdb2
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
+      - victoria-data:/victoria-metrics-data
     ports:
       - "8889:8889"
       
 volumes:
-  data:
+  victoria-data:

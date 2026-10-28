@@ -4,12 +4,12 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const {fillDefaults, ensureConfig, ensureDevices} = require('../lib/config-file');
+const {migrateKeys, fillDefaults, ensureConfig, ensureDevices} = require('../lib/config-file');
 const {validateDevices} = require('../lib/config-panel');
 
 const defaults = {
     timezone: 'Europe/Paris',
-    influx_update_delay: 15000,
+    victoria_update_delay: 15000,
     zendure_meter: {host: '192.168.0.48', power_scale: 1},
     auth: {mails: ['cedced19@gmail.com'], sender: {user: '', pass: ''}, jwt_secret: ''}
 };
@@ -34,11 +34,11 @@ test('the tracked config-default.json lists every key of the local config.json',
 test('fillDefaults adds missing keys, also nested ones, and never changes a set value', () => {
     const config = {timezone: 'UTC', zendure_meter: {host: '10.0.0.2'}, auth: {mails: ['me@example.com']}};
     assert.deepEqual(fillDefaults(config, defaults), [
-        'influx_update_delay', 'zendure_meter.power_scale', 'auth.sender', 'auth.jwt_secret'
+        'victoria_update_delay', 'zendure_meter.power_scale', 'auth.sender', 'auth.jwt_secret'
     ]);
     assert.deepEqual(config, {
         timezone: 'UTC',
-        influx_update_delay: 15000,
+        victoria_update_delay: 15000,
         zendure_meter: {host: '10.0.0.2', power_scale: 1},
         auth: {mails: ['me@example.com'], sender: {user: '', pass: ''}, jwt_secret: ''}
     });
@@ -59,7 +59,7 @@ test('ensureConfig completes an existing config.json and leaves a complete one u
     const files = tempFiles(t, {timezone: 'UTC', auth: {mails: ['me@example.com'], jwt_secret: 'kept'}});
     const completed = ensureConfig(files);
     assert.equal(completed.timezone, 'UTC');
-    assert.equal(completed.influx_update_delay, 15000);
+    assert.equal(completed.victoria_update_delay, 15000);
     assert.deepEqual(completed.auth, {mails: ['me@example.com'], jwt_secret: 'kept', sender: {user: '', pass: ''}});
     assert.equal(fs.existsSync(files.configPath + '.bak'), true);
 
@@ -68,6 +68,33 @@ test('ensureConfig completes an existing config.json and leaves a complete one u
     assert.deepEqual(ensureConfig(files), completed);
     assert.equal(fs.readFileSync(files.configPath, 'utf8'), before);
     assert.equal(fs.existsSync(files.configPath + '.bak'), false, 'nothing is written when nothing changed');
+});
+
+test('the InfluxDB settings of an older config.json are renamed in place or removed, once', (t) => {
+    const old = {
+        ip_adress_shelly: '192.168.0.91',
+        influx_tocken: 'secret', influx_org: 'org', influx_bucket: 'bucket',
+        influx_default_tag: 'home2', influx_update_delay: 30000, influx_url: 'http://localhost:8086',
+        timezone: 'UTC', auth: {mails: ['me@example.com'], jwt_secret: 'kept'}
+    };
+    assert.deepEqual(migrateKeys(JSON.parse(JSON.stringify(old))), [
+        'removed influx_tocken', 'removed influx_org', 'removed influx_bucket',
+        'renamed influx_default_tag to victoria_default_tag', 'renamed influx_update_delay to victoria_update_delay',
+        'removed influx_url'
+    ]);
+    const files = tempFiles(t, old);
+    const migrated = ensureConfig(files);
+    assert.deepEqual(Object.keys(migrated), ['ip_adress_shelly', 'victoria_default_tag', 'victoria_update_delay',
+        'timezone', 'auth', 'zendure_meter']);
+    assert.equal(migrated.victoria_default_tag, 'home2');
+    assert.equal(migrated.victoria_update_delay, 30000, 'the value set before is kept');
+    assert.deepEqual(JSON.parse(fs.readFileSync(files.configPath + '.bak', 'utf8')), old);
+
+    // A value already set under the new name wins.
+    const both = {influx_update_delay: 30000, victoria_update_delay: 20000};
+    assert.deepEqual(migrateKeys(both), ['renamed influx_update_delay to victoria_update_delay']);
+    assert.deepEqual(both, {victoria_update_delay: 20000});
+    assert.deepEqual(migrateKeys(both), [], 'nothing left to migrate');
 });
 
 const devicesDefault = [

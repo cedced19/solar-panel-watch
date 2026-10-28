@@ -72,7 +72,7 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
     const energyStore = createEnergyDayStore(':memory:');
     const energyQueries = [];
     const energyFailure = {error: null};
-    const influx = {
+    const victoria = {
         async streamConsumptionOverRange(start, stop, sink) {
             energyQueries.push({start, stop});
             if (energyFailure.error) throw energyFailure.error;
@@ -109,7 +109,7 @@ async function createServer(t, {fullSoc = 100, maxChargingPower = 800, omitBatte
         setInterval(callback, delay) { intervals.push({callback, delay}); },
         require(name) {
             if (name === './lib/get-power-data.js') return powerData;
-            if (name === './lib/influx-lib.js') return influx;
+            if (name === './lib/victoria-lib.js') return victoria;
             if (name === './lib/energy-day-store.js') return {createEnergyDayStore: () => energyStore};
             if (name === './lib/compute-energy-device.js') return (_period, _uri, cb) => cb(null, 0);
             if (name === './config.json') return config;
@@ -457,7 +457,7 @@ test('battery history API serves SOC and power readings together and exports mis
     ]]);
 });
 
-test('battery history rejects invalid periods before querying InfluxDB and reports query errors', async (t) => {
+test('battery history rejects invalid periods before querying VictoriaMetrics and reports query errors', async (t) => {
     const app = await createServer(t);
     for (const period of ['invalid', '-1h', '1.5h', '10000h']) {
         const history = await app.request(`/api/data/battery/${period}`);
@@ -546,7 +546,7 @@ test('the energy of the previous day is saved at startup and every day at 00:30'
 test('a failed energy calculation is tried again at the next 5-minute mark', async (t) => {
     const app = await createServer(t);
     t.mock.timers.enable({apis: ['setTimeout', 'Date'], now: new Date(2026, 9, 24, 12, 2)});
-    app.energyFailure.error = new Error('influx unavailable');
+    app.energyFailure.error = new Error('VictoriaMetrics unavailable');
     app.startBackgroundTasks();
     await new Promise(setImmediate);
     assert.equal(app.energyQueries.length, 1);

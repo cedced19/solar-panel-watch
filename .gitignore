@@ -12,3 +12,4 @@ devices-to-activate.json
 devices-to-activate.json.bak
 devices-to-activate.json.tmp
 influx-data.tgz
+victoria-data.tgz

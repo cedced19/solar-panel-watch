@@ -10,7 +10,11 @@ by git. `config-default.json` is the tracked template: on start (and before
 `npm test`), a missing `config.json` is created from it, and keys added to the
 template later are copied into an existing `config.json`. Values already set in
 `config.json` are never changed, and an empty `auth.jwt_secret` is replaced by a
-random one.
+random one. The one exception is the InfluxDB settings of older versions:
+`influx_default_tag` and `influx_update_delay` are renamed
+`victoria_default_tag` and `victoria_update_delay` (their values are kept), and
+`influx_tocken`, `influx_org`, `influx_bucket` and `influx_url` are removed. The
+previous file is kept as `config.json.bak`.
 
 > **Upgrading a checkout where `config.json` was still tracked:** pulling the
 > commit that untracks it deletes the local file. Keep a copy first:
@@ -21,12 +25,9 @@ It can also be edited online, see [Configuration panel](#configuration-panel).
 ```json
 {
     "ip_adress_shelly": "192.168.0.91",
-    "influx_tocken": "tocken",
-    "influx_org": "cedced19@gmail.com",
-    "influx_bucket": "solar-panel",
-    "influx_default_tag": "home1",
-    "influx_update_delay": 15000,
-    "influx_url": "https://**********.influxdata.com",
+    "victoria_url": "http://127.0.0.1:8428",
+    "victoria_default_tag": "home1",
+    "victoria_update_delay": 15000,
     "timezone": "Europe/Paris",
     "shelly_req_threshold": 3000,
     "house_power_source": "zendure",
@@ -173,8 +174,36 @@ This uses `nodemon` to watch for file changes and automatically restart the Node
 
 to remove volume:
 ```
-sudo docker volume rm solar-panel-watch_data
+sudo docker volume rm solar-panel-watch_victoria-data
 ```
+
+## VictoriaMetrics
+
+Readings are stored in a single-node [VictoriaMetrics](https://docs.victoriametrics.com/)
+(service `victoriametrics`, volume `solar-panel-watch_victoria-data`), which
+replaced InfluxDB. The app writes Influx line protocol to `victoria_url`: the
+field `<field>` of the measurement `power`, `var` or `battery` becomes the
+metric `<measurement>_<field>` (`power_power1`, `power_chauffe-eau`,
+`battery_socPercent`, ...), with the label `home` set to `victoria_default_tag`.
+Timestamps are kept to the millisecond. The code is in `lib/victoria-client.js`
+(HTTP API, no dependency), `lib/victoria-lib.js` and `lib/consumption-history.js`.
+
+Raw readings are read with `/api/v1/export`; graph means come from
+`/api/v1/query_range` with windows `[t - step, t)` stamped at their end, the
+same points as InfluxDB's `aggregateWindow`. The flags in `docker-compose.yml`
+matter:
+
+- `-retentionPeriod=100y`: the default keeps one month only.
+- `-dedup.minScrapeInterval=1ms`: a reading written twice with the same
+  timestamp (cached battery polls) counts once, as in InfluxDB.
+- `-search.maxPointsPerTimeseries=1000000`: long graphs at a fine window.
+- `-httpListenAddr=127.0.0.1:8428`: the API has no authentication, so it only
+  listens on the machine itself.
+- `GOMEMLIMIT=200MiB` keeps the Go runtime below the 250m container ceiling.
+
+To copy the history of an InfluxDB into it, see
+[lab/convert-influxdb-victoria](lab/convert-influxdb-victoria/README.md). For a
+backup, see [VICTORIA_BACKUP.md](VICTORIA_BACKUP.md).
 
 ## Application power sources and battery
 
@@ -301,7 +330,7 @@ computed before it ended).
 - Every day at 00:30 (server time), the day that just ended is computed and
   stored, so the pages find it ready. A day already stored complete is kept.
   It also runs at startup, for a night the server missed, and a failed
-  calculation (InfluxDB unreachable) is tried again at the next 5-minute mark.
+  calculation (VictoriaMetrics unreachable) is tried again at the next 5-minute mark.
   The schedule uses [croner](https://croner.56k.guru/), in `main.js`.
 - `/energy-graph/#duration=N`: the last N days, computing missing days on load.
   Clicking a bar in the day view shows that day with a "Recompute" button.
@@ -324,7 +353,7 @@ computed before it ended).
   stored before this field have it empty until they are recomputed with
   "Recompute" (the gauge then reads "Unavailable").
 - `devices_consumption` is the energy of all the devices of
-  `devices-to-activate.json` together, from their power in InfluxDB. A device
+  `devices-to-activate.json` together, from their power in VictoriaMetrics. A device
   writes its power when it changes, so each value holds until the next one
   (the power at midnight is the last value of the week before). It is part of
   the household use: the energy flow diagram splits the household use into
@@ -342,12 +371,14 @@ computed before it ended).
   table shows it above the figures. Days stored before this field have it empty
   until they are recomputed with "Recompute"; that recomputation also applies
   the 30 s limit, so its totals can come out lower than before.
-  The readings are sent to InfluxDB in batches every 5 seconds, each stamped when it
-  was polled; the buffer is also sent when the server stops (SIGTERM, Ctrl-C or a
-  restart from the configuration panel), but a crash can lose the last few
-  seconds. A day's energy is integrated while the readings stream from InfluxDB,
-  so computing it needs little memory whatever the sampling rate.
-  `influx_update_delay` no longer sets how often power is stored; it only sets
+  The readings are sent to VictoriaMetrics in batches every 5 seconds, each stamped
+  when it was polled; the buffer is also sent when the server stops (SIGTERM,
+  Ctrl-C or a restart from the configuration panel), but a crash can lose the last
+  few seconds. While VictoriaMetrics is unreachable, the readings wait in the
+  buffer (up to 100 000) and are sent with the next batch. A day's energy is
+  integrated while the readings stream from VictoriaMetrics an hour at a time, so
+  computing it needs little memory whatever the sampling rate.
+  `victoria_update_delay` does not set how often power is stored; it only sets
   how old a stored reading may be to count as fresh in the power graph (twice
   its value).
 - `GET /api/data/energy/days?start=YYYY-MM-DD&end=YYYY-MM-DD` returns
@@ -366,11 +397,11 @@ permission (`enabled`), `reason`, measured `socPercent`, `fullSocPercent` and
 `maxChargingPowerW`.
 Battery level is saved at startup and on each successful background battery poll,
 using the `zendure_battery_req_threshold` interval (configured as `20000` ms).
-The InfluxDB `battery` measurement contains `socPercent` and, when the device
+The `battery` measurement (metrics `battery_<field>`) contains `socPercent` and, when the device
 reports them, `outputHomePower`, `gridInputPower`, `outputPackPower` (charging)
 and `packInputPower` (discharging), all in watts. These values come from the same
 `/properties/report` request used for battery level, with no extra Zendure call.
-Each poll writes one point with the configured `home` tag and the original
+Each poll writes one line with the configured `home` tag and the original
 battery reading time. Missing or invalid power fields are omitted; zero is saved.
 Unavailable or stale readings leave gaps in history. Recording continues even
 when house power is unavailable or device charging is blocked.
@@ -393,7 +424,7 @@ this version. The dashboard
 links to `/graph/battery/24h`; the page also offers two-hour and seven-day views,
 a CSV download, and messages for empty history or a failed request.
 
-InfluxDB history uses the selected house source and omits missing solar fields
+The history uses the selected house source and omits missing solar fields
 and network measurements that Zendure does not provide.
 
 The observed 1CT-S response exposes `total_power`, but the official zenSDK

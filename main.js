@@ -14,7 +14,7 @@ const requestIp = require('request-ip');
 
 const getPowerData = require('./lib/get-power-data.js');
 const getAlpha = require('./lib/get-alpha.js');
-const influxLib = require('./lib/influx-lib.js');
+const victoriaLib = require('./lib/victoria-lib.js');
 const getDeviceEnergy = require('./lib/compute-energy-device.js');
 const {createEnergyAccumulator} = require('./lib/compute-energy.js');
 const computeConsumptionPower = require('./lib/compute-consumption-power.js');
@@ -45,7 +45,7 @@ const running_devices = JSON.parse(JSON.stringify(devices_to_activate));
 // One energy summary per local day; see lib/energy-days.js.
 const energyDays = createEnergyDays({
     store: createEnergyDayStore(path.join(__dirname, 'energy-days.sqlite')),
-    influx: influxLib,
+    victoria: victoriaLib,
     createEnergyAccumulator,
     devices: devices_to_activate.map(device => device.uri)
 });
@@ -175,18 +175,21 @@ function init_device(device, type, req) {
             });
         }
         if (device.hasOwnProperty('max_control_var_val') && device.hasOwnProperty('period_after_target')) {
-            influxLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
-                devices_to_activate_state[device.uri].target_reached_over_period = (influxLib.getMaxValueOverData(data) >= device.max_control_var_val);
+            victoriaLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
+                devices_to_activate_state[device.uri].target_reached_over_period = (victoriaLib.getMaxValueOverData(data) >= device.max_control_var_val);
             }, function (error) {
                 console.log(error);
                 return console.error('Cannot determine when if target has been reached over period.');
             });
         }
         if (device.hasOwnProperty('max_control_var_val')) {
-            influxLib.requestLastVar(device.uri).then(function (data) {
+            victoriaLib.requestLastVar(device.uri).then(function (data) {
                 if (data.length) {
                     devices_to_activate_state[device.uri].last_control_var = data[0]._value;
                 }
+            }, function (error) {
+                console.log(error);
+                return console.error('Cannot read the last control variable.');
             });
         }
     }
@@ -516,10 +519,10 @@ app.get('/api/report', function(req, res, next) {
 });
 
 app.get('/api/data/battery/:period', validatePeriod, (req, res, next) => {
-    influxLib.requestBatteryLevelOverPeriod(req.params.period).then(function (data) {
+    victoriaLib.requestBatteryLevelOverPeriod(req.params.period).then(function (data) {
         if (req.query.format === 'csv') {
             res.set('Content-Type', 'text/csv');
-            return res.send(influxLib.pointsToCSV(data, [
+            return res.send(victoriaLib.pointsToCSV(data, [
                 '_time', '_value', 'outputHomePower', 'gridInputPower', 'outputPackPower', 'packInputPower'
             ]));
         }
@@ -547,17 +550,17 @@ app.get('/api/data/power/:tag/:period', validatePeriod, (req, res, next) => {
     //                         config.graph_downsampling = "none"
     let promise;
     if (req.query.raw === 'true' || config.graph_downsampling === 'none') {
-        promise = influxLib.requestPowerOverPeriod(req.params.period, req.params.tag);
+        promise = victoriaLib.requestPowerOverPeriod(req.params.period, req.params.tag);
     } else if (req.query.every && isValidPeriod(req.query.every)) {
-        promise = influxLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag, req.query.every);
+        promise = victoriaLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag, req.query.every);
     } else {
-        promise = influxLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag);
+        promise = victoriaLib.requestPowerOverPeriodGraph(req.params.period, req.params.tag);
     }
 
     promise.then(function (data) {
         if (req.query.format === 'csv') {
             res.set('Content-Type', 'text/csv');
-            return res.send(influxLib.pointsToCSV(data));
+            return res.send(victoriaLib.pointsToCSV(data));
         }
         res.json(data);
     }, function (error) {
@@ -568,10 +571,10 @@ app.get('/api/data/power/:tag/:period', validatePeriod, (req, res, next) => {
 });
 
 app.get('/api/data/var/:tag/:period', validatePeriod, (req, res, next) => {
-    influxLib.requestVarOverPeriod(req.params.period, req.params.tag).then(function (data) {
+    victoriaLib.requestVarOverPeriod(req.params.period, req.params.tag).then(function (data) {
         if (req.query.format === 'csv') {
             res.set('Content-Type', 'text/csv');
-            return res.send(influxLib.pointsToCSV(data));
+            return res.send(victoriaLib.pointsToCSV(data));
         }
         res.json(data);
     }, function (error) {
@@ -584,13 +587,13 @@ app.get('/api/data/var/:tag/:period', validatePeriod, (req, res, next) => {
 app.get('/api/data/consumption/:period', validatePeriod, (req, res) => {
     const raw = req.query.raw === 'true' || config.graph_downsampling === 'none';
     const every = raw ? null :
-        (isValidPeriod(req.query.every) ? req.query.every : influxLib.getAggregateWindow(req.params.period));
-    influxLib.requestConsumptionOverPeriod(req.params.period, every).then(data => {
+        (isValidPeriod(req.query.every) ? req.query.every : victoriaLib.getAggregateWindow(req.params.period));
+    victoriaLib.requestConsumptionOverPeriod(req.params.period, every).then(data => {
         res.json(computeConsumptionPower(data, {
             aggregated: Boolean(every),
-            // Readings are now stored at every poll; influx_update_delay no longer
-            // sets how often, only how old a stored reading may be to count as fresh.
-            powerMaxAgeMs: (config.influx_update_delay || 15000) * 2,
+            // Readings are now stored at every poll; victoria_update_delay does not
+            // set how often, only how old a stored reading may be to count as fresh.
+            powerMaxAgeMs: (config.victoria_update_delay || 15000) * 2,
             batteryMaxAgeMs: getPowerData.batteryRequestThreshold + batteryRequestTimeout
         }));
     }, error => {
@@ -655,10 +658,10 @@ app.get('/api/data/energy-calendar/', (req, res) => {
 });
 
 app.get('/api/data/power/:tag/:period/group-by/:group/', validatePeriod, validateGroup, (req, res, next) => {
-    influxLib.requestPowerOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
+    victoriaLib.requestPowerOverPeriodGroupBy(req.params.period, req.params.tag, req.params.group).then(function (data) {
         if (req.query.format === 'csv') {
             res.set('Content-Type', 'text/csv');
-            return res.send(influxLib.pointsToCSV(data));
+            return res.send(victoriaLib.pointsToCSV(data));
         }
         res.json(data);
     }, function (error) {
@@ -701,7 +704,7 @@ function normalDecisionReq(device, req, res) {
         db_devices_activation.post({uri: device.uri, activated: to_activate ? 1 : 0, time: devices_to_activate_state[device.uri].last_call}, function() {});
     }
     devices_to_activate_state[device.uri].activated = to_activate; 
-    influxLib.writePower(app.get('env') === 'development', device.uri, to_activate ? device.power_limit : 0);
+    victoriaLib.writePower(app.get('env') === 'development', device.uri, to_activate ? device.power_limit : 0);
 }
 
 function advancedDecision(device, power) {
@@ -733,7 +736,7 @@ function advancedDecisionReq(device, req, res) {
         db_devices_activation.post({uri: device.uri, activated: (alpha < 128) ? 2 : 0, time: devices_to_activate_state[device.uri].last_call, last_power: devices_to_activate_state[device.uri].last_power}, function() {});
     }
     if (alpha != devices_to_activate_state[device.uri].last_alpha) {
-        influxLib.writePower(app.get('env') === 'development', device.uri, devices_to_activate_state[device.uri].last_power);
+        victoriaLib.writePower(app.get('env') === 'development', device.uri, devices_to_activate_state[device.uri].last_power);
     }            
     devices_to_activate_state[device.uri].last_alpha = alpha; 
     devices_to_activate_state[device.uri].activated_advanced = alpha < 128; 
@@ -917,7 +920,7 @@ app.get('/api/device/:name/debug/energy/:period/', validatePeriod, (req, res, ne
     }
 });
 
-// Compare both energy computation methods (InfluxDB integral vs client stream)
+// Compare both energy computation methods (trapezoidal integral vs staircase stream)
 // for the same device and period, to validate that they agree.
 app.get('/api/device/:name/debug/energy-compare/:period/', validatePeriod, (req, res, next) => {
     const integral = getDeviceEnergy.computeDeviceEnergyIntegral(req.params.period, req.params.name);
@@ -948,7 +951,7 @@ app.post('/api/device/id/:id/control-variable/', (req, res, next) => {
         devices_to_activate_state[device.uri].last_control_var = value;
         try {
             if (!isNaN(value)) {
-                influxLib.writeVar(app.get('env') === 'development', device.uri, value);
+                victoriaLib.writeVar(app.get('env') === 'development', device.uri, value);
             } else {
                 console.error('Value is NaN');
                 console.log(req.body);
@@ -1039,10 +1042,10 @@ app.get('/api/data/activation-hist/', (req, res) => {
 });
 
 // Power readings wait a few seconds in a buffer before they are sent to
-// InfluxDB: send them before the process exits (not for longer than 3 s).
+// VictoriaMetrics: send them before the process exits (not for longer than 3 s).
 function flushAndExit() {
     const giveUp = new Promise(resolve => setTimeout(resolve, 3000));
-    Promise.race([influxLib.flushWrites(), giveUp]).catch(() => {}).finally(() => process.exit(0));
+    Promise.race([victoriaLib.flushWrites(), giveUp]).catch(() => {}).finally(() => process.exit(0));
 }
 
 // Configuration panel and the login routes shared with the force page.
@@ -1097,7 +1100,7 @@ function startBackgroundTasks() {
 function pollBattery() {
     requestBatteryData(function (err, battery) {
         if (!err && getDeviceChargingStatus().socPercent !== null) {
-            influxLib.writeBatteryLevel(app.get('env') === 'development', battery);
+            victoriaLib.writeBatteryLevel(app.get('env') === 'development', battery);
         }
     });
 }
@@ -1151,8 +1154,8 @@ setInterval(function () {
             return value.uri == devices_to_consider[i];
         })[0];
         if (device.hasOwnProperty('max_control_var_val') && device.hasOwnProperty('period_after_target')) {
-            influxLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
-                devices_to_activate_state[device.uri].target_reached_over_period = (influxLib.getMaxValueOverData(data) >= device.max_control_var_val);
+            victoriaLib.requestVarOverPeriod(device.period_after_target, device.uri).then(function (data) {
+                devices_to_activate_state[device.uri].target_reached_over_period = (victoriaLib.getMaxValueOverData(data) >= device.max_control_var_val);
             }, function (error) {
                 console.log(error);
                 return console.error('Cannot determine when if target has been reached over period.');
@@ -1172,10 +1175,10 @@ setInterval(function () {
             // integrate these points and treat longer gaps as missing data.
             if (config.save_network_data) {
                 // log also data from network
-                influxLib.writeNetworkData(app.get('env') === 'development', save);
+                victoriaLib.writeNetworkData(app.get('env') === 'development', save);
             } else {
                 // simply log power
-                influxLib.writePowerRaw(app.get('env') === 'development', save);
+                victoriaLib.writePowerRaw(app.get('env') === 'development', save);
             }
             let power = save.emeters[0].power - get_power_from_activated_devices();
             //power = -800; // for test

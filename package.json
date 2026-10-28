@@ -31,7 +31,6 @@
   },
   "homepage": "https://github.com/cedced19/solar-panel-watch#readme",
   "dependencies": {
-    "@influxdata/influxdb-client": "^1.28.0",
     "compression": "^1.7.4",
     "croner": "^10.0.1",
     "ejs": "^3.1.8",
