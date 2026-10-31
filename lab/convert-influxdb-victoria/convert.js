@@ -66,8 +66,12 @@ async function convert(options) {
             console.log(`  up to ${isoTime(to)}: ${written} points (${Math.round((reported - began) / 1000)} s)`);
         }
     }
-    // Queries cached before the import do not know the days it added.
-    await fetch(options['victoria-url'].replace(/\/+$/, '') + '/internal/resetRollupResultCache').catch(() => {});
+    // The last points written are searchable only a few seconds later, unless
+    // flushed (verify.js run right after would miss them). Queries cached
+    // before the import do not know the days it added.
+    const base = options['victoria-url'].replace(/\/+$/, '');
+    await fetch(base + '/internal/force_flush').catch(() => {});
+    await fetch(base + '/internal/resetRollupResultCache').catch(() => {});
 
     console.log(`\nCopied ${written} points, skipped ${skipped} that are not numbers.`);
     for (const [series, count] of [...counts].sort()) console.log(`  ${series}: ${count}`);

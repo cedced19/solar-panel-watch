@@ -1,0 +1,117 @@
+# Converts an InfluxDB backup (influx-data.tgz, see INFLUX_BACKUP.md) into a
+# VictoriaMetrics backup (victoria-data.tgz, see VICTORIA_BACKUP.md), with its
+# own containers, network and volumes: the app's are not touched. Together the
+# containers take at most 4 GiB of memory. From this folder:
+#
+#   docker compose run --rm convert
+#   docker compose down -v
+#
+# INFLUX_BACKUP (default ../../influx-data.tgz) is the archive to read and
+# OUTPUT_DIR (default ../..) the folder where victoria-data.tgz is written.
+# See README.md.
+name: convert-influxdb-victoria
+
+services:
+  # Unpacks the backup into a fresh volume; a second run keeps what it finds
+  # (docker compose down -v starts over).
+  unpack:
+    image: alpine
+    mem_limit: 256m
+    memswap_limit: 256m
+    command:
+      - sh
+      - -c
+      - |
+        if [ -e /data/engine ]; then
+          echo 'InfluxDB data already unpacked.'
+        else
+          tar xzf /backup/influx-data.tgz -C /data
+        fi
+    volumes:
+      - type: bind
+        source: ${INFLUX_BACKUP:-../../influx-data.tgz}
+        target: /backup/influx-data.tgz
+        read_only: true
+        bind:
+          create_host_path: false
+      - influx-data:/data
+  # The volume holds the bucket, users and tokens of the server.
+  influxdb:
+    image: influxdb:2.6-alpine
+    depends_on:
+      unpack:
+        condition: service_completed_successfully
+    mem_limit: 1g
+    memswap_limit: 1g
+    environment:
+      - GOMEMLIMIT=800MiB
+    volumes:
+      - influx-data:/var/lib/influxdb2
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8086/health]
+      interval: 2s
+      retries: 150
+  # Same storage flags as the app's VictoriaMetrics, so the archive restores
+  # into it as it is.
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.155.0
+    mem_limit: 2g
+    memswap_limit: 2g
+    command:
+      - -storageDataPath=/victoria-metrics-data
+      - -retentionPeriod=100y
+      - -dedup.minScrapeInterval=1ms
+      - -search.maxPointsPerTimeseries=1000000
+    environment:
+      - GOMEMLIMIT=1600MiB
+    volumes:
+      - victoria-data:/victoria-metrics-data
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8428/health]
+      interval: 2s
+      retries: 150
+  # Copies and checks the readings, then archives a snapshot of
+  # VictoriaMetrics' storage (flushed, consistent while it runs). The snapshot's
+  # symlinks are followed, so the archive holds a whole storage folder, as the
+  # server's backups do.
+  convert:
+    image: node:24
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      victoriametrics:
+        condition: service_healthy
+    mem_limit: 1g
+    memswap_limit: 1g
+    working_dir: /app
+    init: true
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=768
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        node lab/convert-influxdb-victoria/convert.js --influx-url http://influxdb:8086 \
+            --victoria-url http://victoriametrics:8428 --max-rate 200000
+        node lab/convert-influxdb-victoria/verify.js --influx-url http://influxdb:8086 \
+            --victoria-url http://victoriametrics:8428
+        snapshot=$$(wget -qO- http://victoriametrics:8428/snapshot/create | sed -n 's/.*"snapshot":"\([^"]*\)".*/\1/p')
+        [ -n "$$snapshot" ]
+        tar czhf /output/victoria-data.tgz.tmp -C /victoria-metrics-data/snapshots/$$snapshot .
+        chown $$(stat -c %u:%g /output) /output/victoria-data.tgz.tmp
+        mv /output/victoria-data.tgz.tmp /output/victoria-data.tgz
+        wget -qO- "http://victoriametrics:8428/snapshot/delete?snapshot=$$snapshot" > /dev/null
+        echo "Wrote victoria-data.tgz ($$(du -h /output/victoria-data.tgz | cut -f1))."
+    volumes:
+      - ../..:/app:ro
+      - victoria-data:/victoria-metrics-data:ro
+      - type: bind
+        source: ${OUTPUT_DIR:-../..}
+        target: /output
+        bind:
+          create_host_path: false
+
+volumes:
+  influx-data:
+  victoria-data:

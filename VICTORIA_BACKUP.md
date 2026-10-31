@@ -33,5 +33,5 @@ docker run --rm -v solar-panel-watch_victoria-data:/data -v "$PWD":/backup alpin
 docker compose start victoriametrics
 ```
 
-An InfluxDB backup (`influx-data.tgz`) from before the switch is converted with
-the tools in [lab/convert-influxdb-victoria](lab/convert-influxdb-victoria/README.md).
+An InfluxDB backup (`influx-data.tgz`) from before the switch is converted into
+such an archive with [lab/convert-influxdb-victoria](lab/convert-influxdb-victoria/README.md).
