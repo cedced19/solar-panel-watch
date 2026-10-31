@@ -52,7 +52,9 @@ services:
       # A long graph at a fine window (30 days per minute) exceeds the default
       # of 30000 points per series.
       - -search.maxPointsPerTimeseries=1000000
-    environment:
+      # Caps the internal caches at 125 MiB (default: 50% of memory), leaving the
+      # rest of the 250m ceiling for ingestion and queries.
+      - -memory.allowedBytes=125MiB
       # Soft limit for the Go runtime, below the 250m container ceiling, so it
       # collects garbage aggressively instead of being OOM-killed.
       - GOMEMLIMIT=200MiB
