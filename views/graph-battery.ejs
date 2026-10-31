@@ -30,7 +30,7 @@
         <div class="battery-graph-toolbar">
           <h2 class="battery-graph-title"><%= __('Battery history') %> <span>(<%= period %>)</span></h2>
           <nav class="battery-period-nav" aria-label="<%= __('Battery history') %>">
-            <% for (const option of [{period: '2h', label: 'Last 2 hours'}, {period: '24h', label: 'Last 24 hours'}, {period: '7d', label: 'Last 7 days'}]) { %>
+            <% for (const option of [{period: '2h', label: 'Last 2 hours'}, {period: '24h', label: 'Last 24 hours'}]) { %>
               <a class="nav-btn" href="/graph/battery/<%= option.period %>"<% if (period === option.period) { %> aria-current="page"<% } %>><%= __(option.label) %></a>
             <% } %>
             <a class="nav-btn" href="/api/data/battery/<%= period %>?format=csv" download="battery-soc-<%= period %>.csv"><%= __('Download CSV') %></a>
