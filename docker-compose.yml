@@ -37,12 +37,24 @@ services:
     image: influxdb:2.6-alpine
     network_mode: host
     restart: always
-    mem_limit: 250m
-    memswap_limit: 250m
+    mem_limit: 300m
+    memswap_limit: 300m
     environment:
       # Soft limit for the Go runtime, below the 250m container ceiling, so it
       # collects garbage aggressively instead of being OOM-killed.
-      - GOMEMLIMIT=200MiB
+      - GOMEMLIMIT=250MiB
+      # Write the in-memory cache to disk every 1 MB (a few hours of data)
+      # instead of the default 25 MB: at our write rate the default takes days,
+      # and the cache, replayed from the WAL at every start, is most of the idle
+      # memory.
+      - INFLUXD_STORAGE_CACHE_SNAPSHOT_MEMORY_SIZE=1048576
+      # A query that needs more than 50 MiB fails with an error instead of
+      # getting the whole server OOM-killed. Only Flux's own tables are counted
+      # (not storage reads or the HTTP response), so this is a safety net.
+      # 2 queries run at once, up to 10 more wait, further ones are refused.
+      - INFLUXD_QUERY_MEMORY_BYTES=52428800
+      - INFLUXD_QUERY_CONCURRENCY=2
+      - INFLUXD_QUERY_QUEUE_SIZE=10
       - TZ=Europe/Paris
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=home

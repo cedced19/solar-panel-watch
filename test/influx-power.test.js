@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {createPowerWriter, createBatteryHistory, createSharedWriteApi} = require('../lib/influx-lib');
+const {InfluxDB} = require('@influxdata/influxdb-client');
+const influxLib = require('../lib/influx-lib');
+const {createPowerWriter, createBatteryHistory, createSharedWriteApi} = influxLib;
 
 const testConfig = {influx_org: 'test-org', influx_bucket: 'test-bucket', influx_default_tag: 'test-home'};
 
@@ -133,4 +135,30 @@ test('power and battery readings go through the same write API, which can be flu
   assert.deepEqual(state.points.map(point => point.toLineProtocol().split(' ')[0]), ['power', 'battery']);
   await writes.flush();
   assert.deepEqual(state.flushes, [true], 'also sends the batches waiting for a retry');
+});
+
+test('query helpers reject when InfluxDB fails the query, instead of hanging', async (t) => {
+  // The client calls consumer.error(); a callback under another name is never called.
+  const failure = new Error('memory allocation limit reached');
+  const queryApi = Object.getPrototypeOf(new InfluxDB({url: 'http://127.0.0.1:1'}).getQueryApi('test-org'));
+  t.mock.method(queryApi, 'queryRows', (query, consumer) => consumer.error(failure));
+  const requests = {
+    requestPowerOverPeriod: () => influxLib.requestPowerOverPeriod('1d', 'power1'),
+    requestPowerIntegralOverPeriod: () => influxLib.requestPowerIntegralOverPeriod('1d', 'power1'),
+    requestPowerOverPeriodMulti: () => influxLib.requestPowerOverPeriodMulti('1d', ['power1', 'power2']),
+    requestPowerOverRange: () => influxLib.requestPowerOverRange(0, 86400000, ['power1']),
+    requestPowerOverPeriodGraph: () => influxLib.requestPowerOverPeriodGraph('1d', 'power1'),
+    requestPowerOverPeriodGraphRaw: () => influxLib.requestPowerOverPeriodGraph('30m', 'power1'),
+    requestPowerOverPeriodGroupBy: () => influxLib.requestPowerOverPeriodGroupBy('1d', 'power1', '1h'),
+    requestVarOverPeriod: () => influxLib.requestVarOverPeriod('1d', 'device'),
+    requestLastVar: () => influxLib.requestLastVar('device'),
+    requestLastPower: () => influxLib.requestLastPower('power1'),
+    requestBatteryLevelOverPeriod: () => influxLib.requestBatteryLevelOverPeriod('1d'),
+    requestConsumptionOverPeriod: () => influxLib.requestConsumptionOverPeriod('1d', '1m')
+  };
+  for (const [name, request] of Object.entries(requests)) {
+    await assert.rejects(request(), failure, name);
+  }
+  const done = await new Promise(resolve => influxLib.streamPowerOverPeriod('1d', 'power1', () => {}, resolve));
+  assert.equal(done, failure, 'streamPowerOverPeriod reports the error to onDone');
 });
